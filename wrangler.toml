@@ -14,7 +14,7 @@ COOKIE_SECURE = "true"
 [[d1_databases]]
 binding = "DB"
 database_name = "prono-cdm"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "3cc561c2-9f9c-4857-9a79-93f882e081ff"
 migrations_dir = "migrations"
 
 [triggers]
