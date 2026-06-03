@@ -2,7 +2,7 @@ import type { Env, User } from "./types";
 
 const SESSION_COOKIE = "pcdm_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
-const PIN_ITERATIONS = 150_000;
+const PIN_HASH_SCHEME = "sha256";
 
 function bytesToHex(bytes: ArrayBuffer | Uint8Array): string {
   const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -44,33 +44,17 @@ export function validatePin(pin: string): void {
 
 export async function hashPin(pin: string): Promise<string> {
   validatePin(pin);
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(pin),
-    "PBKDF2",
-    false,
-    ["deriveBits"]
-  );
-  const bits = await crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      hash: "SHA-256",
-      salt,
-      iterations: PIN_ITERATIONS
-    },
-    key,
-    256
-  );
-  return `pbkdf2$${PIN_ITERATIONS}$${bytesToHex(salt)}$${bytesToHex(bits)}`;
+  const saltHex = randomHex(16);
+  const hashHex = await sha256Hex(`${saltHex}:${pin}`);
+  return `${PIN_HASH_SCHEME}$${saltHex}$${hashHex}`;
 }
 
-export async function verifyPin(pin: string, storedHash: string): Promise<boolean> {
-  const [scheme, iterations, saltHex, hashHex] = storedHash.split("$");
-  if (scheme !== "pbkdf2" || !iterations || !saltHex || !hashHex) {
-    return false;
-  }
-
+async function verifyPbkdf2Pin(
+  pin: string,
+  iterations: string,
+  saltHex: string,
+  hashHex: string
+): Promise<boolean> {
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(pin),
@@ -90,6 +74,20 @@ export async function verifyPin(pin: string, storedHash: string): Promise<boolea
   );
 
   return constantTimeEqual(bytesToHex(bits), hashHex);
+}
+
+export async function verifyPin(pin: string, storedHash: string): Promise<boolean> {
+  const [scheme, first, second, third] = storedHash.split("$");
+
+  if (scheme === PIN_HASH_SCHEME && first && second) {
+    return constantTimeEqual(await sha256Hex(`${first}:${pin}`), second);
+  }
+
+  if (scheme === "pbkdf2" && first && second && third) {
+    return verifyPbkdf2Pin(pin, first, second, third);
+  }
+
+  return false;
 }
 
 export async function sha256Hex(value: string): Promise<string> {

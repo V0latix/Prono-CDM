@@ -111,14 +111,20 @@ async function register(ctx: RequestContext): Promise<Response> {
   assertPin(pin);
 
   const userId = crypto.randomUUID();
+  const pinHash = await hashPin(pin);
   try {
     await ctx.env.DB.prepare(
       "INSERT INTO users (id, pseudo, pin_hash) VALUES (?, ?, ?)"
     )
-      .bind(userId, pseudo, await hashPin(pin))
+      .bind(userId, pseudo, pinHash)
       .run();
-  } catch {
-    throw new HttpError(409, "Ce pseudo est déjà utilisé.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Unable to create user", message);
+    if (message.toLowerCase().includes("unique")) {
+      throw new HttpError(409, "Ce pseudo est déjà utilisé.");
+    }
+    throw new HttpError(500, "Impossible de créer le compte pour le moment.");
   }
 
   const token = await createSession(ctx.env, userId);
