@@ -8,7 +8,6 @@ enabled = true
 [vars]
 FOOTBALL_DATA_COMPETITION = "WC"
 FOOTBALL_DATA_SEASON = "2026"
-INVITE_CODE = "CDM2026"
 COOKIE_SAMESITE = "Lax"
 
 [[d1_databases]]

@@ -21,7 +21,6 @@ import type { MatchRow, PredictionRow, User } from "./types";
 type AuthPayload = {
   pseudo?: string;
   pin?: string;
-  inviteCode?: string;
 };
 
 type PredictionPayload = {
@@ -43,13 +42,6 @@ function assertMethod(ctx: RequestContext, method: string): void {
   if (ctx.request.method !== method) {
     throw new HttpError(405, "Méthode non autorisée.");
   }
-}
-
-async function getInviteCode(ctx: RequestContext): Promise<string> {
-  const setting = await ctx.env.DB.prepare(
-    "SELECT value FROM settings WHERE key = 'league_invite_code'"
-  ).first<{ value: string }>();
-  return setting?.value ?? ctx.env.INVITE_CODE ?? "CDM2026";
 }
 
 function asScore(value: unknown, field: string): number {
@@ -112,15 +104,11 @@ async function register(ctx: RequestContext): Promise<Response> {
   const body = await parseJson<AuthPayload>(ctx.request);
   const pseudo = normalizePseudo(body.pseudo ?? "");
   const pin = body.pin ?? "";
-  const inviteCode = body.inviteCode?.trim() ?? "";
 
   if (pseudo.length < 2 || pseudo.length > 32) {
     throw new HttpError(400, "Le pseudo doit contenir 2 à 32 caractères.");
   }
   assertPin(pin);
-  if (inviteCode !== (await getInviteCode(ctx))) {
-    throw new HttpError(403, "Code d'invitation invalide.");
-  }
 
   const userId = crypto.randomUUID();
   try {

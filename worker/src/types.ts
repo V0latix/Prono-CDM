@@ -6,7 +6,6 @@ export type Env = {
   FOOTBALL_DATA_COMPETITION?: string;
   FOOTBALL_DATA_SEASON?: string;
   FOOTBALL_DATA_BASE_URL?: string;
-  INVITE_CODE?: string;
   FRONTEND_ORIGIN?: string;
   ADMIN_TOKEN?: string;
   COOKIE_SAMESITE?: "Lax" | "Strict" | "None";

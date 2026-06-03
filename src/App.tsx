@@ -133,7 +133,6 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
   const [mode, setMode] = useState<"login" | "register">("register");
   const [pseudo, setPseudo] = useState("");
   const [pin, setPin] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -146,7 +145,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
         mode === "register" ? "/api/auth/register" : "/api/auth/login",
         {
           method: "POST",
-          body: JSON.stringify({ pseudo, pin, inviteCode })
+          body: JSON.stringify({ pseudo, pin })
         }
       );
       onAuth(data.user);
@@ -208,17 +207,6 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
               maxLength={8}
             />
           </label>
-          {mode === "register" && (
-            <label>
-              Code d'invitation
-              <input
-                value={inviteCode}
-                onChange={(event) => setInviteCode(event.target.value)}
-                autoComplete="off"
-                required
-              />
-            </label>
-          )}
           {error && <p className="form-error">{error}</p>}
           <button className="primary-button" type="submit" disabled={loading}>
             <ShieldCheck size={18} />

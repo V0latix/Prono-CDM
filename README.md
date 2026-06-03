@@ -14,7 +14,7 @@ Le frontend ne contacte jamais football-data.org. Les matchs et scores sont sync
 
 ## Fonctionnalités
 
-- Inscription/connexion avec pseudo, PIN hashé et code d'invitation
+- Inscription/connexion avec pseudo et PIN hashé
 - Session via cookie HTTP-only
 - Une ligue privée unique
 - Pronostics de score exact
@@ -103,7 +103,6 @@ Variables Worker utiles :
 
 - `FOOTBALL_DATA_COMPETITION=WC`
 - `FOOTBALL_DATA_SEASON=2026`
-- `INVITE_CODE=CDM2026`
 - `FRONTEND_ORIGIN=https://ton-site.pages.dev`
 - `COOKIE_SAMESITE=None` si frontend Pages et API Worker sont sur deux domaines différents
 
