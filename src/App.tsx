@@ -12,7 +12,14 @@ import {
   UserRound
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { api, type ActivityItem, type LeaderboardRow, type Match, type User } from "./api";
+import {
+  api,
+  type ActivityItem,
+  type LeaderboardRow,
+  type Match,
+  type SyncStatus,
+  type User
+} from "./api";
 
 type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules";
 
@@ -20,6 +27,7 @@ type DashboardData = {
   nextMatches: Match[];
   rank?: LeaderboardRow;
   activity: ActivityItem[];
+  syncStatus: SyncStatus;
 };
 
 const navItems: Array<{ id: View; label: string; icon: typeof CalendarClock }> = [
@@ -48,6 +56,14 @@ function stageLabel(match: Match): string {
 function scoreLabel(match: Match): string {
   if (match.homeScore === null || match.awayScore === null) return "-";
   return `${match.homeScore} - ${match.awayScore}`;
+}
+
+function syncStatusLabel(status: SyncStatus["status"]): string {
+  if (status === "success") return "Synchronisé";
+  if (status === "running") return "Synchronisation en cours";
+  if (status === "failed") return "Erreur API";
+  if (status === "missing_token") return "Clé API manquante";
+  return "Jamais synchronisé";
 }
 
 export function App() {
@@ -220,6 +236,30 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
 
 function Dashboard() {
   const { data, error, reload, loading } = useResource<DashboardData>("/api/dashboard");
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
+
+  async function runSync() {
+    setSyncing(true);
+    setSyncMessage("");
+    try {
+      const result = await api<{ synced: number; error?: string }>("/api/admin/sync", {
+        method: "POST"
+      });
+      setSyncMessage(
+        result.error
+          ? result.error
+          : `${result.synced} match${result.synced > 1 ? "s" : ""} synchronisé${result.synced > 1 ? "s" : ""}.`
+      );
+      await reload();
+    } catch (syncError) {
+      setSyncMessage(
+        syncError instanceof Error ? syncError.message : "Erreur de synchronisation."
+      );
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   if (loading) return <ShellState label="Chargement du dashboard..." />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
@@ -231,6 +271,38 @@ function Dashboard() {
         <Metric label="Rang" value={data.rank ? `#${data.rank.rank}` : "-"} />
         <Metric label="Points" value={String(data.rank?.points ?? 0)} />
         <Metric label="Scores exacts" value={String(data.rank?.exactScores ?? 0)} />
+      </section>
+      <section className="content-section">
+        <SectionTitle
+          title="Données matchs"
+          action={
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={runSync}
+              disabled={syncing}
+            >
+              <RefreshCw size={16} />
+              {syncing ? "Synchronisation..." : "Synchroniser"}
+            </button>
+          }
+        />
+        <div className="sync-grid">
+          <SyncStat label="État" value={syncStatusLabel(data.syncStatus.status)} />
+          <SyncStat
+            label="Dernière réussite"
+            value={
+              data.syncStatus.lastSuccessAt
+                ? formatDate(data.syncStatus.lastSuccessAt)
+                : "-"
+            }
+          />
+          <SyncStat label="Matchs importés" value={String(data.syncStatus.lastSyncedMatches)} />
+        </div>
+        {data.syncStatus.lastError && (
+          <p className="form-error sync-error">{data.syncStatus.lastError}</p>
+        )}
+        {syncMessage && <p className="inline-message">{syncMessage}</p>}
       </section>
       <section className="content-section">
         <SectionTitle title="Prochains matchs" action={<RefreshButton onClick={reload} />} />
@@ -515,6 +587,15 @@ function MatchLine({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function SyncStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="sync-stat">
       <span>{label}</span>
       <strong>{value}</strong>
     </div>

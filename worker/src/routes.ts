@@ -14,7 +14,7 @@ import {
   validatePin,
   verifyPin
 } from "./auth";
-import { syncFootballData } from "./football-data";
+import { getFootballDataSyncStatus, syncFootballData } from "./football-data";
 import { HttpError, json, parseJson, requireUser, type RequestContext } from "./http";
 import type { MatchRow, PredictionRow, User } from "./types";
 
@@ -421,7 +421,8 @@ async function dashboard(ctx: RequestContext): Promise<Response> {
       return publicMatch(match, prediction);
     }),
     rank,
-    activity: activity.results ?? []
+    activity: activity.results ?? [],
+    syncStatus: await getFootballDataSyncStatus(ctx.env)
   });
 }
 
@@ -483,6 +484,14 @@ async function syncNow(ctx: RequestContext): Promise<Response> {
   return json(ctx.request, ctx.env, await syncFootballData(ctx.env));
 }
 
+async function syncStatus(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "GET");
+  requireUser(ctx);
+  return json(ctx.request, ctx.env, {
+    syncStatus: await getFootballDataSyncStatus(ctx.env)
+  });
+}
+
 export async function route(ctx: RequestContext): Promise<Response> {
   const { pathname } = ctx.url;
   if (pathname === "/api/health") {
@@ -498,5 +507,6 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname === "/api/leaderboard") return leaderboard(ctx);
   if (pathname === "/api/results") return results(ctx);
   if (pathname === "/api/admin/sync") return syncNow(ctx);
+  if (pathname === "/api/sync/status") return syncStatus(ctx);
   throw new HttpError(404, "Route introuvable.");
 }

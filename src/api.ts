@@ -46,6 +46,15 @@ export type ActivityItem = {
   created_at: string;
 };
 
+export type SyncStatus = {
+  status: "never_run" | "running" | "success" | "failed" | "missing_token";
+  lastStartedAt: string | null;
+  lastFinishedAt: string | null;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  lastSyncedMatches: number;
+};
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 export async function api<T>(

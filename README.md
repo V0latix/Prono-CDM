@@ -20,6 +20,8 @@ Le frontend ne contacte jamais football-data.org. Les matchs et scores sont sync
 - Pronostics de score exact
 - Verrouillage serveur dès l'heure de coup d'envoi
 - Synchro football-data.org via Cron Trigger Cloudflare
+- Synchro manuelle depuis le dashboard
+- Statut de dernière synchro et erreur API visible dans l'app
 - Classements général, groupes et élimination directe
 - Résultats, points gagnés et feed d'activité
 
@@ -93,7 +95,7 @@ Copier le `database_id` retourné dans `wrangler.toml`, puis appliquer les migra
 npm run d1:migrate:remote
 ```
 
-Configurer les secrets Worker :
+Configurer le secret Worker obligatoire pour récupérer automatiquement les matchs et résultats :
 
 ```bash
 npx wrangler secret put FOOTBALL_DATA_TOKEN
@@ -112,6 +114,15 @@ Le Cron est déclaré dans `wrangler.toml` :
 [triggers]
 crons = ["*/30 * * * *"]
 ```
+
+Le Worker appelle `GET /v4/competitions/WC/matches?season=2026` côté serveur, synchronise les matchs dans D1, puis l'app lit uniquement notre API interne. Le frontend ne contacte jamais football-data.org.
+
+Endpoints internes utiles :
+
+- `GET /api/matches` : tous les matchs synchronisés avec mon prono
+- `GET /api/results` : matchs terminés avec mon prono et mes points
+- `GET /api/sync/status` : statut de la dernière synchronisation
+- `POST /api/admin/sync` : déclenche une synchronisation manuelle, accessible aux utilisateurs connectés si `ADMIN_TOKEN` n'est pas configuré
 
 ## Déploiement API Worker
 

@@ -287,6 +287,7 @@ button {
 
 .score-editor button,
 .primary-button,
+.secondary-button,
 .empty-state button {
   display: inline-flex;
   align-items: center;
@@ -301,10 +302,43 @@ button {
   font-weight: 700;
 }
 
+.secondary-button {
+  background: #101820;
+}
+
 .score-editor button:disabled,
-.primary-button:disabled {
+.primary-button:disabled,
+.secondary-button:disabled {
   cursor: not-allowed;
   background: #94a3b8;
+}
+
+.sync-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sync-stat {
+  min-width: 0;
+  padding: 6px 0;
+}
+
+.sync-stat span {
+  display: block;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.sync-stat strong {
+  display: block;
+  margin-top: 3px;
+  color: #15202b;
+  overflow-wrap: anywhere;
+}
+
+.sync-error {
+  margin-top: 12px;
 }
 
 .icon-button {
@@ -488,6 +522,10 @@ button {
   }
 
   .summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .sync-grid {
     grid-template-columns: 1fr;
   }
 

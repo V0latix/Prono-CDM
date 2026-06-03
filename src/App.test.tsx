@@ -6,6 +6,14 @@ import type { Match } from "./api";
 import { installFetchMock } from "./test/fetchMock";
 
 const user = { id: "user-1", pseudo: "Romain" };
+const syncStatus = {
+  status: "success" as const,
+  lastStartedAt: "2026-06-04T10:00:00.000Z",
+  lastFinishedAt: "2026-06-04T10:00:01.000Z",
+  lastSuccessAt: "2026-06-04T10:00:01.000Z",
+  lastError: null,
+  lastSyncedMatches: 104
+};
 
 function match(overrides: Partial<Match> = {}): Match {
   return {
@@ -36,7 +44,8 @@ describe("App components", () => {
         body: {
           nextMatches: [],
           rank: { userId: "user-1", pseudo: "Romain", points: 0, exactScores: 0, correctResults: 0, rank: 1 },
-          activity: []
+          activity: [],
+          syncStatus
         }
       }
     ]);
@@ -90,7 +99,8 @@ describe("App components", () => {
         body: {
           nextMatches: [match()],
           rank: { userId: "user-1", pseudo: "Romain", points: 12, exactScores: 2, correctResults: 1, rank: 1 },
-          activity: [{ id: "a1", type: "exact_score", message: "Romain a trouvé le score exact", created_at: "2026-06-04" }]
+          activity: [{ id: "a1", type: "exact_score", message: "Romain a trouvé le score exact", created_at: "2026-06-04" }],
+          syncStatus
         }
       },
       {
@@ -110,6 +120,8 @@ describe("App components", () => {
     expect(await screen.findByText("France - Argentine")).toBeInTheDocument();
     expect(screen.getByText("#1")).toBeInTheDocument();
     expect(screen.getByText("12")).toBeInTheDocument();
+    expect(screen.getByText("Synchronisé")).toBeInTheDocument();
+    expect(screen.getByText("104")).toBeInTheDocument();
 
     await browserUser.click(screen.getByRole("button", { name: /classement/i }));
     expect(await screen.findByText("Marie")).toBeInTheDocument();
@@ -123,7 +135,7 @@ describe("App components", () => {
   it("shows locked predictions as non-editable", async () => {
     installFetchMock([
       { path: "/api/me", body: { user } },
-      { path: "/api/dashboard", body: { nextMatches: [], rank: undefined, activity: [] } },
+      { path: "/api/dashboard", body: { nextMatches: [], rank: undefined, activity: [], syncStatus } },
       {
         path: "/api/matches",
         body: {
@@ -152,7 +164,7 @@ describe("App components", () => {
   it("requires a qualified team for tied knockout predictions before saving", async () => {
     const { calls } = installFetchMock([
       { path: "/api/me", body: { user } },
-      { path: "/api/dashboard", body: { nextMatches: [], rank: undefined, activity: [] } },
+      { path: "/api/dashboard", body: { nextMatches: [], rank: undefined, activity: [], syncStatus } },
       {
         path: "/api/matches",
         body: {
@@ -194,5 +206,35 @@ describe("App components", () => {
       predictedAwayScore: 0,
       predictedWinnerTeam: "France"
     });
+  });
+
+  it("can trigger a manual match synchronization from the dashboard", async () => {
+    const { calls } = installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus: { ...syncStatus, lastSyncedMatches: 0 }
+        }
+      },
+      {
+        method: "POST",
+        path: "/api/admin/sync",
+        body: {
+          synced: 104,
+          status: { ...syncStatus, lastSyncedMatches: 104 }
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await browserUser.click(await screen.findByRole("button", { name: /synchroniser/i }));
+    expect(await screen.findByText("104 matchs synchronisés.")).toBeInTheDocument();
+    expect(calls.some((call) => call.url === "/api/admin/sync")).toBe(true);
   });
 });
