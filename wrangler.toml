@@ -1,0 +1,21 @@
+name = "prono-cdm-api"
+main = "worker/src/index.ts"
+compatibility_date = "2026-06-01"
+
+[observability]
+enabled = true
+
+[vars]
+FOOTBALL_DATA_COMPETITION = "WC"
+FOOTBALL_DATA_SEASON = "2026"
+INVITE_CODE = "CDM2026"
+COOKIE_SAMESITE = "Lax"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "prono-cdm"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[triggers]
+crons = ["*/30 * * * *"]
