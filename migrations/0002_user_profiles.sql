@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS user_profiles (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  photo_url TEXT NOT NULL DEFAULT '',
+  tagline TEXT NOT NULL DEFAULT '',
+  favorite_team TEXT NOT NULL DEFAULT '',
+  favorite_match_id TEXT REFERENCES matches(id) ON DELETE SET NULL,
+  match_hype INTEGER NOT NULL DEFAULT 75 CHECK (match_hype >= 0 AND match_hype <= 100),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

@@ -212,6 +212,16 @@ button {
   font-weight: 700;
 }
 
+.user-pill {
+  border-color: var(--fg);
+}
+
+.user-pill:hover,
+.user-pill:focus-visible {
+  background: var(--fg);
+  color: #fff;
+}
+
 .view-grid {
   display: grid;
   gap: 1rem;
@@ -484,6 +494,128 @@ button {
   min-height: 3rem;
 }
 
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 1rem;
+}
+
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.profile-photo-frame {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 150px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 2px solid var(--fg);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 2.6rem;
+  font-weight: 800;
+}
+
+.profile-photo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-intro {
+  min-width: 0;
+}
+
+.profile-intro h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 4rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
+}
+
+.profile-intro p {
+  max-width: 620px;
+  margin: 0.9rem 0 1rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.profile-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.profile-chips span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.1rem;
+  padding: 0 0.65rem;
+  border: 2px solid var(--fg);
+  background: var(--surface);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.profile-form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.profile-form label {
+  display: grid;
+  gap: 0.45rem;
+  font-weight: 700;
+}
+
+.profile-form label > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.profile-form input:not([type="range"]),
+.profile-form select {
+  width: 100%;
+  min-height: 2.55rem;
+  padding: 0.55rem 0.7rem;
+  border: 2px solid var(--fg);
+  border-radius: 0;
+  background: #fff;
+  color: var(--fg);
+}
+
+.profile-form input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.favorite-match-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.hype-meter {
+  height: 1.1rem;
+  border: 2px solid var(--fg);
+  background: var(--surface);
+}
+
+.hype-meter span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
 .auth-layout,
 .shell-state {
   display: grid;
@@ -642,7 +774,8 @@ button {
   }
 
   .summary-strip,
-  .sync-grid {
+  .sync-grid,
+  .profile-layout {
     grid-template-columns: 1fr;
   }
 
@@ -664,6 +797,16 @@ button {
   .user-pill {
     width: 100%;
     justify-content: center;
+  }
+
+  .profile-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .profile-photo-frame {
+    width: 100%;
+    max-width: 240px;
   }
 
   .match-line,

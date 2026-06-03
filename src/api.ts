@@ -3,6 +3,15 @@ export type User = {
   pseudo: string;
 };
 
+export type Profile = {
+  photoUrl: string;
+  tagline: string;
+  favoriteTeam: string;
+  favoriteMatchId: string;
+  matchHype: number;
+  updatedAt?: string | null;
+};
+
 export type Prediction = {
   predictedHomeScore: number;
   predictedAwayScore: number;

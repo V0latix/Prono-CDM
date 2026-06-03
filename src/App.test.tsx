@@ -285,6 +285,80 @@ describe("App components", () => {
     expect(calls.some((call) => call.url === "/api/admin/sync")).toBe(true);
   });
 
+  it("opens and saves the profile from the dashboard pseudo", async () => {
+    const { calls } = installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/profile",
+        body: {
+          profile: {
+            photoUrl: "",
+            tagline: "Prêt à viser le score exact.",
+            favoriteTeam: "France",
+            favoriteMatchId: "",
+            matchHype: 75,
+            updatedAt: null
+          }
+        }
+      },
+      {
+        path: "/api/matches",
+        body: {
+          matches: [
+            match({ id: "favorite-1", homeTeam: "France", awayTeam: "Brésil" })
+          ]
+        }
+      },
+      {
+        method: "PUT",
+        path: "/api/profile",
+        body: {
+          profile: {
+            photoUrl: "",
+            tagline: "Le spécialiste du 2-1.",
+            favoriteTeam: "Brésil",
+            favoriteMatchId: "favorite-1",
+            matchHype: 75,
+            updatedAt: "2026-06-04T10:00:00.000Z"
+          }
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await browserUser.click(await screen.findByRole("button", { name: /romain/i }));
+    expect(await screen.findByRole("heading", { name: "Profil" })).toBeInTheDocument();
+    expect(screen.getByText("Profil joueur")).toBeInTheDocument();
+
+    await browserUser.clear(screen.getByLabelText(/phrase d'accroche/i));
+    await browserUser.type(screen.getByLabelText(/phrase d'accroche/i), "Le spécialiste du 2-1.");
+    await browserUser.clear(screen.getByLabelText(/favori de la compétition/i));
+    await browserUser.type(screen.getByLabelText(/favori de la compétition/i), "Brésil");
+    await browserUser.selectOptions(
+      screen.getByRole("combobox", { name: /match préféré/i }),
+      "favorite-1"
+    );
+    await browserUser.click(screen.getByRole("button", { name: /enregistrer mon profil/i }));
+
+    expect(await screen.findByText("Profil enregistré.")).toBeInTheDocument();
+    expect(screen.getByText("Favori : Brésil")).toBeInTheDocument();
+    expect(screen.getByText("France - Brésil")).toBeInTheDocument();
+    expect(calls.some((call) => call.url === "/api/profile" && call.init?.method === "PUT")).toBe(true);
+  });
+
   it("opens the predictions view from the next competition day section", async () => {
     installFetchMock([
       { path: "/api/me", body: { user } },

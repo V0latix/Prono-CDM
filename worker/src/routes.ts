@@ -16,7 +16,7 @@ import {
 } from "./auth";
 import { getFootballDataSyncStatus, syncFootballData } from "./football-data";
 import { HttpError, json, parseJson, requireUser, type RequestContext } from "./http";
-import type { MatchRow, PredictionRow, User } from "./types";
+import type { MatchRow, PredictionRow, User, UserProfileRow } from "./types";
 
 type AuthPayload = {
   pseudo?: string;
@@ -27,6 +27,14 @@ type PredictionPayload = {
   predictedHomeScore?: number;
   predictedAwayScore?: number;
   predictedWinnerTeam?: string | null;
+};
+
+type ProfilePayload = {
+  photoUrl?: string;
+  tagline?: string;
+  favoriteTeam?: string;
+  favoriteMatchId?: string | null;
+  matchHype?: number;
 };
 
 type LeaderboardRow = {
@@ -47,6 +55,24 @@ function assertMethod(ctx: RequestContext, method: string): void {
 function asScore(value: unknown, field: string): number {
   if (!Number.isInteger(value) || (value as number) < 0 || (value as number) > 30) {
     throw new HttpError(400, `${field} doit être un entier entre 0 et 30.`);
+  }
+  return value as number;
+}
+
+function asLimitedString(value: unknown, field: string, maxLength: number): string {
+  if (typeof value !== "string") {
+    throw new HttpError(400, `${field} doit être du texte.`);
+  }
+  const normalized = value.trim();
+  if (normalized.length > maxLength) {
+    throw new HttpError(400, `${field} doit contenir ${maxLength} caractères maximum.`);
+  }
+  return normalized;
+}
+
+function asProfileHype(value: unknown): number {
+  if (!Number.isInteger(value) || (value as number) < 0 || (value as number) > 100) {
+    throw new HttpError(400, "La barre du match préféré doit être entre 0 et 100.");
   }
   return value as number;
 }
@@ -129,6 +155,17 @@ function publicMatchFromJoinedRow(row: Record<string, unknown>, userId: string) 
     match,
     predictionFromJoinedRow(row, userId, match.id)
   );
+}
+
+function publicProfile(profile: UserProfileRow | null) {
+  return {
+    photoUrl: profile?.photo_url ?? "",
+    tagline: profile?.tagline ?? "",
+    favoriteTeam: profile?.favorite_team ?? "",
+    favoriteMatchId: profile?.favorite_match_id ?? "",
+    matchHype: profile?.match_hype ?? 75,
+    updatedAt: profile?.updated_at ?? null
+  };
 }
 
 async function register(ctx: RequestContext): Promise<Response> {
@@ -216,6 +253,65 @@ async function logout(ctx: RequestContext): Promise<Response> {
 async function me(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "GET");
   return json(ctx.request, ctx.env, { user: ctx.user });
+}
+
+async function getProfile(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "GET");
+  const user = requireUser(ctx);
+  const profile = await ctx.env.DB.prepare(
+    "SELECT * FROM user_profiles WHERE user_id = ? LIMIT 1"
+  )
+    .bind(user.id)
+    .first<UserProfileRow>();
+
+  return json(ctx.request, ctx.env, { profile: publicProfile(profile) });
+}
+
+async function saveProfile(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "PUT");
+  const user = requireUser(ctx);
+  const body = await parseJson<ProfilePayload>(ctx.request);
+  const photoUrl = asLimitedString(body.photoUrl ?? "", "La photo", 500);
+  const tagline = asLimitedString(body.tagline ?? "", "La phrase d'accroche", 90);
+  const favoriteTeam = asLimitedString(body.favoriteTeam ?? "", "Le favori", 40);
+  const favoriteMatchId =
+    typeof body.favoriteMatchId === "string" && body.favoriteMatchId.trim()
+      ? body.favoriteMatchId.trim()
+      : null;
+  const matchHype = asProfileHype(body.matchHype ?? 75);
+
+  if (favoriteMatchId) {
+    const match = await ctx.env.DB.prepare("SELECT id FROM matches WHERE id = ? LIMIT 1")
+      .bind(favoriteMatchId)
+      .first<{ id: string }>();
+    if (!match) {
+      throw new HttpError(400, "Le match préféré sélectionné est introuvable.");
+    }
+  }
+
+  await ctx.env.DB.prepare(
+    `INSERT INTO user_profiles (
+       user_id, photo_url, tagline, favorite_team, favorite_match_id, match_hype, updated_at
+     )
+     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(user_id) DO UPDATE SET
+       photo_url = excluded.photo_url,
+       tagline = excluded.tagline,
+       favorite_team = excluded.favorite_team,
+       favorite_match_id = excluded.favorite_match_id,
+       match_hype = excluded.match_hype,
+       updated_at = CURRENT_TIMESTAMP`
+  )
+    .bind(user.id, photoUrl, tagline, favoriteTeam, favoriteMatchId, matchHype)
+    .run();
+
+  const profile = await ctx.env.DB.prepare(
+    "SELECT * FROM user_profiles WHERE user_id = ? LIMIT 1"
+  )
+    .bind(user.id)
+    .first<UserProfileRow>();
+
+  return json(ctx.request, ctx.env, { profile: publicProfile(profile) });
 }
 
 async function listMatches(ctx: RequestContext): Promise<Response> {
@@ -547,6 +643,9 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname === "/api/auth/login") return login(ctx);
   if (pathname === "/api/auth/logout") return logout(ctx);
   if (pathname === "/api/me") return me(ctx);
+  if (pathname === "/api/profile") {
+    return ctx.request.method === "GET" ? getProfile(ctx) : saveProfile(ctx);
+  }
   if (pathname === "/api/dashboard") return dashboard(ctx);
   if (pathname === "/api/matches") return listMatches(ctx);
   if (pathname.startsWith("/api/predictions/")) return savePrediction(ctx);

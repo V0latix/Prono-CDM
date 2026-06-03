@@ -48,3 +48,14 @@ export type PredictionRow = {
   created_at: string;
   updated_at: string;
 };
+
+export type UserProfileRow = {
+  user_id: string;
+  photo_url: string;
+  tagline: string;
+  favorite_team: string;
+  favorite_match_id: string | null;
+  match_hype: number;
+  created_at: string;
+  updated_at: string;
+};

@@ -1,13 +1,18 @@
 import {
   CalendarClock,
+  Camera,
   Check,
   ClipboardList,
+  Heart,
   Lock,
   LogOut,
   Medal,
   RefreshCw,
   Scale,
+  Save,
   ShieldCheck,
+  Sparkles,
+  Star,
   Trophy,
   UserRound
 } from "lucide-react";
@@ -17,11 +22,12 @@ import {
   type ActivityItem,
   type LeaderboardRow,
   type Match,
+  type Profile as UserProfile,
   type SyncStatus,
   type User
 } from "./api";
 
-type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules";
+type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "profile";
 
 type DashboardData = {
   nextMatches: Match[];
@@ -39,6 +45,24 @@ const navItems: Array<{ id: View; label: string; icon: typeof CalendarClock }> =
   { id: "results", label: "Résultats", icon: Medal },
   { id: "rules", label: "Règlement", icon: Scale }
 ];
+
+const viewTitles: Record<View, string> = {
+  dashboard: "Dashboard",
+  predictions: "Mes pronos",
+  leaderboard: "Classement",
+  results: "Résultats",
+  rules: "Règlement",
+  profile: "Profil"
+};
+
+const defaultProfile: UserProfile = {
+  photoUrl: "",
+  tagline: "Prêt à viser le score exact.",
+  favoriteTeam: "France",
+  favoriteMatchId: "",
+  matchHype: 75,
+  updatedAt: null
+};
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -74,6 +98,10 @@ function syncStatusLabel(status: SyncStatus["status"]): string {
   if (status === "failed") return "Erreur API";
   if (status === "missing_token") return "Clé API manquante";
   return "Jamais synchronisé";
+}
+
+function initials(pseudo: string): string {
+  return pseudo.slice(0, 2).toUpperCase();
 }
 
 export function App() {
@@ -138,18 +166,19 @@ export function App() {
         <header className="topbar">
           <div>
             <p>Coupe du monde 2026</p>
-            <h1>{navItems.find((item) => item.id === view)?.label}</h1>
+            <h1>{viewTitles[view]}</h1>
           </div>
-          <div className="user-pill">
+          <button className="user-pill" type="button" onClick={() => setView("profile")}>
             <UserRound size={18} />
             {user.pseudo}
-          </div>
+          </button>
         </header>
         {view === "dashboard" && <Dashboard onOpenPredictions={() => setView("predictions")} />}
         {view === "predictions" && <Predictions />}
         {view === "leaderboard" && <Leaderboard currentUser={user} />}
         {view === "results" && <Results />}
         {view === "rules" && <Rules />}
+        {view === "profile" && <Profile user={user} />}
       </main>
     </div>
   );
@@ -559,6 +588,180 @@ function Results() {
         <EmptyState text="Aucun résultat disponible. Le plan gratuit football-data.org peut être différé." />
       )}
     </section>
+  );
+}
+
+function Profile({ user }: { user: User }) {
+  const matchesResource = useResource<{ matches: Match[] }>("/api/matches");
+  const profileResource = useResource<{ profile: UserProfile }>("/api/profile", [user.id]);
+  const [profile, setProfile] = useState<UserProfile>(defaultProfile);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const favoriteMatch = matchesResource.data?.matches.find(
+    (match) => match.id === profile.favoriteMatchId
+  );
+
+  useEffect(() => {
+    if (profileResource.data?.profile) {
+      setProfile({ ...defaultProfile, ...profileResource.data.profile });
+    }
+    setSaved(false);
+    setSaveError("");
+  }, [profileResource.data]);
+
+  function updateProfile(update: Partial<UserProfile>) {
+    setProfile((current) => ({ ...current, ...update }));
+    setSaved(false);
+    setSaveError("");
+  }
+
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaveError("");
+    setSaved(false);
+    try {
+      const response = await api<{ profile: UserProfile }>("/api/profile", {
+        method: "PUT",
+        body: JSON.stringify({
+          photoUrl: profile.photoUrl,
+          tagline: profile.tagline,
+          favoriteTeam: profile.favoriteTeam,
+          favoriteMatchId: profile.favoriteMatchId || null,
+          matchHype: profile.matchHype
+        })
+      });
+      setProfile({ ...defaultProfile, ...response.profile });
+      setSaved(true);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Impossible d'enregistrer le profil.");
+    }
+  }
+
+  if (profileResource.loading) return <ShellState label="Chargement du profil..." />;
+  if (profileResource.error) {
+    return <ErrorState error={profileResource.error} onRetry={profileResource.reload} />;
+  }
+
+  return (
+    <div className="profile-layout">
+      <section className="content-section profile-hero">
+        <div className="profile-photo-frame">
+          {profile.photoUrl ? (
+            <img src={profile.photoUrl} alt={`Photo de ${user.pseudo}`} />
+          ) : (
+            <span>{initials(user.pseudo)}</span>
+          )}
+        </div>
+        <div className="profile-intro">
+          <span className="eyebrow">Profil joueur</span>
+          <h2>{user.pseudo}</h2>
+          <p>{profile.tagline || defaultProfile.tagline}</p>
+          <div className="profile-chips">
+            <span>
+              <Star size={16} />
+              Favori : {profile.favoriteTeam || "Non renseigné"}
+            </span>
+            <span>
+              <Heart size={16} />
+              Hype match : {profile.matchHype}%
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="content-section">
+        <SectionTitle title="Préférences" />
+        <form className="profile-form" onSubmit={saveProfile}>
+          <label>
+            <span>
+              <Camera size={16} />
+              Photo
+            </span>
+            <input
+              value={profile.photoUrl}
+              onChange={(event) => updateProfile({ photoUrl: event.target.value })}
+              placeholder="https://..."
+              type="url"
+            />
+          </label>
+          <label>
+            <span>
+              <Sparkles size={16} />
+              Phrase d'accroche
+            </span>
+            <input
+              value={profile.tagline}
+              onChange={(event) => updateProfile({ tagline: event.target.value })}
+              maxLength={90}
+              placeholder="Ex: le roi du nul 1-1"
+            />
+          </label>
+          <label>
+            <span>
+              <Star size={16} />
+              Favori de la compétition
+            </span>
+            <input
+              value={profile.favoriteTeam}
+              onChange={(event) => updateProfile({ favoriteTeam: event.target.value })}
+              maxLength={40}
+              placeholder="France, Brésil, Argentine..."
+            />
+          </label>
+          <label>
+            <span>
+              <Heart size={16} />
+              Match préféré
+            </span>
+            <select
+              value={profile.favoriteMatchId}
+              onChange={(event) => updateProfile({ favoriteMatchId: event.target.value })}
+              disabled={matchesResource.loading || !!matchesResource.error}
+            >
+              <option value="">Aucun match sélectionné</option>
+              {matchesResource.data?.matches.map((match) => (
+                <option key={match.id} value={match.id}>
+                  {match.homeTeam} - {match.awayTeam} · {formatDate(match.kickoffAt)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Barre du match préféré</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={profile.matchHype}
+              onChange={(event) => updateProfile({ matchHype: Number(event.target.value) })}
+            />
+          </label>
+          {matchesResource.error && (
+            <ErrorState error={matchesResource.error} onRetry={matchesResource.reload} />
+          )}
+          {saveError && <p className="form-error">{saveError}</p>}
+          <button className="primary-button" type="submit">
+            <Save size={18} />
+            Enregistrer mon profil
+          </button>
+          {saved && <p className="inline-message">Profil enregistré.</p>}
+        </form>
+      </section>
+
+      <section className="content-section">
+        <SectionTitle title="Match préféré" />
+        {favoriteMatch ? (
+          <div className="favorite-match-card">
+            <MatchLine match={favoriteMatch} />
+            <div className="hype-meter" aria-label={`Barre du match préféré ${profile.matchHype}%`}>
+              <span style={{ width: `${profile.matchHype}%` }} />
+            </div>
+          </div>
+        ) : (
+          <EmptyState text="Choisis un match préféré pour afficher ta barre ici." />
+        )}
+      </section>
+    </div>
   );
 }
 
