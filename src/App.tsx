@@ -25,6 +25,8 @@ type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules";
 
 type DashboardData = {
   nextMatches: Match[];
+  predictionDay: string | null;
+  predictionDayMatches: Match[];
   rank?: LeaderboardRow;
   activity: ActivityItem[];
   syncStatus: SyncStatus;
@@ -46,6 +48,14 @@ function formatDate(value: string): string {
     hour: "2-digit",
     minute: "2-digit"
   }).format(new Date(value));
+}
+
+function formatDay(value: string): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long"
+  }).format(new Date(`${value}T12:00:00.000Z`));
 }
 
 function stageLabel(match: Match): string {
@@ -135,7 +145,7 @@ export function App() {
             {user.pseudo}
           </div>
         </header>
-        {view === "dashboard" && <Dashboard />}
+        {view === "dashboard" && <Dashboard onOpenPredictions={() => setView("predictions")} />}
         {view === "predictions" && <Predictions />}
         {view === "leaderboard" && <Leaderboard currentUser={user} />}
         {view === "results" && <Results />}
@@ -234,7 +244,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
   );
 }
 
-function Dashboard() {
+function Dashboard({ onOpenPredictions }: { onOpenPredictions: () => void }) {
   const { data, error, reload, loading } = useResource<DashboardData>("/api/dashboard");
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
@@ -264,6 +274,10 @@ function Dashboard() {
   if (loading) return <ShellState label="Chargement du dashboard..." />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return null;
+
+  const pendingPredictionCount = data.predictionDayMatches.filter(
+    (match) => !match.locked && !match.prediction
+  ).length;
 
   return (
     <div className="view-grid">
@@ -303,6 +317,31 @@ function Dashboard() {
           <p className="form-error sync-error">{data.syncStatus.lastError}</p>
         )}
         {syncMessage && <p className="inline-message">{syncMessage}</p>}
+      </section>
+      <section className="content-section dashboard-block-attention">
+        <SectionTitle
+          title="Prédictions à faire maintenant"
+          action={
+            <button className="secondary-button" type="button" onClick={onOpenPredictions}>
+              <ClipboardList size={16} />
+              Mes pronos
+            </button>
+          }
+        />
+        {data.predictionDay ? (
+          <p className="section-subtitle">
+            Prochain jour de compétition : {formatDay(data.predictionDay)} · {pendingPredictionCount} à compléter
+          </p>
+        ) : null}
+        {data.predictionDayMatches.length === 0 ? (
+          <EmptyState text="Aucun match futur synchronisé pour le moment." />
+        ) : (
+          <div className="match-list">
+            {data.predictionDayMatches.map((match) => (
+              <MatchLine key={match.id} match={match} />
+            ))}
+          </div>
+        )}
       </section>
       <section className="content-section">
         <SectionTitle title="Prochains matchs" action={<RefreshButton onClick={reload} />} />

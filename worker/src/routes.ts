@@ -99,6 +99,38 @@ function publicMatch(match: MatchRow, prediction?: PredictionRow | null) {
   };
 }
 
+function predictionFromJoinedRow(
+  row: Record<string, unknown>,
+  userId: string,
+  matchId: string
+): PredictionRow | null {
+  if (!row.prediction_id) return null;
+
+  return {
+    id: row.prediction_id,
+    user_id: userId,
+    match_id: matchId,
+    predicted_home_score: row.predicted_home_score,
+    predicted_away_score: row.predicted_away_score,
+    predicted_winner_team: row.predicted_winner_team,
+    predicted_winner_code: row.predicted_winner_code,
+    points: row.points,
+    exact_score: row.exact_score,
+    correct_result: row.correct_result,
+    correct_goal_diff: row.correct_goal_diff,
+    created_at: row.prediction_created_at,
+    updated_at: row.prediction_updated_at
+  } as PredictionRow;
+}
+
+function publicMatchFromJoinedRow(row: Record<string, unknown>, userId: string) {
+  const match = row as unknown as MatchRow;
+  return publicMatch(
+    match,
+    predictionFromJoinedRow(row, userId, match.id)
+  );
+}
+
 async function register(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "POST");
   const body = await parseJson<AuthPayload>(ctx.request);
@@ -369,6 +401,7 @@ async function leaderboard(ctx: RequestContext): Promise<Response> {
 async function dashboard(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "GET");
   const user = requireUser(ctx);
+  const now = new Date().toISOString();
   const matchesResponse = await ctx.env.DB.prepare(
     `SELECT matches.*, predictions.id AS prediction_id,
             predictions.predicted_home_score, predictions.predicted_away_score,
@@ -383,8 +416,35 @@ async function dashboard(ctx: RequestContext): Promise<Response> {
      ORDER BY matches.kickoff_at ASC
      LIMIT 6`
   )
-    .bind(user.id, new Date().toISOString())
+    .bind(user.id, now)
     .all<Record<string, unknown>>();
+  const nextCompetitionDay = await ctx.env.DB.prepare(
+    `SELECT substr(kickoff_at, 1, 10) AS competition_day
+     FROM matches
+     WHERE kickoff_at >= ?
+     ORDER BY kickoff_at ASC
+     LIMIT 1`
+  )
+    .bind(now)
+    .first<{ competition_day: string }>();
+  const predictionDayResponse = nextCompetitionDay
+    ? await ctx.env.DB.prepare(
+        `SELECT matches.*, predictions.id AS prediction_id,
+                predictions.predicted_home_score, predictions.predicted_away_score,
+                predictions.predicted_winner_team, predictions.predicted_winner_code,
+                predictions.points, predictions.exact_score, predictions.correct_result,
+                predictions.correct_goal_diff, predictions.created_at AS prediction_created_at,
+                predictions.updated_at AS prediction_updated_at
+         FROM matches
+         LEFT JOIN predictions
+           ON predictions.match_id = matches.id AND predictions.user_id = ?
+         WHERE substr(matches.kickoff_at, 1, 10) = ?
+           AND matches.kickoff_at >= ?
+         ORDER BY matches.kickoff_at ASC`
+      )
+        .bind(user.id, nextCompetitionDay.competition_day, now)
+        .all<Record<string, unknown>>()
+    : { results: [] };
   const leaderboardResponse = await leaderboard(ctx);
   const leaderboardData = (await leaderboardResponse.json()) as {
     leaderboard: LeaderboardRow[];
@@ -399,27 +459,13 @@ async function dashboard(ctx: RequestContext): Promise<Response> {
   const rank = leaderboardData.leaderboard.find((row) => row.userId === user.id);
 
   return json(ctx.request, ctx.env, {
-    nextMatches: (matchesResponse.results ?? []).map((row) => {
-      const match = row as unknown as MatchRow;
-      const prediction = row.prediction_id
-        ? ({
-            id: row.prediction_id,
-            user_id: user.id,
-            match_id: match.id,
-            predicted_home_score: row.predicted_home_score,
-            predicted_away_score: row.predicted_away_score,
-            predicted_winner_team: row.predicted_winner_team,
-            predicted_winner_code: row.predicted_winner_code,
-            points: row.points,
-            exact_score: row.exact_score,
-            correct_result: row.correct_result,
-            correct_goal_diff: row.correct_goal_diff,
-            created_at: row.prediction_created_at,
-            updated_at: row.prediction_updated_at
-          } as PredictionRow)
-        : null;
-      return publicMatch(match, prediction);
-    }),
+    nextMatches: (matchesResponse.results ?? []).map((row) =>
+      publicMatchFromJoinedRow(row, user.id)
+    ),
+    predictionDay: nextCompetitionDay?.competition_day ?? null,
+    predictionDayMatches: (predictionDayResponse.results ?? []).map((row) =>
+      publicMatchFromJoinedRow(row, user.id)
+    ),
     rank,
     activity: activity.results ?? [],
     syncStatus: await getFootballDataSyncStatus(ctx.env)

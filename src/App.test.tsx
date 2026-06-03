@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
@@ -43,6 +43,8 @@ describe("App components", () => {
         path: "/api/dashboard",
         body: {
           nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
           rank: { userId: "user-1", pseudo: "Romain", points: 0, exactScores: 0, correctResults: 0, rank: 1 },
           activity: [],
           syncStatus
@@ -98,6 +100,26 @@ describe("App components", () => {
         path: "/api/dashboard",
         body: {
           nextMatches: [match()],
+          predictionDay: "2026-06-15",
+          predictionDayMatches: [
+            match({ id: "match-1" }),
+            match({
+              id: "match-2",
+              homeTeam: "Maroc",
+              awayTeam: "Japon",
+              kickoffAt: "2026-06-15T22:00:00.000Z",
+              prediction: {
+                predictedHomeScore: 1,
+                predictedAwayScore: 0,
+                predictedWinnerTeam: "Maroc",
+                points: 0,
+                exactScore: false,
+                correctResult: false,
+                correctGoalDiff: false,
+                updatedAt: "2026-06-04T10:00:00.000Z"
+              }
+            })
+          ],
           rank: { userId: "user-1", pseudo: "Romain", points: 12, exactScores: 2, correctResults: 1, rank: 1 },
           activity: [{ id: "a1", type: "exact_score", message: "Romain a trouvé le score exact", created_at: "2026-06-04" }],
           syncStatus
@@ -117,11 +139,14 @@ describe("App components", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("France - Argentine")).toBeInTheDocument();
+    expect(await screen.findAllByText("France - Argentine")).toHaveLength(2);
     expect(screen.getByText("#1")).toBeInTheDocument();
     expect(screen.getByText("12")).toBeInTheDocument();
     expect(screen.getByText("Synchronisé")).toBeInTheDocument();
     expect(screen.getByText("104")).toBeInTheDocument();
+    expect(screen.getByText("Prédictions à faire maintenant")).toBeInTheDocument();
+    expect(screen.getByText("Maroc - Japon")).toBeInTheDocument();
+    expect(screen.getByText(/1 à compléter/)).toBeInTheDocument();
 
     await browserUser.click(screen.getByRole("button", { name: /classement/i }));
     expect(await screen.findByText("Marie")).toBeInTheDocument();
@@ -135,7 +160,17 @@ describe("App components", () => {
   it("shows locked predictions as non-editable", async () => {
     installFetchMock([
       { path: "/api/me", body: { user } },
-      { path: "/api/dashboard", body: { nextMatches: [], rank: undefined, activity: [], syncStatus } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
       {
         path: "/api/matches",
         body: {
@@ -153,7 +188,7 @@ describe("App components", () => {
 
     render(<App />);
     await screen.findByRole("heading", { name: "Dashboard" });
-    await browserUser.click(screen.getByRole("button", { name: /mes pronos/i }));
+    await browserUser.click(screen.getAllByRole("button", { name: /mes pronos/i })[0]);
 
     expect(await screen.findByText("France - Argentine")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /verrouillé/i })).toBeDisabled();
@@ -164,7 +199,17 @@ describe("App components", () => {
   it("requires a qualified team for tied knockout predictions before saving", async () => {
     const { calls } = installFetchMock([
       { path: "/api/me", body: { user } },
-      { path: "/api/dashboard", body: { nextMatches: [], rank: undefined, activity: [], syncStatus } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
       {
         path: "/api/matches",
         body: {
@@ -188,7 +233,7 @@ describe("App components", () => {
 
     render(<App />);
     await screen.findByRole("heading", { name: "Dashboard" });
-    await browserUser.click(screen.getByRole("button", { name: /mes pronos/i }));
+    await browserUser.click(screen.getAllByRole("button", { name: /mes pronos/i })[0]);
 
     const saveButton = await screen.findByRole("button", { name: /enregistrer/i });
     expect(saveButton).toBeDisabled();
@@ -215,6 +260,8 @@ describe("App components", () => {
         path: "/api/dashboard",
         body: {
           nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
           rank: undefined,
           activity: [],
           syncStatus: { ...syncStatus, lastSyncedMatches: 0 }
@@ -236,5 +283,37 @@ describe("App components", () => {
     await browserUser.click(await screen.findByRole("button", { name: /synchroniser/i }));
     expect(await screen.findByText("104 matchs synchronisés.")).toBeInTheDocument();
     expect(calls.some((call) => call.url === "/api/admin/sync")).toBe(true);
+  });
+
+  it("opens the predictions view from the next competition day section", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: "2026-06-15",
+          predictionDayMatches: [match()],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      { path: "/api/matches", body: { matches: [match()] } }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    expect(await screen.findByText("Prédictions à faire maintenant")).toBeInTheDocument();
+    const nextDaySection = screen
+      .getByText("Prédictions à faire maintenant")
+      .closest(".content-section");
+    expect(nextDaySection).not.toBeNull();
+    await browserUser.click(
+      within(nextDaySection as HTMLElement).getByRole("button", { name: /mes pronos/i })
+    );
+    expect(await screen.findByRole("heading", { name: "Mes pronos" })).toBeInTheDocument();
+    expect(screen.getByText("Tous les matchs")).toBeInTheDocument();
   });
 });
