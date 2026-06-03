@@ -104,7 +104,7 @@ Variables Worker utiles :
 - `FOOTBALL_DATA_COMPETITION=WC`
 - `FOOTBALL_DATA_SEASON=2026`
 - `FRONTEND_ORIGIN=https://ton-site.pages.dev`
-- `COOKIE_SAMESITE=None` si frontend Pages et API Worker sont sur deux domaines différents
+- `COOKIE_SAMESITE=None` et `COOKIE_SECURE=true` si le frontend Vercel/Pages et l'API Worker sont sur deux domaines différents
 
 Le Cron est déclaré dans `wrangler.toml` :
 

@@ -8,7 +8,8 @@ enabled = true
 [vars]
 FOOTBALL_DATA_COMPETITION = "WC"
 FOOTBALL_DATA_SEASON = "2026"
-COOKIE_SAMESITE = "Lax"
+COOKIE_SAMESITE = "None"
+COOKIE_SECURE = "true"
 
 [[d1_databases]]
 binding = "DB"
