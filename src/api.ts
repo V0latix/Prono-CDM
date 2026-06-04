@@ -91,13 +91,23 @@ export type SyncStatus = {
   lastSyncedMatches: number;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+const CONFIGURED_API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+
+function apiBase(): string {
+  if (
+    typeof window !== "undefined" &&
+    window.location.hostname.endsWith(".vercel.app")
+  ) {
+    return "";
+  }
+  return CONFIGURED_API_BASE;
+}
 
 export async function api<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${apiBase()}${path}`, {
     ...options,
     credentials: "include",
     headers: {
