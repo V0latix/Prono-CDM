@@ -1554,74 +1554,8 @@ function Profile({ user }: { user: User }) {
 
       <BadgesSection badges={profileResource.data?.badges ?? []} />
 
-      <section className="content-section groups-section">
-        <SectionTitle title="Groupes" action={<RefreshButton onClick={refreshGroups} />} />
-        <form className="group-create-form" onSubmit={createGroup}>
-          <label>
-            <span>Créer un groupe</span>
-            <input
-              value={groupName}
-              onChange={(event) => setGroupName(event.target.value)}
-              minLength={2}
-              maxLength={36}
-              placeholder="Ex: Bureau, Famille, Five du jeudi"
-              required
-            />
-          </label>
-          <button className="primary-button" type="submit" disabled={groupAction === "create"}>
-            {groupAction === "create" ? "Création..." : "Créer"}
-          </button>
-        </form>
-        {groupMessage && <p className={groupMessage.includes("Impossible") || groupMessage.includes("déjà") ? "form-error" : "inline-message"}>{groupMessage}</p>}
-        <div className="groups-layout">
-          <div className="group-column">
-            <h3>Mes groupes</h3>
-            {myGroups.length ? (
-              <div className="group-list">
-                {myGroups.map((group) => (
-                  <GroupCard
-                    key={group.id}
-                    group={group}
-                    currentUserId={user.id}
-                    busyAction={groupAction}
-                    onLeave={() => runGroupAction(`/api/groups/${group.id}/leave`, "POST", "Groupe quitté.")}
-                    onRemoveMember={(memberUserId) =>
-                      runGroupAction(
-                        `/api/groups/${group.id}/members/${memberUserId}`,
-                        "DELETE",
-                        "Membre retiré."
-                      )
-                    }
-                  />
-                ))}
-              </div>
-            ) : (
-              <EmptyState text="Tu n'as rejoint aucun groupe." />
-            )}
-          </div>
-          <div className="group-column">
-            <h3>Groupes existants</h3>
-            {joinableGroups.length ? (
-              <div className="group-list">
-                {joinableGroups.map((group) => (
-                  <GroupCard
-                    key={group.id}
-                    group={group}
-                    currentUserId={user.id}
-                    busyAction={groupAction}
-                    onJoin={() => runGroupAction(`/api/groups/${group.id}/join`, "POST", "Groupe rejoint.")}
-                  />
-                ))}
-              </div>
-            ) : (
-              <EmptyState text="Aucun autre groupe disponible." />
-            )}
-          </div>
-        </div>
-      </section>
-
       <section className="content-section">
-        <SectionTitle title="Préférences" />
+        <SectionTitle title="Profil" />
         <form className="profile-form" onSubmit={saveProfile}>
           <div className="profile-form-field">
             <span>
@@ -1704,6 +1638,72 @@ function Profile({ user }: { user: User }) {
           </button>
           {saved && <p className="inline-message">Profil enregistré.</p>}
         </form>
+      </section>
+
+      <section className="content-section groups-section">
+        <SectionTitle title="Groupes" action={<RefreshButton onClick={refreshGroups} />} />
+        <form className="group-create-form" onSubmit={createGroup}>
+          <label>
+            <span>Créer un groupe</span>
+            <input
+              value={groupName}
+              onChange={(event) => setGroupName(event.target.value)}
+              minLength={2}
+              maxLength={36}
+              placeholder="Ex: Bureau, Famille, Five du jeudi"
+              required
+            />
+          </label>
+          <button className="primary-button" type="submit" disabled={groupAction === "create"}>
+            {groupAction === "create" ? "Création..." : "Créer"}
+          </button>
+        </form>
+        {groupMessage && <p className={groupMessage.includes("Impossible") || groupMessage.includes("déjà") ? "form-error" : "inline-message"}>{groupMessage}</p>}
+        <div className="groups-layout">
+          <div className="group-column">
+            <h3>Mes groupes</h3>
+            {myGroups.length ? (
+              <div className="group-list">
+                {myGroups.map((group) => (
+                  <GroupCard
+                    key={group.id}
+                    group={group}
+                    currentUserId={user.id}
+                    busyAction={groupAction}
+                    onLeave={() => runGroupAction(`/api/groups/${group.id}/leave`, "POST", "Groupe quitté.")}
+                    onRemoveMember={(memberUserId) =>
+                      runGroupAction(
+                        `/api/groups/${group.id}/members/${memberUserId}`,
+                        "DELETE",
+                        "Membre retiré."
+                      )
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState text="Tu n'as rejoint aucun groupe." />
+            )}
+          </div>
+          <div className="group-column">
+            <h3>Groupes existants</h3>
+            {joinableGroups.length ? (
+              <div className="group-list">
+                {joinableGroups.map((group) => (
+                  <GroupCard
+                    key={group.id}
+                    group={group}
+                    currentUserId={user.id}
+                    busyAction={groupAction}
+                    onJoin={() => runGroupAction(`/api/groups/${group.id}/join`, "POST", "Groupe rejoint.")}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState text="Aucun autre groupe disponible." />
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="content-section profile-stats-section">

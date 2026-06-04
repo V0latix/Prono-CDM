@@ -760,7 +760,7 @@ describe("App components", () => {
     render(<App />);
 
     await browserUser.click(await screen.findByRole("button", { name: /romain/i }));
-    expect(await screen.findByRole("heading", { name: "Profil" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Profil" })).toBeInTheDocument();
     expect(screen.getByText("Profil joueur")).toBeInTheDocument();
     expect(screen.getByText("Bureau")).toBeInTheDocument();
     expect(screen.getByText("Copains")).toBeInTheDocument();
