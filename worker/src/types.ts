@@ -57,3 +57,17 @@ export type UserProfileRow = {
   created_at: string;
   updated_at: string;
 };
+
+export type GroupRow = {
+  id: string;
+  name: string;
+  owner_user_id: string;
+  created_at: string;
+};
+
+export type GroupMemberRow = {
+  group_id: string;
+  user_id: string;
+  role: "owner" | "member";
+  created_at: string;
+};

@@ -18,7 +18,7 @@ import {
 import { getUserBadges } from "./badges";
 import { getFootballDataSyncStatus, syncFootballData } from "./football-data";
 import { HttpError, json, parseJson, requireUser, type RequestContext } from "./http";
-import type { MatchRow, PredictionRow, User, UserProfileRow } from "./types";
+import type { GroupMemberRow, GroupRow, MatchRow, PredictionRow, User, UserProfileRow } from "./types";
 
 type AuthPayload = {
   pseudo?: string;
@@ -35,6 +35,10 @@ type ProfilePayload = {
   photoUrl?: string;
   tagline?: string;
   favoriteTeam?: string;
+};
+
+type GroupPayload = {
+  name?: string;
 };
 
 type LeaderboardRow = {
@@ -66,6 +70,25 @@ type ProfileStats = {
   successRate: number;
   groupPoints: number;
   knockoutPoints: number;
+};
+
+type PublicGroupMember = {
+  userId: string;
+  pseudo: string;
+  role: "owner" | "member";
+  joinedAt: string;
+};
+
+type PublicGroup = {
+  id: string;
+  name: string;
+  ownerUserId: string;
+  ownerPseudo: string;
+  memberCount: number;
+  isMember: boolean;
+  isOwner: boolean;
+  createdAt: string;
+  members?: PublicGroupMember[];
 };
 
 function assertMethod(ctx: RequestContext, method: string): void {
@@ -191,6 +214,96 @@ function publicProfile(profile: UserProfileRow | null) {
     favoriteTeam: profile?.favorite_team ?? "",
     updatedAt: profile?.updated_at ?? null
   };
+}
+
+function publicGroup(
+  group: GroupRow & {
+    owner_pseudo: string;
+    member_count: number;
+    is_member: number;
+  },
+  currentUserId: string,
+  members?: PublicGroupMember[]
+): PublicGroup {
+  return {
+    id: group.id,
+    name: group.name,
+    ownerUserId: group.owner_user_id,
+    ownerPseudo: group.owner_pseudo,
+    memberCount: Number(group.member_count ?? 0),
+    isMember: Boolean(group.is_member),
+    isOwner: group.owner_user_id === currentUserId,
+    createdAt: group.created_at,
+    members
+  };
+}
+
+async function getGroupRows(ctx: RequestContext, currentUserId: string, userId?: string) {
+  const filter = userId
+    ? `WHERE EXISTS (
+         SELECT 1 FROM group_members selected_member
+         WHERE selected_member.group_id = prediction_groups.id AND selected_member.user_id = ?
+       )`
+    : "";
+  const bindings = userId ? [currentUserId, userId] : [currentUserId];
+  return ctx.env.DB.prepare(
+    `SELECT prediction_groups.*, owner.pseudo AS owner_pseudo,
+            COUNT(all_members.user_id) AS member_count,
+            MAX(CASE WHEN current_member.user_id IS NULL THEN 0 ELSE 1 END) AS is_member
+     FROM prediction_groups
+     JOIN users owner ON owner.id = prediction_groups.owner_user_id
+     LEFT JOIN group_members all_members ON all_members.group_id = prediction_groups.id
+     LEFT JOIN group_members current_member
+       ON current_member.group_id = prediction_groups.id AND current_member.user_id = ?
+     ${filter}
+     GROUP BY prediction_groups.id, prediction_groups.name, prediction_groups.owner_user_id, prediction_groups.created_at, owner.pseudo
+     ORDER BY prediction_groups.created_at DESC`
+  )
+    .bind(...bindings)
+    .all<GroupRow & { owner_pseudo: string; member_count: number; is_member: number }>();
+}
+
+async function getGroupMembersByGroupId(
+  ctx: RequestContext,
+  groupIds: string[]
+): Promise<Map<string, PublicGroupMember[]>> {
+  const membersByGroup = new Map<string, PublicGroupMember[]>();
+  for (const groupId of groupIds) {
+    const members = await ctx.env.DB.prepare(
+      `SELECT group_members.*, users.pseudo
+       FROM group_members
+       JOIN users ON users.id = group_members.user_id
+       WHERE group_members.group_id = ?
+       ORDER BY group_members.role DESC, group_members.created_at ASC`
+    )
+      .bind(groupId)
+      .all<GroupMemberRow & { pseudo: string }>();
+    membersByGroup.set(
+      groupId,
+      (members.results ?? []).map((member) => ({
+        userId: member.user_id,
+        pseudo: member.pseudo,
+        role: member.role,
+        joinedAt: member.created_at
+      }))
+    );
+  }
+  return membersByGroup;
+}
+
+async function getPublicGroups(
+  ctx: RequestContext,
+  currentUserId: string,
+  options: { userId?: string; includeMembers?: boolean } = {}
+): Promise<PublicGroup[]> {
+  const rows = await getGroupRows(ctx, currentUserId, options.userId);
+  const groups = rows.results ?? [];
+  const membersByGroup = options.includeMembers
+    ? await getGroupMembersByGroupId(ctx, groups.map((group) => group.id))
+    : new Map<string, PublicGroupMember[]>();
+  return groups.map((group) =>
+    publicGroup(group, currentUserId, options.includeMembers ? membersByGroup.get(group.id) ?? [] : undefined)
+  );
 }
 
 async function getProfileStats(ctx: RequestContext, userId: string): Promise<ProfileStats> {
@@ -348,7 +461,8 @@ async function getProfile(ctx: RequestContext): Promise<Response> {
 
   return json(ctx.request, ctx.env, {
     profile: publicProfile(profile),
-    badges: await getUserBadges(ctx.env, user.id)
+    badges: await getUserBadges(ctx.env, user.id),
+    groups: await getPublicGroups(ctx, user.id, { userId: user.id, includeMembers: true })
   });
 }
 
@@ -381,6 +495,7 @@ async function getPublicUserProfile(ctx: RequestContext): Promise<Response> {
     profile: publicProfile(profile),
     stats,
     badges: await getUserBadges(ctx.env, user.id),
+    groups: await getPublicGroups(ctx, ctx.user?.id ?? user.id, { userId: user.id }),
     rank: rank?.rank ?? null
   });
 }
@@ -415,7 +530,121 @@ async function saveProfile(ctx: RequestContext): Promise<Response> {
 
   return json(ctx.request, ctx.env, {
     profile: publicProfile(profile),
-    badges: await getUserBadges(ctx.env, user.id)
+    badges: await getUserBadges(ctx.env, user.id),
+    groups: await getPublicGroups(ctx, user.id, { userId: user.id, includeMembers: true })
+  });
+}
+
+async function listGroups(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "GET");
+  const user = requireUser(ctx);
+  return json(ctx.request, ctx.env, {
+    groups: await getPublicGroups(ctx, user.id, { includeMembers: true })
+  });
+}
+
+async function createGroup(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "POST");
+  const user = requireUser(ctx);
+  const body = await parseJson<GroupPayload>(ctx.request);
+  const name = asLimitedString(body.name ?? "", "Le nom du groupe", 36);
+  if (name.length < 2) {
+    throw new HttpError(400, "Le nom du groupe doit contenir au moins 2 caractères.");
+  }
+
+  const groupId = crypto.randomUUID();
+  try {
+    await ctx.env.DB.prepare(
+      "INSERT INTO prediction_groups (id, name, owner_user_id) VALUES (?, ?, ?)"
+    )
+      .bind(groupId, name, user.id)
+      .run();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.toLowerCase().includes("unique")) {
+      throw new HttpError(409, "Ce nom de groupe existe déjà.");
+    }
+    throw error;
+  }
+
+  await ctx.env.DB.prepare(
+    "INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'owner')"
+  )
+    .bind(groupId, user.id)
+    .run();
+
+  return json(ctx.request, ctx.env, {
+    groups: await getPublicGroups(ctx, user.id, { includeMembers: true })
+  });
+}
+
+async function joinGroup(ctx: RequestContext, groupId: string): Promise<Response> {
+  assertMethod(ctx, "POST");
+  const user = requireUser(ctx);
+  const group = await ctx.env.DB.prepare("SELECT * FROM prediction_groups WHERE id = ? LIMIT 1")
+    .bind(groupId)
+    .first<GroupRow>();
+  if (!group) throw new HttpError(404, "Groupe introuvable.");
+
+  await ctx.env.DB.prepare(
+    "INSERT OR IGNORE INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')"
+  )
+    .bind(group.id, user.id)
+    .run();
+
+  return json(ctx.request, ctx.env, {
+    groups: await getPublicGroups(ctx, user.id, { includeMembers: true })
+  });
+}
+
+async function leaveGroup(ctx: RequestContext, groupId: string): Promise<Response> {
+  assertMethod(ctx, "POST");
+  const user = requireUser(ctx);
+  const group = await ctx.env.DB.prepare("SELECT * FROM prediction_groups WHERE id = ? LIMIT 1")
+    .bind(groupId)
+    .first<GroupRow>();
+  if (!group) throw new HttpError(404, "Groupe introuvable.");
+  if (group.owner_user_id === user.id) {
+    throw new HttpError(400, "Le créateur ne peut pas quitter son propre groupe.");
+  }
+
+  await ctx.env.DB.prepare(
+    "DELETE FROM group_members WHERE group_id = ? AND user_id = ?"
+  )
+    .bind(group.id, user.id)
+    .run();
+
+  return json(ctx.request, ctx.env, {
+    groups: await getPublicGroups(ctx, user.id, { includeMembers: true })
+  });
+}
+
+async function removeGroupMember(
+  ctx: RequestContext,
+  groupId: string,
+  memberUserId: string
+): Promise<Response> {
+  assertMethod(ctx, "DELETE");
+  const user = requireUser(ctx);
+  const group = await ctx.env.DB.prepare("SELECT * FROM prediction_groups WHERE id = ? LIMIT 1")
+    .bind(groupId)
+    .first<GroupRow>();
+  if (!group) throw new HttpError(404, "Groupe introuvable.");
+  if (group.owner_user_id !== user.id) {
+    throw new HttpError(403, "Seul le créateur du groupe peut gérer ses membres.");
+  }
+  if (memberUserId === user.id) {
+    throw new HttpError(400, "Le créateur ne peut pas se retirer du groupe.");
+  }
+
+  await ctx.env.DB.prepare(
+    "DELETE FROM group_members WHERE group_id = ? AND user_id = ?"
+  )
+    .bind(group.id, memberUserId)
+    .run();
+
+  return json(ctx.request, ctx.env, {
+    groups: await getPublicGroups(ctx, user.id, { includeMembers: true })
   });
 }
 
@@ -651,14 +880,26 @@ function createLeaderboardRows(
   return ranking;
 }
 
-async function buildLeaderboard(ctx: RequestContext): Promise<LeaderboardRow[]> {
-  const users = await ctx.env.DB.prepare(
-    `SELECT users.id, users.pseudo, users.created_at,
-            user_profiles.photo_url, user_profiles.tagline, user_profiles.favorite_team
-     FROM users
-     LEFT JOIN user_profiles ON user_profiles.user_id = users.id
-     ORDER BY users.created_at ASC`
-  ).all<User & { photo_url: string | null; tagline: string | null; favorite_team: string | null }>();
+async function buildLeaderboard(ctx: RequestContext, groupId?: string): Promise<LeaderboardRow[]> {
+  const userQuery = groupId
+    ? `SELECT users.id, users.pseudo, users.created_at,
+              user_profiles.photo_url, user_profiles.tagline, user_profiles.favorite_team
+       FROM users
+       JOIN group_members ON group_members.user_id = users.id
+       LEFT JOIN user_profiles ON user_profiles.user_id = users.id
+       WHERE group_members.group_id = ?
+       ORDER BY group_members.created_at ASC`
+    : `SELECT users.id, users.pseudo, users.created_at,
+              user_profiles.photo_url, user_profiles.tagline, user_profiles.favorite_team
+       FROM users
+       LEFT JOIN user_profiles ON user_profiles.user_id = users.id
+       ORDER BY users.created_at ASC`;
+  const users = groupId
+    ? await ctx.env.DB.prepare(userQuery)
+        .bind(groupId)
+        .all<User & { photo_url: string | null; tagline: string | null; favorite_team: string | null }>()
+    : await ctx.env.DB.prepare(userQuery)
+        .all<User & { photo_url: string | null; tagline: string | null; favorite_team: string | null }>();
   const rows = await ctx.env.DB.prepare(
     `SELECT predictions.*, matches.stage, matches.status, matches.kickoff_at
      FROM predictions
@@ -693,7 +934,14 @@ async function buildLeaderboard(ctx: RequestContext): Promise<LeaderboardRow[]> 
 async function leaderboard(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "GET");
   requireUser(ctx);
-  const ranking = await buildLeaderboard(ctx);
+  const groupId = ctx.url.searchParams.get("groupId") ?? undefined;
+  if (groupId) {
+    const group = await ctx.env.DB.prepare("SELECT id FROM prediction_groups WHERE id = ? LIMIT 1")
+      .bind(groupId)
+      .first<{ id: string }>();
+    if (!group) throw new HttpError(404, "Groupe introuvable.");
+  }
+  const ranking = await buildLeaderboard(ctx, groupId);
   return json(ctx.request, ctx.env, { leaderboard: ranking });
 }
 
@@ -847,6 +1095,15 @@ export async function route(ctx: RequestContext): Promise<Response> {
     return ctx.request.method === "GET" ? getProfile(ctx) : saveProfile(ctx);
   }
   if (/^\/api\/users\/[^/]+\/profile$/.test(pathname)) return getPublicUserProfile(ctx);
+  if (pathname === "/api/groups") {
+    return ctx.request.method === "GET" ? listGroups(ctx) : createGroup(ctx);
+  }
+  const groupJoinMatch = pathname.match(/^\/api\/groups\/([^/]+)\/join$/);
+  if (groupJoinMatch) return joinGroup(ctx, groupJoinMatch[1]);
+  const groupLeaveMatch = pathname.match(/^\/api\/groups\/([^/]+)\/leave$/);
+  if (groupLeaveMatch) return leaveGroup(ctx, groupLeaveMatch[1]);
+  const groupMemberMatch = pathname.match(/^\/api\/groups\/([^/]+)\/members\/([^/]+)$/);
+  if (groupMemberMatch) return removeGroupMember(ctx, groupMemberMatch[1], groupMemberMatch[2]);
   if (pathname === "/api/dashboard") return dashboard(ctx);
   if (pathname === "/api/matches") return listMatches(ctx);
   if (pathname.startsWith("/api/predictions/")) return savePrediction(ctx);

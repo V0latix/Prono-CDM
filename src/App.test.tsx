@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
-import type { LeaderboardRow, Match, ProfileBadge } from "./api";
+import type { Group, LeaderboardRow, Match, ProfileBadge } from "./api";
 import { installFetchMock } from "./test/fetchMock";
 
 const user = { id: "user-1", pseudo: "Romain" };
@@ -51,6 +51,24 @@ function leaderboardRow(overrides: Partial<LeaderboardRow> = {}): LeaderboardRow
     submittedPredictions: 8,
     averagePoints: 2.4,
     successRate: 60,
+    ...overrides
+  };
+}
+
+function group(overrides: Partial<Group> = {}): Group {
+  return {
+    id: "group-1",
+    name: "Bureau",
+    ownerUserId: "user-1",
+    ownerPseudo: "Romain",
+    memberCount: 2,
+    isMember: true,
+    isOwner: true,
+    createdAt: "2026-06-04T10:00:00.000Z",
+    members: [
+      { userId: "user-1", pseudo: "Romain", role: "owner", joinedAt: "2026-06-04T10:00:00.000Z" },
+      { userId: "user-2", pseudo: "Marie", role: "member", joinedAt: "2026-06-04T10:01:00.000Z" }
+    ],
     ...overrides
   };
 }
@@ -230,6 +248,24 @@ describe("App components", () => {
         }
       },
       {
+        path: "/api/groups",
+        body: {
+          groups: [
+            group(),
+            group({
+              id: "group-2",
+              name: "Famille",
+              ownerUserId: "user-2",
+              ownerPseudo: "Marie",
+              memberCount: 1,
+              isMember: false,
+              isOwner: false,
+              members: []
+            })
+          ]
+        }
+      },
+      {
         path: "/api/users/user-2/profile",
         body: {
           user: { id: "user-2", pseudo: "Marie" },
@@ -252,6 +288,17 @@ describe("App components", () => {
             knockoutPoints: 0
           },
           badges: profileBadges(),
+          groups: [
+            group({
+              id: "group-2",
+              name: "Famille",
+              ownerUserId: "user-2",
+              ownerPseudo: "Marie",
+              memberCount: 1,
+              isMember: false,
+              isOwner: false
+            })
+          ],
           rank: 2
         }
       }
@@ -624,8 +671,42 @@ describe("App components", () => {
             favoriteTeam: "France",
             updatedAt: null
           },
-          badges: profileBadges()
+          badges: profileBadges(),
+          groups: [group()]
         }
+      },
+      {
+        path: "/api/groups",
+        body: {
+          groups: [
+            group(),
+            group({
+              id: "group-2",
+              name: "Copains",
+              ownerUserId: "user-2",
+              ownerPseudo: "Marie",
+              memberCount: 1,
+              isMember: false,
+              isOwner: false,
+              members: []
+            })
+          ]
+        }
+      },
+      {
+        method: "POST",
+        path: "/api/groups",
+        body: { groups: [group({ id: "group-3", name: "Famille" })] }
+      },
+      {
+        method: "POST",
+        path: "/api/groups/group-2/join",
+        body: { groups: [] }
+      },
+      {
+        method: "DELETE",
+        path: "/api/groups/group-1/members/user-2",
+        body: { groups: [] }
       },
       {
         path: "/api/matches",
@@ -669,7 +750,8 @@ describe("App components", () => {
             favoriteTeam: "Brésil",
             updatedAt: "2026-06-04T10:00:00.000Z"
           },
-          badges: profileBadges()
+          badges: profileBadges(),
+          groups: [group()]
         }
       }
     ]);
@@ -680,6 +762,18 @@ describe("App components", () => {
     await browserUser.click(await screen.findByRole("button", { name: /romain/i }));
     expect(await screen.findByRole("heading", { name: "Profil" })).toBeInTheDocument();
     expect(screen.getByText("Profil joueur")).toBeInTheDocument();
+    expect(screen.getByText("Bureau")).toBeInTheDocument();
+    expect(screen.getByText("Copains")).toBeInTheDocument();
+
+    await browserUser.type(screen.getByPlaceholderText("Ex: Bureau, Famille, Five du jeudi"), "Famille");
+    await browserUser.click(screen.getByRole("button", { name: "Créer" }));
+    await waitFor(() => expect(calls.some((call) => call.url === "/api/groups" && call.init?.method === "POST")).toBe(true));
+
+    await browserUser.click(screen.getByRole("button", { name: "Rejoindre" }));
+    await waitFor(() => expect(calls.some((call) => call.url === "/api/groups/group-2/join")).toBe(true));
+
+    await browserUser.click(screen.getByRole("button", { name: "Retirer" }));
+    await waitFor(() => expect(calls.some((call) => call.url === "/api/groups/group-1/members/user-2")).toBe(true));
 
     const photo = new File(["avatar"], "avatar.png", { type: "image/png" });
     expect(screen.getByLabelText("Choisir une photo")).toHaveAttribute("accept", "image/*");

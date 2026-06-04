@@ -30,6 +30,25 @@ export type ProfileStats = {
   knockoutPoints: number;
 };
 
+export type GroupMember = {
+  userId: string;
+  pseudo: string;
+  role: "owner" | "member";
+  joinedAt: string;
+};
+
+export type Group = {
+  id: string;
+  name: string;
+  ownerUserId: string;
+  ownerPseudo: string;
+  memberCount: number;
+  isMember: boolean;
+  isOwner: boolean;
+  createdAt: string;
+  members?: GroupMember[];
+};
+
 export type Prediction = {
   predictedHomeScore: number;
   predictedAwayScore: number;

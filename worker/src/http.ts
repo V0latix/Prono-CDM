@@ -37,7 +37,7 @@ export function corsHeaders(request: Request, env: Env): HeadersInit {
   const headers: Record<string, string> = {
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Headers": "content-type, authorization",
-    "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
     "Vary": "Origin"
   };
 

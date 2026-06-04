@@ -28,6 +28,7 @@ import {
 import {
   api,
   type ActivityItem,
+  type Group,
   type LeaderboardRow,
   type Match,
   type Profile as UserProfile,
@@ -1230,18 +1231,51 @@ function Leaderboard({
   currentUser: User;
   onOpenProfile: (userId: string) => void;
 }) {
+  const [selectedGroupId, setSelectedGroupId] = useState("global");
+  const groupsResource = useResource<{ groups: Group[] }>("/api/groups");
+  const leaderboardPath =
+    selectedGroupId === "global"
+      ? "/api/leaderboard"
+      : `/api/leaderboard?groupId=${encodeURIComponent(selectedGroupId)}`;
   const { data, error, reload, loading } = useResource<{ leaderboard: LeaderboardRow[] }>(
-    "/api/leaderboard"
+    leaderboardPath,
+    [leaderboardPath]
   );
 
-  if (loading) return <ShellState label="Calcul du classement..." />;
+  if (loading || groupsResource.loading) return <ShellState label="Calcul du classement..." />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
+  if (groupsResource.error) {
+    return <ErrorState error={groupsResource.error} onRetry={groupsResource.reload} />;
+  }
+
+  const groups = groupsResource.data?.groups ?? [];
+  const selectedGroup = groups.find((group) => group.id === selectedGroupId);
 
   return (
     <section className="content-section">
-      <SectionTitle title="Classement général" action={<RefreshButton onClick={reload} />} />
-      <div className="leaderboard-table">
-        {data?.leaderboard.map((row) => (
+      <SectionTitle
+        title={selectedGroup ? `Classement · ${selectedGroup.name}` : "Classement général"}
+        action={<RefreshButton onClick={reload} />}
+      />
+      <div className="leaderboard-filter">
+        <label>
+          <span>Vue</span>
+          <select
+            value={selectedGroupId}
+            onChange={(event) => setSelectedGroupId(event.target.value)}
+          >
+            <option value="global">Général</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name} ({group.memberCount})
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {data?.leaderboard.length ? (
+        <div className="leaderboard-table">
+          {data.leaderboard.map((row) => (
           <button
             type="button"
             key={row.userId}
@@ -1280,9 +1314,86 @@ function Leaderboard({
               Profil
             </span>
           </button>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState text="Aucun membre dans ce groupe pour le moment." />
+      )}
     </section>
+  );
+}
+
+function GroupCard({
+  group,
+  currentUserId,
+  busyAction,
+  onJoin,
+  onLeave,
+  onRemoveMember
+}: {
+  group: Group;
+  currentUserId: string;
+  busyAction: string;
+  onJoin?: () => void;
+  onLeave?: () => void;
+  onRemoveMember?: (userId: string) => void;
+}) {
+  return (
+    <article className="group-card">
+      <div className="group-card-header">
+        <div>
+          <strong>{group.name}</strong>
+          <span>
+            {group.memberCount} membre{group.memberCount > 1 ? "s" : ""} · créé par {group.ownerPseudo}
+          </span>
+        </div>
+        {group.isOwner && <span className="status-chip success">Créateur</span>}
+      </div>
+      {group.members?.length ? (
+        <div className="group-members">
+          {group.members.map((member) => (
+            <div key={member.userId} className="group-member-row">
+              <span>
+                {member.pseudo}
+                {member.role === "owner" ? " · créateur" : ""}
+              </span>
+              {group.isOwner && member.userId !== currentUserId && onRemoveMember && (
+                <button
+                  className="secondary-button"
+                  type="button"
+                  disabled={busyAction === `/api/groups/${group.id}/members/${member.userId}`}
+                  onClick={() => onRemoveMember(member.userId)}
+                >
+                  Retirer
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="group-card-actions">
+        {onJoin && (
+          <button
+            className="primary-button"
+            type="button"
+            disabled={busyAction === `/api/groups/${group.id}/join`}
+            onClick={onJoin}
+          >
+            Rejoindre
+          </button>
+        )}
+        {onLeave && !group.isOwner && (
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={busyAction === `/api/groups/${group.id}/leave`}
+            onClick={onLeave}
+          >
+            Quitter
+          </button>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -1296,15 +1407,19 @@ function Results() {
 
 function Profile({ user }: { user: User }) {
   const matchesResource = useResource<{ matches: Match[] }>("/api/matches");
-  const profileResource = useResource<{ profile: UserProfile; badges: ProfileBadge[] }>(
+  const profileResource = useResource<{ profile: UserProfile; badges: ProfileBadge[]; groups: Group[] }>(
     "/api/profile",
     [user.id]
   );
+  const groupsResource = useResource<{ groups: Group[] }>("/api/groups");
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [photoError, setPhotoError] = useState("");
   const [draggingPhoto, setDraggingPhoto] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [groupMessage, setGroupMessage] = useState("");
+  const [groupAction, setGroupAction] = useState("");
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const predictionStats = buildProfileStats(matchesResource.data?.matches ?? []);
 
@@ -1364,10 +1479,51 @@ function Profile({ user }: { user: User }) {
     void usePhotoFile(event.dataTransfer.files[0]);
   }
 
+  async function refreshGroups() {
+    await Promise.all([groupsResource.reload(), profileResource.reload()]);
+  }
+
+  async function createGroup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setGroupMessage("");
+    setGroupAction("create");
+    try {
+      await api<{ groups: Group[] }>("/api/groups", {
+        method: "POST",
+        body: JSON.stringify({ name: groupName })
+      });
+      setGroupName("");
+      setGroupMessage("Groupe créé.");
+      await refreshGroups();
+    } catch (error) {
+      setGroupMessage(error instanceof Error ? error.message : "Impossible de créer le groupe.");
+    } finally {
+      setGroupAction("");
+    }
+  }
+
+  async function runGroupAction(path: string, method: "POST" | "DELETE", successMessage: string) {
+    setGroupMessage("");
+    setGroupAction(path);
+    try {
+      await api<{ groups: Group[] }>(path, { method });
+      setGroupMessage(successMessage);
+      await refreshGroups();
+    } catch (error) {
+      setGroupMessage(error instanceof Error ? error.message : "Action groupe impossible.");
+    } finally {
+      setGroupAction("");
+    }
+  }
+
   if (profileResource.loading) return <ShellState label="Chargement du profil..." />;
   if (profileResource.error) {
     return <ErrorState error={profileResource.error} onRetry={profileResource.reload} />;
   }
+
+  const groups = groupsResource.data?.groups ?? profileResource.data?.groups ?? [];
+  const myGroups = groups.filter((group) => group.isMember);
+  const joinableGroups = groups.filter((group) => !group.isMember);
 
   return (
     <div className="profile-layout">
@@ -1397,6 +1553,72 @@ function Profile({ user }: { user: User }) {
       </section>
 
       <BadgesSection badges={profileResource.data?.badges ?? []} />
+
+      <section className="content-section groups-section">
+        <SectionTitle title="Groupes" action={<RefreshButton onClick={refreshGroups} />} />
+        <form className="group-create-form" onSubmit={createGroup}>
+          <label>
+            <span>Créer un groupe</span>
+            <input
+              value={groupName}
+              onChange={(event) => setGroupName(event.target.value)}
+              minLength={2}
+              maxLength={36}
+              placeholder="Ex: Bureau, Famille, Five du jeudi"
+              required
+            />
+          </label>
+          <button className="primary-button" type="submit" disabled={groupAction === "create"}>
+            {groupAction === "create" ? "Création..." : "Créer"}
+          </button>
+        </form>
+        {groupMessage && <p className={groupMessage.includes("Impossible") || groupMessage.includes("déjà") ? "form-error" : "inline-message"}>{groupMessage}</p>}
+        <div className="groups-layout">
+          <div className="group-column">
+            <h3>Mes groupes</h3>
+            {myGroups.length ? (
+              <div className="group-list">
+                {myGroups.map((group) => (
+                  <GroupCard
+                    key={group.id}
+                    group={group}
+                    currentUserId={user.id}
+                    busyAction={groupAction}
+                    onLeave={() => runGroupAction(`/api/groups/${group.id}/leave`, "POST", "Groupe quitté.")}
+                    onRemoveMember={(memberUserId) =>
+                      runGroupAction(
+                        `/api/groups/${group.id}/members/${memberUserId}`,
+                        "DELETE",
+                        "Membre retiré."
+                      )
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState text="Tu n'as rejoint aucun groupe." />
+            )}
+          </div>
+          <div className="group-column">
+            <h3>Groupes existants</h3>
+            {joinableGroups.length ? (
+              <div className="group-list">
+                {joinableGroups.map((group) => (
+                  <GroupCard
+                    key={group.id}
+                    group={group}
+                    currentUserId={user.id}
+                    busyAction={groupAction}
+                    onJoin={() => runGroupAction(`/api/groups/${group.id}/join`, "POST", "Groupe rejoint.")}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState text="Aucun autre groupe disponible." />
+            )}
+          </div>
+        </div>
+      </section>
 
       <section className="content-section">
         <SectionTitle title="Préférences" />
@@ -1538,6 +1760,7 @@ type PublicProfileData = {
   profile: UserProfile;
   stats: PublicProfileStats;
   badges: ProfileBadge[];
+  groups: Group[];
   rank: number | null;
 };
 
@@ -1582,6 +1805,24 @@ function PublicProfile({ userId, onBack }: { userId: string; onBack: () => void 
       </section>
 
       <BadgesSection badges={data.badges} />
+
+      <section className="content-section groups-section">
+        <SectionTitle title="Groupes" />
+        {data.groups.length ? (
+          <div className="public-group-list">
+            {data.groups.map((group) => (
+              <div key={group.id} className="public-group-item">
+                <strong>{group.name}</strong>
+                <span>
+                  {group.memberCount} membre{group.memberCount > 1 ? "s" : ""} · créé par {group.ownerPseudo}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState text="Ce joueur n'a rejoint aucun groupe." />
+        )}
+      </section>
 
       <section className="content-section profile-stats-section">
         <SectionTitle title="Stats publiques" action={<RefreshButton onClick={reload} />} />

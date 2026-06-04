@@ -760,6 +760,27 @@ button {
   margin-top: 1rem;
 }
 
+.leaderboard-filter {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.85rem;
+}
+
+.leaderboard-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 700;
+}
+
+.leaderboard-filter select {
+  min-height: 2.45rem;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+  color: var(--fg);
+  padding: 0 0.65rem;
+}
+
 .leaderboard-row {
   display: grid;
   grid-template-columns: 46px 44px minmax(170px, 1fr) repeat(8, minmax(74px, auto));
@@ -1325,6 +1346,119 @@ button {
   background: var(--panel);
 }
 
+.groups-section {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.group-create-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.7rem;
+}
+
+.group-create-form label {
+  display: grid;
+  gap: 0.45rem;
+  font-weight: 700;
+}
+
+.group-create-form input {
+  min-height: 2.55rem;
+  padding: 0.55rem 0.7rem;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+  color: var(--fg);
+}
+
+.groups-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.group-column {
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+}
+
+.group-column h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.group-list,
+.public-group-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.group-card,
+.public-group-item {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+}
+
+.group-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.group-card-header strong,
+.public-group-item strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.group-card-header span,
+.public-group-item span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.group-members {
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 2px solid var(--fg);
+}
+
+.group-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.group-member-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.group-member-row .secondary-button,
+.group-card-actions .secondary-button,
+.group-card-actions .primary-button {
+  min-height: 2.25rem;
+}
+
+.group-card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .auth-layout,
 .shell-state {
   display: grid;
@@ -1640,6 +1774,20 @@ button {
 
   .prediction-summary,
   .prediction-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .leaderboard-filter {
+    justify-content: stretch;
+  }
+
+  .leaderboard-filter label,
+  .leaderboard-filter select {
+    width: 100%;
+  }
+
+  .group-create-form,
+  .groups-layout {
     grid-template-columns: 1fr;
   }
 
