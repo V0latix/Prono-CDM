@@ -70,6 +70,18 @@ function asLimitedString(value: unknown, field: string, maxLength: number): stri
   return normalized;
 }
 
+function asProfilePhoto(value: unknown): string {
+  const photo = asLimitedString(value, "La photo", 2_000_000);
+  if (
+    photo &&
+    !/^https?:\/\/\S+$/i.test(photo) &&
+    !/^data:image\/(png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(photo)
+  ) {
+    throw new HttpError(400, "La photo doit être une URL ou une image importée valide.");
+  }
+  return photo;
+}
+
 function asProfileHype(value: unknown): number {
   if (!Number.isInteger(value) || (value as number) < 0 || (value as number) > 100) {
     throw new HttpError(400, "La barre du match préféré doit être entre 0 et 100.");
@@ -271,7 +283,7 @@ async function saveProfile(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "PUT");
   const user = requireUser(ctx);
   const body = await parseJson<ProfilePayload>(ctx.request);
-  const photoUrl = asLimitedString(body.photoUrl ?? "", "La photo", 500);
+  const photoUrl = asProfilePhoto(body.photoUrl ?? "");
   const tagline = asLimitedString(body.tagline ?? "", "La phrase d'accroche", 90);
   const favoriteTeam = asLimitedString(body.favoriteTeam ?? "", "Le favori", 40);
   const favoriteMatchId =

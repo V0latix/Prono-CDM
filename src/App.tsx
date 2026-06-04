@@ -16,7 +16,15 @@ import {
   Trophy,
   UserRound
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  type ChangeEvent,
+  type DragEvent,
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import {
   api,
   type ActivityItem,
@@ -63,6 +71,7 @@ const defaultProfile: UserProfile = {
   matchHype: 75,
   updatedAt: null
 };
+const maxProfilePhotoBytes = 1_500_000;
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -102,6 +111,30 @@ function syncStatusLabel(status: SyncStatus["status"]): string {
 
 function initials(pseudo: string): string {
   return pseudo.slice(0, 2).toUpperCase();
+}
+
+function readImageFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Choisis un fichier image."));
+      return;
+    }
+    if (file.size > maxProfilePhotoBytes) {
+      reject(new Error("La photo doit faire moins de 1,5 Mo."));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("Impossible de lire cette image."));
+      }
+    });
+    reader.addEventListener("error", () => reject(new Error("Impossible de lire cette image.")));
+    reader.readAsDataURL(file);
+  });
 }
 
 export function App() {
@@ -597,6 +630,9 @@ function Profile({ user }: { user: User }) {
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [photoError, setPhotoError] = useState("");
+  const [draggingPhoto, setDraggingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
   const favoriteMatch = matchesResource.data?.matches.find(
     (match) => match.id === profile.favoriteMatchId
   );
@@ -607,6 +643,7 @@ function Profile({ user }: { user: User }) {
     }
     setSaved(false);
     setSaveError("");
+    setPhotoError("");
   }, [profileResource.data]);
 
   function updateProfile(update: Partial<UserProfile>) {
@@ -635,6 +672,27 @@ function Profile({ user }: { user: User }) {
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Impossible d'enregistrer le profil.");
     }
+  }
+
+  async function usePhotoFile(file: File | undefined) {
+    if (!file) return;
+    setPhotoError("");
+    try {
+      updateProfile({ photoUrl: await readImageFile(file) });
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : "Impossible d'utiliser cette photo.");
+    }
+  }
+
+  function handlePhotoInput(event: ChangeEvent<HTMLInputElement>) {
+    void usePhotoFile(event.target.files?.[0]);
+    event.target.value = "";
+  }
+
+  function handlePhotoDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDraggingPhoto(false);
+    void usePhotoFile(event.dataTransfer.files[0]);
   }
 
   if (profileResource.loading) return <ShellState label="Chargement du profil..." />;
@@ -672,18 +730,47 @@ function Profile({ user }: { user: User }) {
       <section className="content-section">
         <SectionTitle title="Préférences" />
         <form className="profile-form" onSubmit={saveProfile}>
-          <label>
+          <div className="profile-form-field">
             <span>
               <Camera size={16} />
-              Photo
+              Photo de profil
             </span>
+            <div
+              className={draggingPhoto ? "photo-dropzone dragging" : "photo-dropzone"}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setDraggingPhoto(true);
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDragLeave={() => setDraggingPhoto(false)}
+              onDrop={handlePhotoDrop}
+            >
+              <Camera size={22} />
+              <strong>Dépose une photo ici</strong>
+              <p>ou choisis une image depuis l'explorateur</p>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+              >
+                Choisir une photo
+              </button>
+              <input
+                ref={photoInputRef}
+                className="visually-hidden"
+                aria-label="Choisir une photo"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handlePhotoInput}
+              />
+            </div>
+            {photoError && <p className="form-error">{photoError}</p>}
             <input
               value={profile.photoUrl}
               onChange={(event) => updateProfile({ photoUrl: event.target.value })}
-              placeholder="https://..."
-              type="url"
+              placeholder="Ou colle une URL d'image"
             />
-          </label>
+          </div>
           <label>
             <span>
               <Sparkles size={16} />

@@ -343,6 +343,8 @@ describe("App components", () => {
     expect(await screen.findByRole("heading", { name: "Profil" })).toBeInTheDocument();
     expect(screen.getByText("Profil joueur")).toBeInTheDocument();
 
+    const photo = new File(["avatar"], "avatar.png", { type: "image/png" });
+    await browserUser.upload(screen.getByLabelText("Choisir une photo"), photo);
     await browserUser.clear(screen.getByLabelText(/phrase d'accroche/i));
     await browserUser.type(screen.getByLabelText(/phrase d'accroche/i), "Le spécialiste du 2-1.");
     await browserUser.clear(screen.getByLabelText(/favori de la compétition/i));
@@ -356,7 +358,10 @@ describe("App components", () => {
     expect(await screen.findByText("Profil enregistré.")).toBeInTheDocument();
     expect(screen.getByText("Favori : Brésil")).toBeInTheDocument();
     expect(screen.getByText("France - Brésil")).toBeInTheDocument();
-    expect(calls.some((call) => call.url === "/api/profile" && call.init?.method === "PUT")).toBe(true);
+    const saveCall = calls.find((call) => call.url === "/api/profile" && call.init?.method === "PUT");
+    expect(saveCall).toBeDefined();
+    const saveBody = JSON.parse(String(saveCall?.init?.body));
+    expect(saveBody.photoUrl).toMatch(/^data:image\/png;base64,/);
   });
 
   it("opens the predictions view from the next competition day section", async () => {
