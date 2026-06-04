@@ -367,6 +367,52 @@ button {
   gap: 0.7rem;
 }
 
+.predictions-section {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.prediction-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.prediction-day-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.prediction-day {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.2rem;
+}
+
+.prediction-day-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 2px solid var(--fg);
+}
+
+.prediction-day-header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-transform: capitalize;
+}
+
+.prediction-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
 .match-line,
 .prediction-row,
 .leaderboard-row,
@@ -456,6 +502,108 @@ button {
   align-items: center;
 }
 
+.prediction-card {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 2px solid var(--fg);
+  border-left-width: 6px;
+  background: var(--panel);
+}
+
+.prediction-card.todo {
+  border-left-color: var(--danger);
+}
+
+.prediction-card.saved {
+  border-left-color: var(--success);
+}
+
+.prediction-card.locked {
+  border-left-color: var(--muted);
+  background: var(--surface);
+}
+
+.prediction-card-header,
+.prediction-card-footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.prediction-card-header > div {
+  min-width: 0;
+}
+
+.prediction-match-title {
+  display: flex;
+  margin-top: 0.25rem;
+  line-height: 1.25;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.prediction-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 1.85rem;
+  padding: 0 0.55rem;
+  border: 2px solid var(--fg);
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.prediction-state.todo {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.prediction-state.saved {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.score-control {
+  display: grid;
+  min-width: 0;
+  gap: 0.35rem;
+}
+
+.score-control span,
+.prediction-card-footer span {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.score-control span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-divider {
+  align-self: end;
+  padding-bottom: 0.65rem;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.prediction-card-footer {
+  align-items: center;
+  padding-top: 0.15rem;
+}
+
 .score-editor input,
 .score-editor select,
 .auth-panel input {
@@ -477,6 +625,7 @@ button {
 }
 
 .score-editor button,
+.prediction-card-footer button,
 .primary-button,
 .secondary-button,
 .empty-state button,
@@ -500,6 +649,7 @@ button {
 }
 
 .score-editor button:hover:not(:disabled),
+.prediction-card-footer button:hover:not(:disabled),
 .primary-button:hover:not(:disabled),
 .secondary-button:hover:not(:disabled),
 .empty-state button:hover:not(:disabled),
@@ -517,6 +667,7 @@ button {
 }
 
 .score-editor button:disabled,
+.prediction-card-footer button:disabled,
 .primary-button:disabled,
 .secondary-button:disabled {
   cursor: not-allowed;
@@ -1176,7 +1327,8 @@ button {
   }
 
   .badge-grid,
-  .profile-stat-grid {
+  .profile-stat-grid,
+  .prediction-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1312,6 +1464,27 @@ button {
   .summary-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.45rem;
+  }
+
+  .prediction-summary,
+  .prediction-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .prediction-day-header,
+  .prediction-card-header,
+  .prediction-card-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .prediction-card {
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .prediction-state {
+    align-self: flex-start;
   }
 
   .metric {
@@ -1454,6 +1627,7 @@ button {
   }
 
   .score-editor button,
+  .prediction-card-footer button,
   .secondary-button,
   .primary-button {
     min-height: 3rem;

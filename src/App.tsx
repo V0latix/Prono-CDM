@@ -237,6 +237,14 @@ function formatDay(value: string): string {
   }).format(new Date(`${value}T12:00:00.000Z`));
 }
 
+function matchDayKey(match: Match): string {
+  return new Intl.DateTimeFormat("fr-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date(match.kickoffAt));
+}
+
 function stageLabel(match: Match): string {
   if (match.stageKind === "KNOCKOUT") return "Élimination directe";
   return "Groupes";
@@ -375,6 +383,18 @@ function activityIcon(type: string) {
   if (type === "new_leader") return <Trophy size={16} />;
   if (type === "correct_streak") return <Sparkles size={16} />;
   return <Check size={16} />;
+}
+
+function predictionStateLabel(match: Match): string {
+  if (match.locked) return match.prediction ? "Verrouillé" : "Manqué";
+  if (match.prediction) return "Enregistré";
+  return "À faire";
+}
+
+function predictionStateClass(match: Match): string {
+  if (match.locked) return "locked";
+  if (match.prediction) return "saved";
+  return "todo";
 }
 
 function buildProfileStats(matches: Match[] = []): ProfileStats {
@@ -778,10 +798,12 @@ function Dashboard({ onOpenPredictions }: { onOpenPredictions: () => void }) {
 function Predictions() {
   const { data, error, reload, loading } = useResource<{ matches: Match[] }>("/api/matches");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
   async function save(match: Match, homeScore: number, awayScore: number, winnerTeam: string | null) {
     setSavingId(match.id);
+    setSavedId(null);
     setMessage("");
     try {
       await api(`/api/predictions/${match.id}`, {
@@ -793,6 +815,7 @@ function Predictions() {
         })
       });
       await reload();
+      setSavedId(match.id);
       setMessage("Prono enregistré.");
     } catch (saveError) {
       setMessage(saveError instanceof Error ? saveError.message : "Erreur d'enregistrement.");
@@ -804,19 +827,63 @@ function Predictions() {
   if (loading) return <ShellState label="Chargement des matchs..." />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
+  const matches = [...(data?.matches ?? [])].sort(
+    (a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime()
+  );
+  const openMatches = matches.filter((match) => !match.locked);
+  const savedMatches = matches.filter((match) => match.prediction);
+  const missingOpenMatches = openMatches.filter((match) => !match.prediction);
+  const groupedMatches = matches.reduce<Array<{ day: string; matches: Match[] }>>(
+    (groups, match) => {
+      const day = matchDayKey(match);
+      const currentGroup = groups.at(-1);
+      if (currentGroup?.day === day) {
+        currentGroup.matches.push(match);
+      } else {
+        groups.push({ day, matches: [match] });
+      }
+      return groups;
+    },
+    []
+  );
+
   return (
-    <section className="content-section">
-      <SectionTitle title="Tous les matchs" action={<RefreshButton onClick={reload} />} />
+    <section className="content-section predictions-section">
+      <SectionTitle title="Mes pronos" action={<RefreshButton onClick={reload} />} />
+      <p className="section-subtitle">
+        Sauvegarde un score exact, puis modifie-le librement jusqu'au coup d'envoi du match.
+      </p>
+      <div className="prediction-summary" aria-label="Résumé des pronostics">
+        <Metric label="À faire" value={String(missingOpenMatches.length)} />
+        <Metric label="Enregistrés" value={`${savedMatches.length}/${matches.length}`} />
+        <Metric label="Ouverts" value={String(openMatches.length)} />
+      </div>
       {message && <p className="inline-message">{message}</p>}
-      {data?.matches.length ? (
-        <div className="prediction-list">
-          {data.matches.map((match) => (
-            <PredictionEditor
-              key={match.id}
-              match={match}
-              saving={savingId === match.id}
-              onSave={save}
-            />
+      {matches.length ? (
+        <div className="prediction-day-list">
+          {groupedMatches.map((group) => (
+            <section className="prediction-day" key={group.day} aria-labelledby={`prediction-day-${group.day}`}>
+              <div className="prediction-day-header">
+                <div>
+                  <span className="eyebrow">{group.matches.length} match{group.matches.length > 1 ? "s" : ""}</span>
+                  <h2 id={`prediction-day-${group.day}`}>{formatDay(group.day)}</h2>
+                </div>
+                <span className="status-chip">
+                  {group.matches.filter((match) => !match.locked && !match.prediction).length} à faire
+                </span>
+              </div>
+              <div className="prediction-card-grid">
+                {group.matches.map((match) => (
+                  <PredictionEditor
+                    key={match.id}
+                    match={match}
+                    saving={savingId === match.id}
+                    savedRecently={savedId === match.id}
+                    onSave={save}
+                  />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       ) : (
@@ -829,11 +896,13 @@ function Predictions() {
 function PredictionEditor({
   match,
   saving,
+  savedRecently,
   onSave
 }: {
   match: Match;
   saving: boolean;
-  onSave: (match: Match, home: number, away: number, winnerTeam: string | null) => void;
+  savedRecently: boolean;
+  onSave: (match: Match, home: number, away: number, winnerTeam: string | null) => Promise<void>;
 }) {
   const [home, setHome] = useState(match.prediction?.predictedHomeScore ?? 0);
   const [away, setAway] = useState(match.prediction?.predictedAwayScore ?? 0);
@@ -848,29 +917,81 @@ function PredictionEditor({
     setWinnerTeam(match.prediction?.predictedWinnerTeam ?? null);
   }, [match]);
 
+  const originalHome = match.prediction?.predictedHomeScore ?? 0;
+  const originalAway = match.prediction?.predictedAwayScore ?? 0;
+  const originalWinner = match.prediction?.predictedWinnerTeam ?? null;
+  const hasPrediction = Boolean(match.prediction);
+  const dirty =
+    home !== originalHome ||
+    away !== originalAway ||
+    (tiedKnockout && winnerTeam !== originalWinner);
+  const needsWinner = tiedKnockout && !winnerTeam;
+  const canSave = !match.locked && !saving && !needsWinner && (!hasPrediction || dirty);
+  const buttonLabel = match.locked
+    ? "Verrouillé"
+    : saving
+      ? "Sauvegarde..."
+      : hasPrediction && !dirty
+        ? savedRecently
+          ? "Enregistré"
+          : "Déjà enregistré"
+        : hasPrediction
+          ? "Mettre à jour"
+          : "Enregistrer";
+  const helperText = match.locked
+    ? "Le coup d'envoi est passé, ce prono n'est plus modifiable."
+    : hasPrediction && !dirty
+      ? `Modifiable jusqu'au ${formatDate(match.kickoffAt)}.`
+      : "Le bouton sauvegarde ce score jusqu'au coup d'envoi.";
+
   return (
-    <article className="prediction-row">
-      <MatchLine match={match} compact />
+    <article className={`prediction-card ${predictionStateClass(match)}`}>
+      <div className="prediction-card-header">
+        <div>
+          <span className="eyebrow">{stageLabel(match)} · {formatDate(match.kickoffAt)}</span>
+          <strong className="match-teams prediction-match-title" aria-hidden="true">
+            <span className="match-team">
+              {teamFlag(match.homeTeam) && <span className="team-flag">{teamFlag(match.homeTeam)}</span>}
+              <span>{match.homeTeam}</span>
+            </span>
+            <span className="match-separator">-</span>
+            <span className="match-team">
+              {teamFlag(match.awayTeam) && <span className="team-flag">{teamFlag(match.awayTeam)}</span>}
+              <span>{match.awayTeam}</span>
+            </span>
+          </strong>
+          <span className="visually-hidden">{match.homeTeam} - {match.awayTeam}</span>
+        </div>
+        <span className={`prediction-state ${predictionStateClass(match)}`}>
+          {predictionStateLabel(match)}
+        </span>
+      </div>
       <div className="score-editor">
-        <input
-          aria-label={`Score ${match.homeTeam}`}
-          type="number"
-          min={0}
-          max={30}
-          value={home}
-          disabled={match.locked}
-          onChange={(event) => setHome(Number(event.target.value))}
-        />
-        <span>-</span>
-        <input
-          aria-label={`Score ${match.awayTeam}`}
-          type="number"
-          min={0}
-          max={30}
-          value={away}
-          disabled={match.locked}
-          onChange={(event) => setAway(Number(event.target.value))}
-        />
+        <label className="score-control">
+          <span>{match.homeTeam}</span>
+          <input
+            aria-label={`Score ${match.homeTeam}`}
+            type="number"
+            min={0}
+            max={30}
+            value={home}
+            disabled={match.locked}
+            onChange={(event) => setHome(Number(event.target.value))}
+          />
+        </label>
+        <span className="score-divider">-</span>
+        <label className="score-control">
+          <span>{match.awayTeam}</span>
+          <input
+            aria-label={`Score ${match.awayTeam}`}
+            type="number"
+            min={0}
+            max={30}
+            value={away}
+            disabled={match.locked}
+            onChange={(event) => setAway(Number(event.target.value))}
+          />
+        </label>
         {tiedKnockout && (
           <select
             value={winnerTeam ?? ""}
@@ -882,13 +1003,16 @@ function PredictionEditor({
             <option value={match.awayTeam}>{match.awayTeam}</option>
           </select>
         )}
+      </div>
+      <div className="prediction-card-footer">
+        <span>{helperText}</span>
         <button
           type="button"
-          disabled={match.locked || saving || (tiedKnockout && !winnerTeam)}
-          onClick={() => onSave(match, home, away, tiedKnockout ? winnerTeam : null)}
+          disabled={!canSave}
+          onClick={() => void onSave(match, home, away, tiedKnockout ? winnerTeam : null)}
         >
-          {match.locked ? <Lock size={16} /> : <Check size={16} />}
-          {match.locked ? "Verrouillé" : saving ? "..." : "Enregistrer"}
+          {match.locked ? <Lock size={16} /> : hasPrediction && !dirty ? <Check size={16} /> : <Save size={16} />}
+          {buttonLabel}
         </button>
       </div>
     </article>

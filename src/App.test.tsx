@@ -343,10 +343,84 @@ describe("App components", () => {
     await screen.findByRole("heading", { name: "Dashboard" });
     await browserUser.click(screen.getAllByRole("button", { name: /mes pronos/i })[0]);
 
-    expect(await screen.findByText("Switzerland")).toBeInTheDocument();
-    expect(screen.getByText("Germany")).toBeInTheDocument();
+    expect((await screen.findAllByText("Switzerland")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Germany").length).toBeGreaterThan(0);
     expect(screen.getByText("🇨🇭")).toBeInTheDocument();
     expect(screen.getByText("🇩🇪")).toBeInTheDocument();
+  });
+
+  it("groups predictions by day and allows updating a saved prediction before kickoff", async () => {
+    const { calls } = installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/matches",
+        body: {
+          matches: [
+            match({
+              id: "match-1",
+              kickoffAt: "2026-06-15T19:00:00.000Z",
+              prediction: {
+                predictedHomeScore: 1,
+                predictedAwayScore: 0,
+                predictedWinnerTeam: "France",
+                points: 0,
+                exactScore: false,
+                correctResult: false,
+                correctGoalDiff: false,
+                updatedAt: "2026-06-04T10:00:00.000Z"
+              }
+            }),
+            match({
+              id: "match-2",
+              homeTeam: "Espagne",
+              awayTeam: "Italie",
+              kickoffAt: "2026-06-16T16:00:00.000Z"
+            })
+          ]
+        }
+      },
+      {
+        method: "PUT",
+        path: "/api/predictions/match-1",
+        body: { ok: true }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getAllByRole("button", { name: /mes pronos/i })[0]);
+
+    expect(await screen.findByRole("heading", { name: /lundi 15 juin/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /mardi 16 juin/i })).toBeInTheDocument();
+    expect(screen.getByText("Enregistré")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /déjà enregistré/i })).toBeDisabled();
+
+    const franceScore = screen.getByLabelText("Score France");
+    await browserUser.clear(franceScore);
+    await browserUser.type(franceScore, "2");
+    await browserUser.click(screen.getByRole("button", { name: /mettre à jour/i }));
+
+    await waitFor(() =>
+      expect(calls.some((call) => call.url === "/api/predictions/match-1")).toBe(true)
+    );
+    const saveCall = calls.find((call) => call.url === "/api/predictions/match-1");
+    expect(JSON.parse(String(saveCall?.init?.body))).toEqual({
+      predictedHomeScore: 2,
+      predictedAwayScore: 0,
+      predictedWinnerTeam: null
+    });
   });
 
   it("shows an empty waiting state in the results tab for now", async () => {
@@ -634,7 +708,7 @@ describe("App components", () => {
     await browserUser.click(
       within(nextDaySection as HTMLElement).getByRole("button", { name: /mes pronos/i })
     );
-    expect(await screen.findByRole("heading", { name: "Mes pronos" })).toBeInTheDocument();
-    expect(screen.getByText("Tous les matchs")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Mes pronos" })).toBeInTheDocument();
+    expect(screen.getByText("Sauvegarde un score exact, puis modifie-le librement jusqu'au coup d'envoi du match.")).toBeInTheDocument();
   });
 });
