@@ -3,7 +3,6 @@ import {
   Camera,
   Check,
   ClipboardList,
-  Heart,
   Lock,
   LogOut,
   Medal,
@@ -135,6 +134,87 @@ function readImageFile(file: File): Promise<string> {
     reader.addEventListener("error", () => reject(new Error("Impossible de lire cette image.")));
     reader.readAsDataURL(file);
   });
+}
+
+type ProfileStats = {
+  submittedPredictions: number;
+  totalMatches: number;
+  openMissingPredictions: number;
+  lockedPredictions: number;
+  finishedPredictions: number;
+  totalPoints: number;
+  exactScores: number;
+  correctResultsOnly: number;
+  goalDiffBonuses: number;
+  averagePoints: number;
+  successRate: number;
+  groupPoints: number;
+  knockoutPoints: number;
+  topPredictedScore: string;
+  nextMissingMatch: Match | null;
+};
+
+function formatPercent(value: number): string {
+  return `${Math.round(value)}%`;
+}
+
+function buildProfileStats(matches: Match[] = []): ProfileStats {
+  const predictedMatches = matches.filter((match) => match.prediction);
+  const finishedPredictedMatches = predictedMatches.filter(
+    (match) => match.homeScore !== null && match.awayScore !== null
+  );
+  const scoreCounts = new Map<string, number>();
+  let groupPoints = 0;
+  let knockoutPoints = 0;
+
+  for (const match of predictedMatches) {
+    if (!match.prediction) continue;
+    const scoreKey = `${match.prediction.predictedHomeScore}-${match.prediction.predictedAwayScore}`;
+    scoreCounts.set(scoreKey, (scoreCounts.get(scoreKey) ?? 0) + 1);
+    if (match.stageKind === "KNOCKOUT") {
+      knockoutPoints += match.prediction.points;
+    } else {
+      groupPoints += match.prediction.points;
+    }
+  }
+
+  const topScore = [...scoreCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const exactScores = finishedPredictedMatches.filter(
+    (match) => match.prediction?.exactScore
+  ).length;
+  const correctResultsOnly = finishedPredictedMatches.filter(
+    (match) => match.prediction?.correctResult && !match.prediction.exactScore
+  ).length;
+  const totalPoints = predictedMatches.reduce(
+    (sum, match) => sum + (match.prediction?.points ?? 0),
+    0
+  );
+  const finishedPoints = finishedPredictedMatches.reduce(
+    (sum, match) => sum + (match.prediction?.points ?? 0),
+    0
+  );
+
+  return {
+    submittedPredictions: predictedMatches.length,
+    totalMatches: matches.length,
+    openMissingPredictions: matches.filter((match) => !match.locked && !match.prediction).length,
+    lockedPredictions: predictedMatches.filter((match) => match.locked).length,
+    finishedPredictions: finishedPredictedMatches.length,
+    totalPoints,
+    exactScores,
+    correctResultsOnly,
+    goalDiffBonuses: finishedPredictedMatches.filter(
+      (match) => match.prediction?.correctGoalDiff && !match.prediction.exactScore
+    ).length,
+    averagePoints: finishedPredictedMatches.length ? finishedPoints / finishedPredictedMatches.length : 0,
+    successRate: finishedPredictedMatches.length
+      ? ((exactScores + correctResultsOnly) / finishedPredictedMatches.length) * 100
+      : 0,
+    groupPoints,
+    knockoutPoints,
+    topPredictedScore: topScore ? `${topScore[0]} (${topScore[1]}x)` : "-",
+    nextMissingMatch: matches.find((match) => !match.locked && !match.prediction) ?? null
+  };
 }
 
 export function App() {
@@ -633,9 +713,7 @@ function Profile({ user }: { user: User }) {
   const [photoError, setPhotoError] = useState("");
   const [draggingPhoto, setDraggingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
-  const favoriteMatch = matchesResource.data?.matches.find(
-    (match) => match.id === profile.favoriteMatchId
-  );
+  const predictionStats = buildProfileStats(matchesResource.data?.matches ?? []);
 
   useEffect(() => {
     if (profileResource.data?.profile) {
@@ -720,8 +798,8 @@ function Profile({ user }: { user: User }) {
               Favori : {profile.favoriteTeam || "Non renseigné"}
             </span>
             <span>
-              <Heart size={16} />
-              Hype match : {profile.matchHype}%
+              <ClipboardList size={16} />
+              {predictionStats.submittedPredictions} pronos posés
             </span>
           </div>
         </div>
@@ -795,37 +873,6 @@ function Profile({ user }: { user: User }) {
               placeholder="France, Brésil, Argentine..."
             />
           </label>
-          <label>
-            <span>
-              <Heart size={16} />
-              Match préféré
-            </span>
-            <select
-              value={profile.favoriteMatchId}
-              onChange={(event) => updateProfile({ favoriteMatchId: event.target.value })}
-              disabled={matchesResource.loading || !!matchesResource.error}
-            >
-              <option value="">Aucun match sélectionné</option>
-              {matchesResource.data?.matches.map((match) => (
-                <option key={match.id} value={match.id}>
-                  {match.homeTeam} - {match.awayTeam} · {formatDate(match.kickoffAt)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Barre du match préféré</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={profile.matchHype}
-              onChange={(event) => updateProfile({ matchHype: Number(event.target.value) })}
-            />
-          </label>
-          {matchesResource.error && (
-            <ErrorState error={matchesResource.error} onRetry={matchesResource.reload} />
-          )}
           {saveError && <p className="form-error">{saveError}</p>}
           <button className="primary-button" type="submit">
             <Save size={18} />
@@ -835,17 +882,49 @@ function Profile({ user }: { user: User }) {
         </form>
       </section>
 
-      <section className="content-section">
-        <SectionTitle title="Match préféré" />
-        {favoriteMatch ? (
-          <div className="favorite-match-card">
-            <MatchLine match={favoriteMatch} />
-            <div className="hype-meter" aria-label={`Barre du match préféré ${profile.matchHype}%`}>
-              <span style={{ width: `${profile.matchHype}%` }} />
-            </div>
-          </div>
+      <section className="content-section profile-stats-section">
+        <SectionTitle title="Stats pronostics" action={<RefreshButton onClick={matchesResource.reload} />} />
+        {matchesResource.loading ? (
+          <EmptyState text="Calcul des stats en cours..." />
+        ) : matchesResource.error ? (
+          <ErrorState error={matchesResource.error} onRetry={matchesResource.reload} />
         ) : (
-          <EmptyState text="Choisis un match préféré pour afficher ta barre ici." />
+          <>
+            <div className="profile-stat-grid">
+              <ProfileStatCard label="Pronos posés" value={`${predictionStats.submittedPredictions}/${predictionStats.totalMatches}`} />
+              <ProfileStatCard label="À faire" value={String(predictionStats.openMissingPredictions)} tone="attention" />
+              <ProfileStatCard label="Points" value={String(predictionStats.totalPoints)} />
+              <ProfileStatCard label="Moyenne" value={predictionStats.averagePoints.toFixed(1)} />
+              <ProfileStatCard label="Scores exacts" value={String(predictionStats.exactScores)} tone="success" />
+              <ProfileStatCard label="Bons résultats" value={String(predictionStats.correctResultsOnly)} />
+              <ProfileStatCard label="Bonus écart" value={String(predictionStats.goalDiffBonuses)} />
+              <ProfileStatCard label="Réussite" value={formatPercent(predictionStats.successRate)} />
+              <ProfileStatCard label="Pronos verrouillés" value={String(predictionStats.lockedPredictions)} />
+              <ProfileStatCard label="Score favori" value={predictionStats.topPredictedScore} />
+            </div>
+            <div className="profile-split-stats">
+              <div>
+                <span>Points groupes</span>
+                <strong>{predictionStats.groupPoints}</strong>
+              </div>
+              <div>
+                <span>Points élimination</span>
+                <strong>{predictionStats.knockoutPoints}</strong>
+              </div>
+              <div>
+                <span>Matchs évalués</span>
+                <strong>{predictionStats.finishedPredictions}</strong>
+              </div>
+            </div>
+            {predictionStats.nextMissingMatch ? (
+              <div className="profile-next-prediction">
+                <span className="eyebrow">Prochain prono à compléter</span>
+                <MatchLine match={predictionStats.nextMissingMatch} compact />
+              </div>
+            ) : (
+              <EmptyState text="Aucun prono ouvert en attente." />
+            )}
+          </>
         )}
       </section>
     </div>
@@ -925,6 +1004,23 @@ function Metric({ label, value }: { label: string; value: string }) {
 function SyncStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="sync-stat">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function ProfileStatCard({
+  label,
+  value,
+  tone = "default"
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "success" | "attention";
+}) {
+  return (
+    <div className={`profile-stat-card ${tone}`}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>

@@ -316,7 +316,31 @@ describe("App components", () => {
         path: "/api/matches",
         body: {
           matches: [
-            match({ id: "favorite-1", homeTeam: "France", awayTeam: "Brésil" })
+            match({
+              id: "finished-1",
+              homeTeam: "France",
+              awayTeam: "Brésil",
+              status: "FINISHED",
+              locked: true,
+              homeScore: 2,
+              awayScore: 1,
+              prediction: {
+                predictedHomeScore: 2,
+                predictedAwayScore: 1,
+                predictedWinnerTeam: "France",
+                points: 5,
+                exactScore: true,
+                correctResult: true,
+                correctGoalDiff: true,
+                updatedAt: "2026-06-04T10:00:00.000Z"
+              }
+            }),
+            match({
+              id: "open-1",
+              homeTeam: "Espagne",
+              awayTeam: "Allemagne",
+              kickoffAt: "2026-06-18T19:00:00.000Z"
+            })
           ]
         }
       },
@@ -328,7 +352,7 @@ describe("App components", () => {
             photoUrl: "",
             tagline: "Le spécialiste du 2-1.",
             favoriteTeam: "Brésil",
-            favoriteMatchId: "favorite-1",
+            favoriteMatchId: "",
             matchHype: 75,
             updatedAt: "2026-06-04T10:00:00.000Z"
           }
@@ -349,15 +373,15 @@ describe("App components", () => {
     await browserUser.type(screen.getByLabelText(/phrase d'accroche/i), "Le spécialiste du 2-1.");
     await browserUser.clear(screen.getByLabelText(/favori de la compétition/i));
     await browserUser.type(screen.getByLabelText(/favori de la compétition/i), "Brésil");
-    await browserUser.selectOptions(
-      screen.getByRole("combobox", { name: /match préféré/i }),
-      "favorite-1"
-    );
     await browserUser.click(screen.getByRole("button", { name: /enregistrer mon profil/i }));
 
     expect(await screen.findByText("Profil enregistré.")).toBeInTheDocument();
     expect(screen.getByText("Favori : Brésil")).toBeInTheDocument();
-    expect(screen.getByText("France - Brésil")).toBeInTheDocument();
+    expect(screen.queryByText("Match préféré")).not.toBeInTheDocument();
+    expect(screen.getByText("Stats pronostics")).toBeInTheDocument();
+    expect(screen.getByText("1/2")).toBeInTheDocument();
+    expect(screen.getByText("2-1 (1x)")).toBeInTheDocument();
+    expect(screen.getByText("Espagne - Allemagne")).toBeInTheDocument();
     const saveCall = calls.find((call) => call.url === "/api/profile" && call.init?.method === "PUT");
     expect(saveCall).toBeDefined();
     const saveBody = JSON.parse(String(saveCall?.init?.body));
