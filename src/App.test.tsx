@@ -140,9 +140,10 @@ describe("App components", () => {
 
     expect(await screen.findByText("Inscription")).toBeInTheDocument();
     expect(screen.queryByLabelText(/invitation/i)).not.toBeInTheDocument();
+    expect(screen.getByText("4 à 8 chiffres")).toBeInTheDocument();
 
     await browserUser.type(screen.getByLabelText("Pseudo"), "Romain");
-    await browserUser.type(screen.getByLabelText("Code PIN"), "1234");
+    await browserUser.type(screen.getByLabelText(/Code PIN/), "1234");
     await browserUser.click(screen.getByRole("button", { name: /créer mon compte/i }));
 
     expect(await screen.findByText("Création du profil")).toBeInTheDocument();
@@ -184,7 +185,8 @@ describe("App components", () => {
 
     await browserUser.click(await screen.findByRole("button", { name: "Connexion" }));
     await browserUser.type(screen.getByLabelText("Pseudo"), "Marie");
-    await browserUser.type(screen.getByLabelText("Code PIN"), "9999");
+    expect(screen.getByText("4 à 8 chiffres")).toBeInTheDocument();
+    await browserUser.type(screen.getByLabelText(/Code PIN/), "9999");
     await browserUser.click(screen.getByRole("button", { name: /me connecter/i }));
 
     expect(await screen.findByText("Pseudo ou PIN incorrect.")).toBeInTheDocument();

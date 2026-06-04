@@ -528,7 +528,6 @@ export function App() {
           <div className="brand-mark">26</div>
           <div>
             <strong>Prono CDM</strong>
-            <span>Ligue privée</span>
           </div>
         </div>
         <nav className="nav-list" aria-label="Navigation principale">
@@ -674,7 +673,10 @@ function AuthScreen({
             />
           </label>
           <label>
-            Code PIN
+            <span className="field-label-row">
+              Code PIN
+              <small>4 à 8 chiffres</small>
+            </span>
             <input
               value={pin}
               onChange={(event) => setPin(event.target.value)}
