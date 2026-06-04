@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
-import type { Match } from "./api";
+import type { LeaderboardRow, Match } from "./api";
 import { installFetchMock } from "./test/fetchMock";
 
 const user = { id: "user-1", pseudo: "Romain" };
@@ -34,6 +34,24 @@ function match(overrides: Partial<Match> = {}): Match {
   };
 }
 
+function leaderboardRow(overrides: Partial<LeaderboardRow> = {}): LeaderboardRow {
+  return {
+    userId: "user-1",
+    pseudo: "Romain",
+    points: 12,
+    exactScores: 2,
+    correctResults: 1,
+    rank: 1,
+    photoUrl: "",
+    tagline: "Prêt à viser le score exact.",
+    favoriteTeam: "France",
+    submittedPredictions: 8,
+    averagePoints: 2.4,
+    successRate: 60,
+    ...overrides
+  };
+}
+
 describe("App components", () => {
   it("shows registration without invitation code and submits only pseudo and PIN", async () => {
     const { calls } = installFetchMock([
@@ -45,7 +63,7 @@ describe("App components", () => {
           nextMatches: [],
           predictionDay: null,
           predictionDayMatches: [],
-          rank: { userId: "user-1", pseudo: "Romain", points: 0, exactScores: 0, correctResults: 0, rank: 1 },
+          rank: leaderboardRow({ points: 0, exactScores: 0, correctResults: 0 }),
           activity: [],
           syncStatus
         }
@@ -120,7 +138,7 @@ describe("App components", () => {
               }
             })
           ],
-          rank: { userId: "user-1", pseudo: "Romain", points: 12, exactScores: 2, correctResults: 1, rank: 1 },
+          rank: leaderboardRow(),
           activity: [{ id: "a1", type: "exact_score", message: "Romain a trouvé le score exact", created_at: "2026-06-04" }],
           syncStatus
         }
@@ -129,9 +147,46 @@ describe("App components", () => {
         path: "/api/leaderboard",
         body: {
           leaderboard: [
-            { userId: "user-1", pseudo: "Romain", points: 12, exactScores: 2, correctResults: 1, rank: 1 },
-            { userId: "user-2", pseudo: "Marie", points: 8, exactScores: 1, correctResults: 2, rank: 2 }
+            leaderboardRow(),
+            leaderboardRow({
+              userId: "user-2",
+              pseudo: "Marie",
+              points: 8,
+              exactScores: 1,
+              correctResults: 2,
+              rank: 2,
+              tagline: "Toujours dans le bon wagon.",
+              favoriteTeam: "Japon",
+              submittedPredictions: 7,
+              averagePoints: 2,
+              successRate: 50
+            })
           ]
+        }
+      },
+      {
+        path: "/api/users/user-2/profile",
+        body: {
+          user: { id: "user-2", pseudo: "Marie" },
+          profile: {
+            photoUrl: "",
+            tagline: "Toujours dans le bon wagon.",
+            favoriteTeam: "Japon",
+            updatedAt: "2026-06-04T10:00:00.000Z"
+          },
+          stats: {
+            submittedPredictions: 7,
+            totalMatches: 104,
+            totalPoints: 8,
+            exactScores: 1,
+            correctResults: 2,
+            goalDiffBonuses: 1,
+            averagePoints: 2,
+            successRate: 50,
+            groupPoints: 8,
+            knockoutPoints: 0
+          },
+          rank: 2
         }
       }
     ]);
@@ -151,6 +206,12 @@ describe("App components", () => {
     await browserUser.click(screen.getByRole("button", { name: /classement/i }));
     expect(await screen.findByText("Marie")).toBeInTheDocument();
     expect(screen.getByText("12 pts")).toBeInTheDocument();
+    expect(screen.getByText("Toujours dans le bon wagon.")).toBeInTheDocument();
+
+    await browserUser.click(screen.getByRole("button", { name: /marie/i }));
+    expect(await screen.findByRole("heading", { name: "Profil joueur" })).toBeInTheDocument();
+    expect(screen.getByText("Rang : #2")).toBeInTheDocument();
+    expect(screen.getByText("Stats publiques")).toBeInTheDocument();
 
     await browserUser.click(screen.getByRole("button", { name: /règlement/i }));
     expect(await screen.findByText("Verrouillage")).toBeInTheDocument();
@@ -306,8 +367,6 @@ describe("App components", () => {
             photoUrl: "",
             tagline: "Prêt à viser le score exact.",
             favoriteTeam: "France",
-            favoriteMatchId: "",
-            matchHype: 75,
             updatedAt: null
           }
         }
@@ -352,8 +411,6 @@ describe("App components", () => {
             photoUrl: "",
             tagline: "Le spécialiste du 2-1.",
             favoriteTeam: "Brésil",
-            favoriteMatchId: "",
-            matchHype: 75,
             updatedAt: "2026-06-04T10:00:00.000Z"
           }
         }
@@ -369,6 +426,13 @@ describe("App components", () => {
 
     const photo = new File(["avatar"], "avatar.png", { type: "image/png" });
     await browserUser.upload(screen.getByLabelText("Choisir une photo"), photo);
+    await waitFor(
+      () => {
+        const photoInput = screen.getByPlaceholderText("Ou colle une URL d'image") as HTMLInputElement;
+        expect(photoInput.value).toMatch(/^data:image\/png;base64,/);
+      },
+      { timeout: 3000 }
+    );
     await browserUser.clear(screen.getByLabelText(/phrase d'accroche/i));
     await browserUser.type(screen.getByLabelText(/phrase d'accroche/i), "Le spécialiste du 2-1.");
     await browserUser.clear(screen.getByLabelText(/favori de la compétition/i));

@@ -30,11 +30,12 @@ import {
   type LeaderboardRow,
   type Match,
   type Profile as UserProfile,
+  type ProfileStats as PublicProfileStats,
   type SyncStatus,
   type User
 } from "./api";
 
-type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "profile";
+type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "profile" | "publicProfile";
 
 type DashboardData = {
   nextMatches: Match[];
@@ -59,18 +60,19 @@ const viewTitles: Record<View, string> = {
   leaderboard: "Classement",
   results: "Résultats",
   rules: "Règlement",
-  profile: "Profil"
+  profile: "Profil",
+  publicProfile: "Profil joueur"
 };
 
 const defaultProfile: UserProfile = {
   photoUrl: "",
   tagline: "Prêt à viser le score exact.",
   favoriteTeam: "France",
-  favoriteMatchId: "",
-  matchHype: 75,
   updatedAt: null
 };
-const maxProfilePhotoBytes = 1_500_000;
+const maxProfilePhotoBytes = 4_000_000;
+const profilePhotoMaxSize = 520;
+const profilePhotoQuality = 0.78;
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -124,15 +126,48 @@ function readImageFile(file: File): Promise<string> {
     }
 
     const reader = new FileReader();
-    reader.addEventListener("load", () => {
+    reader.addEventListener("load", async () => {
       if (typeof reader.result === "string") {
-        resolve(reader.result);
+        resolve(await compressImage(reader.result));
       } else {
         reject(new Error("Impossible de lire cette image."));
       }
     });
     reader.addEventListener("error", () => reject(new Error("Impossible de lire cette image.")));
     reader.readAsDataURL(file);
+  });
+}
+
+function compressImage(dataUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    if (typeof document === "undefined" || typeof Image === "undefined") {
+      resolve(dataUrl);
+      return;
+    }
+
+    const image = new Image();
+    const timeout = window.setTimeout(() => resolve(dataUrl), 1200);
+    image.addEventListener("load", () => {
+      window.clearTimeout(timeout);
+      const scale = Math.min(1, profilePhotoMaxSize / Math.max(image.width, image.height));
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      if (!context) {
+        resolve(dataUrl);
+        return;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      context.drawImage(image, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", profilePhotoQuality));
+    });
+    image.addEventListener("error", () => {
+      window.clearTimeout(timeout);
+      resolve(dataUrl);
+    });
+    image.src = dataUrl;
   });
 }
 
@@ -221,6 +256,7 @@ export function App() {
   const [user, setUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [view, setView] = useState<View>("dashboard");
+  const [publicProfileUserId, setPublicProfileUserId] = useState("");
 
   useEffect(() => {
     api<{ user: User | null }>("/api/me")
@@ -288,10 +324,21 @@ export function App() {
         </header>
         {view === "dashboard" && <Dashboard onOpenPredictions={() => setView("predictions")} />}
         {view === "predictions" && <Predictions />}
-        {view === "leaderboard" && <Leaderboard currentUser={user} />}
+        {view === "leaderboard" && (
+          <Leaderboard
+            currentUser={user}
+            onOpenProfile={(userId) => {
+              setPublicProfileUserId(userId);
+              setView("publicProfile");
+            }}
+          />
+        )}
         {view === "results" && <Results />}
         {view === "rules" && <Rules />}
         {view === "profile" && <Profile user={user} />}
+        {view === "publicProfile" && publicProfileUserId && (
+          <PublicProfile userId={publicProfileUserId} onBack={() => setView("leaderboard")} />
+        )}
       </main>
     </div>
   );
@@ -636,7 +683,13 @@ function PredictionEditor({
   );
 }
 
-function Leaderboard({ currentUser }: { currentUser: User }) {
+function Leaderboard({
+  currentUser,
+  onOpenProfile
+}: {
+  currentUser: User;
+  onOpenProfile: (userId: string) => void;
+}) {
   const [phase, setPhase] = useState("general");
   const { data, error, reload, loading } = useResource<{ leaderboard: LeaderboardRow[] }>(
     `/api/leaderboard?phase=${phase}`,
@@ -667,16 +720,27 @@ function Leaderboard({ currentUser }: { currentUser: User }) {
       </div>
       <div className="leaderboard-table">
         {data?.leaderboard.map((row) => (
-          <div
+          <button
+            type="button"
             key={row.userId}
             className={row.userId === currentUser.id ? "leaderboard-row me" : "leaderboard-row"}
+            onClick={() => onOpenProfile(row.userId)}
           >
             <span className="rank">#{row.rank}</span>
-            <strong>{row.pseudo}</strong>
+            <span className="leaderboard-avatar">
+              {row.photoUrl ? <img src={row.photoUrl} alt="" /> : initials(row.pseudo)}
+            </span>
+            <span className="leaderboard-player">
+              <strong>{row.pseudo}</strong>
+              <small>{row.tagline || "Profil à compléter"}</small>
+            </span>
             <span>{row.points} pts</span>
             <span>{row.exactScores} exacts</span>
             <span>{row.correctResults} bons résultats</span>
-          </div>
+            <span>{row.submittedPredictions} pronos</span>
+            <span>{formatPercent(row.successRate)} réussite</span>
+            <span>{row.favoriteTeam || "Favori ?"}</span>
+          </button>
         ))}
       </div>
     </section>
@@ -740,9 +804,7 @@ function Profile({ user }: { user: User }) {
         body: JSON.stringify({
           photoUrl: profile.photoUrl,
           tagline: profile.tagline,
-          favoriteTeam: profile.favoriteTeam,
-          favoriteMatchId: profile.favoriteMatchId || null,
-          matchHype: profile.matchHype
+          favoriteTeam: profile.favoriteTeam
         })
       });
       setProfile({ ...defaultProfile, ...response.profile });
@@ -848,6 +910,15 @@ function Profile({ user }: { user: User }) {
               onChange={(event) => updateProfile({ photoUrl: event.target.value })}
               placeholder="Ou colle une URL d'image"
             />
+            {profile.photoUrl && (
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => updateProfile({ photoUrl: "" })}
+              >
+                Supprimer ma photo
+              </button>
+            )}
           </div>
           <label>
             <span>
@@ -926,6 +997,83 @@ function Profile({ user }: { user: User }) {
             )}
           </>
         )}
+      </section>
+    </div>
+  );
+}
+
+type PublicProfileData = {
+  user: User;
+  profile: UserProfile;
+  stats: PublicProfileStats;
+  rank: number | null;
+};
+
+function PublicProfile({ userId, onBack }: { userId: string; onBack: () => void }) {
+  const { data, error, reload, loading } = useResource<PublicProfileData>(
+    `/api/users/${userId}/profile`,
+    [userId]
+  );
+
+  if (loading) return <ShellState label="Chargement du profil joueur..." />;
+  if (error) return <ErrorState error={error} onRetry={reload} />;
+  if (!data) return null;
+
+  return (
+    <div className="public-profile-layout">
+      <section className="content-section profile-hero">
+        <div className="profile-photo-frame">
+          {data.profile.photoUrl ? (
+            <img src={data.profile.photoUrl} alt={`Photo de ${data.user.pseudo}`} />
+          ) : (
+            <span>{initials(data.user.pseudo)}</span>
+          )}
+        </div>
+        <div className="profile-intro">
+          <span className="eyebrow">Profil joueur</span>
+          <h2>{data.user.pseudo}</h2>
+          <p>{data.profile.tagline || "Profil à compléter."}</p>
+          <div className="profile-chips">
+            <span>
+              <Trophy size={16} />
+              Rang : {data.rank ? `#${data.rank}` : "-"}
+            </span>
+            <span>
+              <Star size={16} />
+              Favori : {data.profile.favoriteTeam || "Non renseigné"}
+            </span>
+          </div>
+        </div>
+        <button className="secondary-button" type="button" onClick={onBack}>
+          Retour classement
+        </button>
+      </section>
+
+      <section className="content-section profile-stats-section">
+        <SectionTitle title="Stats publiques" action={<RefreshButton onClick={reload} />} />
+        <div className="profile-stat-grid">
+          <ProfileStatCard label="Pronos posés" value={`${data.stats.submittedPredictions}/${data.stats.totalMatches}`} />
+          <ProfileStatCard label="Points" value={String(data.stats.totalPoints)} />
+          <ProfileStatCard label="Moyenne" value={data.stats.averagePoints.toFixed(1)} />
+          <ProfileStatCard label="Scores exacts" value={String(data.stats.exactScores)} tone="success" />
+          <ProfileStatCard label="Bons résultats" value={String(data.stats.correctResults)} />
+          <ProfileStatCard label="Bonus écart" value={String(data.stats.goalDiffBonuses)} />
+          <ProfileStatCard label="Réussite" value={formatPercent(data.stats.successRate)} />
+        </div>
+        <div className="profile-split-stats">
+          <div>
+            <span>Points groupes</span>
+            <strong>{data.stats.groupPoints}</strong>
+          </div>
+          <div>
+            <span>Points élimination</span>
+            <strong>{data.stats.knockoutPoints}</strong>
+          </div>
+          <div>
+            <span>Favori compétition</span>
+            <strong>{data.profile.favoriteTeam || "-"}</strong>
+          </div>
+        </div>
       </section>
     </div>
   );

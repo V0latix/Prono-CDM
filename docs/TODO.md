@@ -4,14 +4,6 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 
 ## Priorité haute
 
-### Profil et compte
-
-- Persister toutes les préférences de profil côté D1 avec une vraie migration de nettoyage des anciens champs inutilisés.
-- Ajouter une compression automatique des photos avant upload pour limiter la taille stockée en base.
-- Ajouter un bouton "Supprimer ma photo" dans le profil.
-- Ajouter une page profil publique par joueur depuis le classement.
-- Afficher les stats profil dans le classement au survol ou dans une fiche compacte.
-
 ### Pronostics
 
 - Ajouter un filtre "À faire" dans Mes pronos pour voir uniquement les matchs ouverts sans prono.
@@ -36,6 +28,14 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 - Ajouter une vue "forme récente" sur les 5 derniers matchs terminés.
 
 ## Priorité moyenne
+
+### Terminé - Profil et compte
+
+- [x] Persister toutes les préférences de profil côté D1 avec une migration de nettoyage des anciens champs inutilisés.
+- [x] Ajouter une compression automatique des photos avant upload pour limiter la taille stockée en base.
+- [x] Ajouter un bouton "Supprimer ma photo" dans le profil.
+- [x] Ajouter une page profil publique par joueur depuis le classement.
+- [x] Afficher les stats profil dans le classement dans une fiche compacte.
 
 ### Social et fun
 
@@ -114,7 +114,6 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 
 ## Dette technique
 
-- Retirer progressivement les champs profil devenus inutiles si le match préféré ne revient pas.
 - Éviter de stocker durablement de grosses images en D1 si l'app grandit ; prévoir R2 ou une compression plus agressive.
 - Centraliser les types partagés entre Worker et frontend pour éviter les divergences.
 - Factoriser les requêtes SQL répétées qui construisent les matchs avec pronostic.

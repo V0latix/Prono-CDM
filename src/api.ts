@@ -7,9 +7,20 @@ export type Profile = {
   photoUrl: string;
   tagline: string;
   favoriteTeam: string;
-  favoriteMatchId: string;
-  matchHype: number;
   updatedAt?: string | null;
+};
+
+export type ProfileStats = {
+  submittedPredictions: number;
+  totalMatches: number;
+  totalPoints: number;
+  exactScores: number;
+  correctResults: number;
+  goalDiffBonuses: number;
+  averagePoints: number;
+  successRate: number;
+  groupPoints: number;
+  knockoutPoints: number;
 };
 
 export type Prediction = {
@@ -46,6 +57,12 @@ export type LeaderboardRow = {
   exactScores: number;
   correctResults: number;
   rank: number;
+  photoUrl: string;
+  tagline: string;
+  favoriteTeam: string;
+  submittedPredictions: number;
+  averagePoints: number;
+  successRate: number;
 };
 
 export type ActivityItem = {

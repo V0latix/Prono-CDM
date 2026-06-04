@@ -33,8 +33,6 @@ type ProfilePayload = {
   photoUrl?: string;
   tagline?: string;
   favoriteTeam?: string;
-  favoriteMatchId?: string | null;
-  matchHype?: number;
 };
 
 type LeaderboardRow = {
@@ -44,6 +42,25 @@ type LeaderboardRow = {
   exactScores: number;
   correctResults: number;
   rank: number;
+  photoUrl: string;
+  tagline: string;
+  favoriteTeam: string;
+  submittedPredictions: number;
+  averagePoints: number;
+  successRate: number;
+};
+
+type ProfileStats = {
+  submittedPredictions: number;
+  totalMatches: number;
+  totalPoints: number;
+  exactScores: number;
+  correctResults: number;
+  goalDiffBonuses: number;
+  averagePoints: number;
+  successRate: number;
+  groupPoints: number;
+  knockoutPoints: number;
 };
 
 function assertMethod(ctx: RequestContext, method: string): void {
@@ -71,7 +88,7 @@ function asLimitedString(value: unknown, field: string, maxLength: number): stri
 }
 
 function asProfilePhoto(value: unknown): string {
-  const photo = asLimitedString(value, "La photo", 2_000_000);
+  const photo = asLimitedString(value, "La photo", 1_000_000);
   if (
     photo &&
     !/^https?:\/\/\S+$/i.test(photo) &&
@@ -80,13 +97,6 @@ function asProfilePhoto(value: unknown): string {
     throw new HttpError(400, "La photo doit être une URL ou une image importée valide.");
   }
   return photo;
-}
-
-function asProfileHype(value: unknown): number {
-  if (!Number.isInteger(value) || (value as number) < 0 || (value as number) > 100) {
-    throw new HttpError(400, "La barre du match préféré doit être entre 0 et 100.");
-  }
-  return value as number;
 }
 
 function assertPin(pin: string): void {
@@ -174,9 +184,50 @@ function publicProfile(profile: UserProfileRow | null) {
     photoUrl: profile?.photo_url ?? "",
     tagline: profile?.tagline ?? "",
     favoriteTeam: profile?.favorite_team ?? "",
-    favoriteMatchId: profile?.favorite_match_id ?? "",
-    matchHype: profile?.match_hype ?? 75,
     updatedAt: profile?.updated_at ?? null
+  };
+}
+
+async function getProfileStats(ctx: RequestContext, userId: string): Promise<ProfileStats> {
+  const [matchCount, predictions] = await Promise.all([
+    ctx.env.DB.prepare("SELECT COUNT(*) AS total FROM matches").first<{ total: number }>(),
+    ctx.env.DB.prepare(
+      `SELECT predictions.*, matches.stage, matches.status
+       FROM predictions
+       JOIN matches ON matches.id = predictions.match_id
+       WHERE predictions.user_id = ?`
+    )
+      .bind(userId)
+      .all<PredictionRow & { stage: string; status: string }>()
+  ]);
+  const rows = predictions.results ?? [];
+  const finishedRows = rows.filter((row) => isFinished(row.status));
+  const totalPoints = rows.reduce((sum, row) => sum + row.points, 0);
+  const finishedPoints = finishedRows.reduce((sum, row) => sum + row.points, 0);
+  const exactScores = finishedRows.filter((row) => row.exact_score).length;
+  const correctResults = finishedRows.filter(
+    (row) => row.correct_result && !row.exact_score
+  ).length;
+
+  return {
+    submittedPredictions: rows.length,
+    totalMatches: matchCount?.total ?? 0,
+    totalPoints,
+    exactScores,
+    correctResults,
+    goalDiffBonuses: finishedRows.filter(
+      (row) => row.correct_goal_diff && !row.exact_score
+    ).length,
+    averagePoints: finishedRows.length ? finishedPoints / finishedRows.length : 0,
+    successRate: finishedRows.length
+      ? ((exactScores + correctResults) / finishedRows.length) * 100
+      : 0,
+    groupPoints: rows
+      .filter((row) => getStageKind(row.stage) === "GROUP")
+      .reduce((sum, row) => sum + row.points, 0),
+    knockoutPoints: rows
+      .filter((row) => getStageKind(row.stage) === "KNOCKOUT")
+      .reduce((sum, row) => sum + row.points, 0)
   };
 }
 
@@ -279,6 +330,38 @@ async function getProfile(ctx: RequestContext): Promise<Response> {
   return json(ctx.request, ctx.env, { profile: publicProfile(profile) });
 }
 
+async function getPublicUserProfile(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "GET");
+  requireUser(ctx);
+  const match = ctx.url.pathname.match(/^\/api\/users\/([^/]+)\/profile$/);
+  const userId = match?.[1];
+  if (!userId) throw new HttpError(400, "Utilisateur manquant.");
+
+  const user = await ctx.env.DB.prepare(
+    "SELECT id, pseudo, created_at FROM users WHERE id = ? LIMIT 1"
+  )
+    .bind(userId)
+    .first<User>();
+  if (!user) throw new HttpError(404, "Utilisateur introuvable.");
+
+  const profile = await ctx.env.DB.prepare(
+    "SELECT * FROM user_profiles WHERE user_id = ? LIMIT 1"
+  )
+    .bind(user.id)
+    .first<UserProfileRow>();
+  const stats = await getProfileStats(ctx, user.id);
+  const rank = (await buildLeaderboard(ctx, "general")).find(
+    (row) => row.userId === user.id
+  );
+
+  return json(ctx.request, ctx.env, {
+    user: { id: user.id, pseudo: user.pseudo },
+    profile: publicProfile(profile),
+    stats,
+    rank: rank?.rank ?? null
+  });
+}
+
 async function saveProfile(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "PUT");
   const user = requireUser(ctx);
@@ -286,35 +369,19 @@ async function saveProfile(ctx: RequestContext): Promise<Response> {
   const photoUrl = asProfilePhoto(body.photoUrl ?? "");
   const tagline = asLimitedString(body.tagline ?? "", "La phrase d'accroche", 90);
   const favoriteTeam = asLimitedString(body.favoriteTeam ?? "", "Le favori", 40);
-  const favoriteMatchId =
-    typeof body.favoriteMatchId === "string" && body.favoriteMatchId.trim()
-      ? body.favoriteMatchId.trim()
-      : null;
-  const matchHype = asProfileHype(body.matchHype ?? 75);
-
-  if (favoriteMatchId) {
-    const match = await ctx.env.DB.prepare("SELECT id FROM matches WHERE id = ? LIMIT 1")
-      .bind(favoriteMatchId)
-      .first<{ id: string }>();
-    if (!match) {
-      throw new HttpError(400, "Le match préféré sélectionné est introuvable.");
-    }
-  }
 
   await ctx.env.DB.prepare(
     `INSERT INTO user_profiles (
-       user_id, photo_url, tagline, favorite_team, favorite_match_id, match_hype, updated_at
+       user_id, photo_url, tagline, favorite_team, updated_at
      )
-     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
      ON CONFLICT(user_id) DO UPDATE SET
        photo_url = excluded.photo_url,
        tagline = excluded.tagline,
        favorite_team = excluded.favorite_team,
-       favorite_match_id = excluded.favorite_match_id,
-       match_hype = excluded.match_hype,
        updated_at = CURRENT_TIMESTAMP`
   )
-    .bind(user.id, photoUrl, tagline, favoriteTeam, favoriteMatchId, matchHype)
+    .bind(user.id, photoUrl, tagline, favoriteTeam)
     .run();
 
   const profile = await ctx.env.DB.prepare(
@@ -458,19 +525,23 @@ async function savePrediction(ctx: RequestContext): Promise<Response> {
   return json(ctx.request, ctx.env, { match: publicMatch(match, prediction) });
 }
 
-async function leaderboard(ctx: RequestContext): Promise<Response> {
-  assertMethod(ctx, "GET");
-  requireUser(ctx);
-  const phase = ctx.url.searchParams.get("phase") ?? "general";
+async function buildLeaderboard(ctx: RequestContext, phase: string): Promise<LeaderboardRow[]> {
   const users = await ctx.env.DB.prepare(
-    "SELECT id, pseudo, created_at FROM users ORDER BY created_at ASC"
-  ).all<User>();
+    `SELECT users.id, users.pseudo, users.created_at,
+            user_profiles.photo_url, user_profiles.tagline, user_profiles.favorite_team
+     FROM users
+     LEFT JOIN user_profiles ON user_profiles.user_id = users.id
+     ORDER BY users.created_at ASC`
+  ).all<User & { photo_url: string | null; tagline: string | null; favorite_team: string | null }>();
   const rows = await ctx.env.DB.prepare(
-    `SELECT predictions.*, matches.stage
+    `SELECT predictions.*, matches.stage, matches.status
      FROM predictions
      JOIN matches ON matches.id = predictions.match_id`
-  ).all<PredictionRow & { stage: string }>();
+  ).all<PredictionRow & { stage: string; status: string }>();
   const byUser = new Map<string, LeaderboardRow>();
+  const evaluatedByUser = new Map<string, number>();
+  const successByUser = new Map<string, number>();
+  const finishedPointsByUser = new Map<string, number>();
 
   for (const user of users.results ?? []) {
     byUser.set(user.id, {
@@ -479,8 +550,17 @@ async function leaderboard(ctx: RequestContext): Promise<Response> {
       points: 0,
       exactScores: 0,
       correctResults: 0,
-      rank: 0
+      rank: 0,
+      photoUrl: user.photo_url ?? "",
+      tagline: user.tagline ?? "",
+      favoriteTeam: user.favorite_team ?? "",
+      submittedPredictions: 0,
+      averagePoints: 0,
+      successRate: 0
     });
+    evaluatedByUser.set(user.id, 0);
+    successByUser.set(user.id, 0);
+    finishedPointsByUser.set(user.id, 0);
   }
 
   for (const row of rows.results ?? []) {
@@ -489,9 +569,22 @@ async function leaderboard(ctx: RequestContext): Promise<Response> {
     if (phase === "knockout" && stageKind !== "KNOCKOUT") continue;
     const target = byUser.get(row.user_id);
     if (!target) continue;
+    target.submittedPredictions += 1;
     target.points += row.points;
-    target.exactScores += row.exact_score ? 1 : 0;
-    target.correctResults += row.correct_result && !row.exact_score ? 1 : 0;
+    if (isFinished(row.status)) {
+      evaluatedByUser.set(row.user_id, (evaluatedByUser.get(row.user_id) ?? 0) + 1);
+      finishedPointsByUser.set(
+        row.user_id,
+        (finishedPointsByUser.get(row.user_id) ?? 0) + row.points
+      );
+      target.exactScores += row.exact_score ? 1 : 0;
+      target.correctResults += row.correct_result && !row.exact_score ? 1 : 0;
+      successByUser.set(
+        row.user_id,
+        (successByUser.get(row.user_id) ?? 0) +
+          (row.exact_score || row.correct_result ? 1 : 0)
+      );
+    }
   }
 
   const ranking = [...byUser.values()].sort((a, b) => {
@@ -501,8 +594,23 @@ async function leaderboard(ctx: RequestContext): Promise<Response> {
   });
   ranking.forEach((row, index) => {
     row.rank = index + 1;
+    const evaluated = evaluatedByUser.get(row.userId) ?? 0;
+    row.averagePoints = evaluated
+      ? (finishedPointsByUser.get(row.userId) ?? 0) / evaluated
+      : 0;
+    row.successRate = evaluated
+      ? ((successByUser.get(row.userId) ?? 0) / evaluated) * 100
+      : 0;
   });
 
+  return ranking;
+}
+
+async function leaderboard(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "GET");
+  requireUser(ctx);
+  const phase = ctx.url.searchParams.get("phase") ?? "general";
+  const ranking = await buildLeaderboard(ctx, phase);
   return json(ctx.request, ctx.env, { leaderboard: ranking, phase });
 }
 
@@ -553,10 +661,7 @@ async function dashboard(ctx: RequestContext): Promise<Response> {
         .bind(user.id, nextCompetitionDay.competition_day, now)
         .all<Record<string, unknown>>()
     : { results: [] };
-  const leaderboardResponse = await leaderboard(ctx);
-  const leaderboardData = (await leaderboardResponse.json()) as {
-    leaderboard: LeaderboardRow[];
-  };
+  const leaderboardData = await buildLeaderboard(ctx, "general");
   const activity = await ctx.env.DB.prepare(
     `SELECT activity_feed.*, users.pseudo
      FROM activity_feed
@@ -564,7 +669,7 @@ async function dashboard(ctx: RequestContext): Promise<Response> {
      ORDER BY activity_feed.created_at DESC
      LIMIT 8`
   ).all();
-  const rank = leaderboardData.leaderboard.find((row) => row.userId === user.id);
+  const rank = leaderboardData.find((row) => row.userId === user.id);
 
   return json(ctx.request, ctx.env, {
     nextMatches: (matchesResponse.results ?? []).map((row) =>
@@ -658,6 +763,7 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname === "/api/profile") {
     return ctx.request.method === "GET" ? getProfile(ctx) : saveProfile(ctx);
   }
+  if (/^\/api\/users\/[^/]+\/profile$/.test(pathname)) return getPublicUserProfile(ctx);
   if (pathname === "/api/dashboard") return dashboard(ctx);
   if (pathname === "/api/matches") return listMatches(ctx);
   if (pathname.startsWith("/api/predictions/")) return savePrediction(ctx);

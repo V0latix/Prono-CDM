@@ -475,8 +475,16 @@ button {
 
 .leaderboard-row {
   display: grid;
-  grid-template-columns: 54px 1fr repeat(3, minmax(110px, auto));
-  min-height: 3.5rem;
+  grid-template-columns: 46px 44px minmax(170px, 1fr) repeat(6, minmax(86px, auto));
+  align-items: center;
+  width: 100%;
+  min-height: 4.35rem;
+  padding: 0.75rem;
+  border: 2px solid var(--fg);
+  background: #fff;
+  color: var(--fg);
+  text-align: left;
+  font-size: 0.78rem;
 }
 
 .leaderboard-row.me {
@@ -489,15 +497,63 @@ button {
   color: var(--accent);
 }
 
+.leaderboard-avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 2px solid var(--fg);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+.leaderboard-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.leaderboard-player {
+  display: grid;
+  min-width: 0;
+}
+
+.leaderboard-player strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.leaderboard-player small {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-row:hover,
+.leaderboard-row:focus-visible {
+  background: var(--surface);
+}
+
 .activity-item {
   justify-content: flex-start;
   min-height: 3rem;
 }
 
-.profile-layout {
+.profile-layout,
+.public-profile-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
   gap: 1rem;
+}
+
+.public-profile-layout {
+  grid-template-columns: 1fr;
 }
 
 .profile-hero {
@@ -879,16 +935,17 @@ button {
   .summary-strip,
   .sync-grid,
   .profile-layout,
+  .public-profile-layout,
   .profile-stat-grid,
   .profile-split-stats {
     grid-template-columns: 1fr;
   }
 
   .leaderboard-row {
-    grid-template-columns: 42px 1fr 76px;
+    grid-template-columns: 42px 40px minmax(140px, 1fr) 76px 84px;
   }
 
-  .leaderboard-row span:nth-last-child(-n + 2) {
+  .leaderboard-row > span:nth-last-child(-n + 4) {
     display: none;
   }
 }
@@ -907,6 +964,14 @@ button {
   .profile-hero {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .leaderboard-row {
+    grid-template-columns: 34px 38px 1fr;
+  }
+
+  .leaderboard-row > span:nth-child(n + 4) {
+    display: none;
   }
 
   .profile-photo-frame {
