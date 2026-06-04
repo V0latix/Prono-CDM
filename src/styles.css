@@ -350,6 +350,30 @@ button {
   overflow-wrap: anywhere;
 }
 
+.match-teams {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.45rem;
+}
+
+.match-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.team-flag {
+  flex: 0 0 auto;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.match-separator {
+  color: var(--muted);
+}
+
 .match-line.compact {
   flex: 1 1 280px;
   min-height: 0;

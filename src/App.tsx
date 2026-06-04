@@ -71,9 +71,115 @@ const defaultProfile: UserProfile = {
   favoriteTeam: "France",
   updatedAt: null
 };
-const maxProfilePhotoBytes = 4_000_000;
 const profilePhotoMaxSize = 520;
 const profilePhotoQuality = 0.78;
+
+const teamFlagEntries: Array<[string, string]> = [
+  ["Afrique du Sud", "🇿🇦"],
+  ["Albanie", "🇦🇱"],
+  ["Algérie", "🇩🇿"],
+  ["Allemagne", "🇩🇪"],
+  ["Angleterre", "🏴"],
+  ["Arabie saoudite", "🇸🇦"],
+  ["Argentina", "🇦🇷"],
+  ["Argentine", "🇦🇷"],
+  ["Australie", "🇦🇺"],
+  ["Autriche", "🇦🇹"],
+  ["Belgique", "🇧🇪"],
+  ["Bolivie", "🇧🇴"],
+  ["Brazil", "🇧🇷"],
+  ["Brésil", "🇧🇷"],
+  ["Cameroun", "🇨🇲"],
+  ["Canada", "🇨🇦"],
+  ["Cap-Vert", "🇨🇻"],
+  ["Chile", "🇨🇱"],
+  ["Chili", "🇨🇱"],
+  ["China", "🇨🇳"],
+  ["Chine", "🇨🇳"],
+  ["Colombia", "🇨🇴"],
+  ["Colombie", "🇨🇴"],
+  ["Corée du Nord", "🇰🇵"],
+  ["Corée du Sud", "🇰🇷"],
+  ["Costa Rica", "🇨🇷"],
+  ["Côte d'Ivoire", "🇨🇮"],
+  ["Cote d'Ivoire", "🇨🇮"],
+  ["Croatie", "🇭🇷"],
+  ["Danemark", "🇩🇰"],
+  ["Ecuador", "🇪🇨"],
+  ["Égypte", "🇪🇬"],
+  ["Émirats arabes unis", "🇦🇪"],
+  ["Équateur", "🇪🇨"],
+  ["Espagne", "🇪🇸"],
+  ["États-Unis", "🇺🇸"],
+  ["France", "🇫🇷"],
+  ["Georgia", "🇬🇪"],
+  ["Géorgie", "🇬🇪"],
+  ["Ghana", "🇬🇭"],
+  ["Grèce", "🇬🇷"],
+  ["Guatemala", "🇬🇹"],
+  ["Haiti", "🇭🇹"],
+  ["Haïti", "🇭🇹"],
+  ["Honduras", "🇭🇳"],
+  ["Hongrie", "🇭🇺"],
+  ["Indonesia", "🇮🇩"],
+  ["Indonésie", "🇮🇩"],
+  ["Iran", "🇮🇷"],
+  ["Irak", "🇮🇶"],
+  ["Iraq", "🇮🇶"],
+  ["Irlande", "🇮🇪"],
+  ["Irlande du Nord", "🇬🇧"],
+  ["Italie", "🇮🇹"],
+  ["Jamaica", "🇯🇲"],
+  ["Jamaïque", "🇯🇲"],
+  ["Japan", "🇯🇵"],
+  ["Japon", "🇯🇵"],
+  ["Jordanie", "🇯🇴"],
+  ["Korea Republic", "🇰🇷"],
+  ["Maroc", "🇲🇦"],
+  ["Mexico", "🇲🇽"],
+  ["Mexique", "🇲🇽"],
+  ["Morocco", "🇲🇦"],
+  ["Netherlands", "🇳🇱"],
+  ["Nigeria", "🇳🇬"],
+  ["Nigéria", "🇳🇬"],
+  ["Norvège", "🇳🇴"],
+  ["Nouvelle-Zélande", "🇳🇿"],
+  ["Ouzbékistan", "🇺🇿"],
+  ["Panama", "🇵🇦"],
+  ["Paraguay", "🇵🇾"],
+  ["Pays-Bas", "🇳🇱"],
+  ["Peru", "🇵🇪"],
+  ["Pérou", "🇵🇪"],
+  ["Pologne", "🇵🇱"],
+  ["Portugal", "🇵🇹"],
+  ["Qatar", "🇶🇦"],
+  ["RD Congo", "🇨🇩"],
+  ["République dominicaine", "🇩🇴"],
+  ["République tchèque", "🇨🇿"],
+  ["Roumanie", "🇷🇴"],
+  ["Scotland", "🏴"],
+  ["Sénégal", "🇸🇳"],
+  ["Serbie", "🇷🇸"],
+  ["Slovaquie", "🇸🇰"],
+  ["Slovénie", "🇸🇮"],
+  ["South Africa", "🇿🇦"],
+  ["South Korea", "🇰🇷"],
+  ["Suède", "🇸🇪"],
+  ["Suisse", "🇨🇭"],
+  ["Tunisie", "🇹🇳"],
+  ["Turquie", "🇹🇷"],
+  ["Ukraine", "🇺🇦"],
+  ["United Arab Emirates", "🇦🇪"],
+  ["United States", "🇺🇸"],
+  ["Uruguay", "🇺🇾"],
+  ["USA", "🇺🇸"],
+  ["Venezuela", "🇻🇪"],
+  ["Wales", "🏴"]
+];
+
+const teamFlags = new Map(
+  teamFlagEntries.map(([team, flag]) => [normalizeTeamKey(team), flag])
+);
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -103,6 +209,20 @@ function scoreLabel(match: Match): string {
   return `${match.homeScore} - ${match.awayScore}`;
 }
 
+function normalizeTeamKey(team: string): string {
+  return team
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’']/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function teamFlag(team: string): string {
+  return teamFlags.get(normalizeTeamKey(team)) ?? "";
+}
+
 function syncStatusLabel(status: SyncStatus["status"]): string {
   if (status === "success") return "Synchronisé";
   if (status === "running") return "Synchronisation en cours";
@@ -119,10 +239,6 @@ function readImageFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith("image/")) {
       reject(new Error("Choisis un fichier image."));
-      return;
-    }
-    if (file.size > maxProfilePhotoBytes) {
-      reject(new Error("La photo doit faire moins de 1,5 Mo."));
       return;
     }
 
@@ -951,7 +1067,7 @@ function Profile({ user }: { user: User }) {
                 className="visually-hidden"
                 aria-label="Choisir une photo"
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept="image/*"
                 onChange={handlePhotoInput}
               />
             </div>
@@ -1169,7 +1285,18 @@ function MatchLine({
     <article className={compact ? "match-line compact" : "match-line"}>
       <div>
         <span className="eyebrow">{stageLabel(match)} · {formatDate(match.kickoffAt)}</span>
-        <strong>{match.homeTeam} - {match.awayTeam}</strong>
+        <strong className="match-teams" aria-hidden="true">
+          <span className="match-team">
+            {teamFlag(match.homeTeam) && <span className="team-flag">{teamFlag(match.homeTeam)}</span>}
+            <span>{match.homeTeam}</span>
+          </span>
+          <span className="match-separator">-</span>
+          <span className="match-team">
+            {teamFlag(match.awayTeam) && <span className="team-flag">{teamFlag(match.awayTeam)}</span>}
+            <span>{match.awayTeam}</span>
+          </span>
+        </strong>
+        <span className="visually-hidden">{match.homeTeam} - {match.awayTeam}</span>
       </div>
       <div className="match-meta">
         {showResult && <span className="score-badge">{scoreLabel(match)}</span>}

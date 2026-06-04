@@ -96,7 +96,7 @@ function asProfilePhoto(value: unknown): string {
   if (
     photo &&
     !/^https?:\/\/\S+$/i.test(photo) &&
-    !/^data:image\/(png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(photo)
+    !/^data:image\/(png|jpe?g|webp|gif|heic|heif);base64,[a-z0-9+/=]+$/i.test(photo)
   ) {
     throw new HttpError(400, "La photo doit être une URL ou une image importée valide.");
   }

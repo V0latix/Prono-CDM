@@ -240,6 +240,10 @@ describe("App components", () => {
     expect(screen.getByText("104")).toBeInTheDocument();
     expect(screen.getByText("Prédictions à faire maintenant")).toBeInTheDocument();
     expect(screen.getByText("Maroc - Japon")).toBeInTheDocument();
+    expect(screen.getAllByText("🇫🇷").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("🇦🇷").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("🇲🇦").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("🇯🇵").length).toBeGreaterThan(0);
     expect(screen.getByText(/1 à compléter/)).toBeInTheDocument();
     expect(screen.getByText("Marie prend la tête du classement")).toBeInTheDocument();
     expect(screen.getByText("Romain enchaîne 3 bons résultats")).toBeInTheDocument();
@@ -353,6 +357,8 @@ describe("App components", () => {
     await browserUser.click(screen.getByRole("button", { name: /résultats/i }));
 
     expect(await screen.findByText("France - Argentine")).toBeInTheDocument();
+    expect(screen.getByText("🇫🇷")).toBeInTheDocument();
+    expect(screen.getByText("🇦🇷")).toBeInTheDocument();
     expect(screen.queryByText("Matchs terminés")).not.toBeInTheDocument();
     expect(screen.getByText("Gestion à venir")).toBeInTheDocument();
     expect(screen.getByText("Scores des matchs finis")).toBeInTheDocument();
@@ -529,6 +535,7 @@ describe("App components", () => {
     expect(screen.getByText("Profil joueur")).toBeInTheDocument();
 
     const photo = new File(["avatar"], "avatar.png", { type: "image/png" });
+    expect(screen.getByLabelText("Choisir une photo")).toHaveAttribute("accept", "image/*");
     await browserUser.upload(screen.getByLabelText("Choisir une photo"), photo);
     await waitFor(
       () => {
