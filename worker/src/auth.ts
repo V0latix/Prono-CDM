@@ -3,6 +3,21 @@ import type { Env, User } from "./types";
 const SESSION_COOKIE = "pcdm_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const PIN_HASH_SCHEME = "sha256";
+export const LOGIN_ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
+export const LOGIN_LOCK_MS = 15 * 60 * 1000;
+export const LOGIN_MAX_FAILED_ATTEMPTS = 5;
+
+export type LoginAttemptState = {
+  failed_attempts: number;
+  window_started_at: string;
+  locked_until: string | null;
+};
+
+export type NextLoginAttemptState = {
+  failedAttempts: number;
+  windowStartedAt: string;
+  lockedUntil: string | null;
+};
 
 function bytesToHex(bytes: ArrayBuffer | Uint8Array): string {
   const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -21,6 +36,36 @@ function randomHex(byteLength = 32): string {
   const bytes = new Uint8Array(byteLength);
   crypto.getRandomValues(bytes);
   return bytesToHex(bytes);
+}
+
+export function isLoginLocked(
+  attempt: LoginAttemptState | null | undefined,
+  nowMs = Date.now()
+): boolean {
+  if (!attempt?.locked_until) return false;
+  return Date.parse(attempt.locked_until) > nowMs;
+}
+
+export function nextFailedLoginAttempt(
+  attempt: LoginAttemptState | null | undefined,
+  nowMs = Date.now()
+): NextLoginAttemptState {
+  const now = new Date(nowMs).toISOString();
+  const previousWindowStartedAt = attempt?.window_started_at;
+  const previousFailedAttempts = attempt?.failed_attempts ?? 0;
+  const windowIsActive =
+    previousWindowStartedAt !== undefined &&
+    nowMs - Date.parse(previousWindowStartedAt) <= LOGIN_ATTEMPT_WINDOW_MS;
+  const failedAttempts = windowIsActive ? previousFailedAttempts + 1 : 1;
+
+  return {
+    failedAttempts,
+    windowStartedAt: windowIsActive ? previousWindowStartedAt : now,
+    lockedUntil:
+      failedAttempts >= LOGIN_MAX_FAILED_ATTEMPTS
+        ? new Date(nowMs + LOGIN_LOCK_MS).toISOString()
+        : null
+  };
 }
 
 function constantTimeEqual(a: string, b: string): boolean {

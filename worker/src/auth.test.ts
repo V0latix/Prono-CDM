@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   clearSessionCookie,
   hashPin,
+  isLoginLocked,
+  LOGIN_LOCK_MS,
+  LOGIN_MAX_FAILED_ATTEMPTS,
+  LOGIN_ATTEMPT_WINDOW_MS,
+  nextFailedLoginAttempt,
   normalizePseudo,
   normalizePseudoKey,
   serializeSessionCookie,
@@ -67,6 +72,64 @@ describe("auth constraints", () => {
 
     expect(await verifyPin("2468", `pbkdf2$10$${saltHex}$${hashHex}`)).toBe(true);
     expect(await verifyPin("1357", `pbkdf2$10$${saltHex}$${hashHex}`)).toBe(false);
+  });
+
+  it("locks login after repeated failed PIN attempts in the active window", () => {
+    const nowMs = Date.parse("2026-06-04T12:00:00.000Z");
+    const windowStartedAt = new Date(nowMs - 60_000).toISOString();
+    const nextAttempt = nextFailedLoginAttempt(
+      {
+        failed_attempts: LOGIN_MAX_FAILED_ATTEMPTS - 1,
+        window_started_at: windowStartedAt,
+        locked_until: null
+      },
+      nowMs
+    );
+
+    expect(nextAttempt.failedAttempts).toBe(LOGIN_MAX_FAILED_ATTEMPTS);
+    expect(nextAttempt.windowStartedAt).toBe(windowStartedAt);
+    expect(nextAttempt.lockedUntil).toBe(new Date(nowMs + LOGIN_LOCK_MS).toISOString());
+    expect(
+      isLoginLocked(
+        {
+          failed_attempts: nextAttempt.failedAttempts,
+          window_started_at: nextAttempt.windowStartedAt,
+          locked_until: nextAttempt.lockedUntil
+        },
+        nowMs
+      )
+    ).toBe(true);
+  });
+
+  it("starts a new failed PIN window after the previous window expires", () => {
+    const nowMs = Date.parse("2026-06-04T12:00:00.000Z");
+    const nextAttempt = nextFailedLoginAttempt(
+      {
+        failed_attempts: LOGIN_MAX_FAILED_ATTEMPTS - 1,
+        window_started_at: new Date(nowMs - LOGIN_ATTEMPT_WINDOW_MS - 1).toISOString(),
+        locked_until: null
+      },
+      nowMs
+    );
+
+    expect(nextAttempt.failedAttempts).toBe(1);
+    expect(nextAttempt.windowStartedAt).toBe(new Date(nowMs).toISOString());
+    expect(nextAttempt.lockedUntil).toBeNull();
+  });
+
+  it("treats expired login locks as open again", () => {
+    const nowMs = Date.parse("2026-06-04T12:00:00.000Z");
+
+    expect(
+      isLoginLocked(
+        {
+          failed_attempts: LOGIN_MAX_FAILED_ATTEMPTS,
+          window_started_at: new Date(nowMs - 60_000).toISOString(),
+          locked_until: new Date(nowMs - 1).toISOString()
+        },
+        nowMs
+      )
+    ).toBe(false);
   });
 
   it("serializes secure cross-domain session cookies", () => {

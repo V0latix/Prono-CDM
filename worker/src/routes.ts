@@ -9,6 +9,8 @@ import {
   createSession,
   deleteCurrentSession,
   hashPin,
+  isLoginLocked,
+  nextFailedLoginAttempt,
   normalizePseudo,
   normalizePseudoKey,
   serializeSessionCookie,
@@ -23,6 +25,14 @@ import type { GroupMemberRow, GroupRow, MatchRow, PredictionRow, User, UserProfi
 type AuthPayload = {
   pseudo?: string;
   pin?: string;
+};
+
+type LoginAttemptRow = {
+  pseudo_key: string;
+  failed_attempts: number;
+  window_started_at: string;
+  locked_until: string | null;
+  last_failed_at: string;
 };
 
 type PredictionPayload = {
@@ -136,6 +146,54 @@ function assertPin(pin: string): void {
       error instanceof Error ? error.message : "Code PIN invalide."
     );
   }
+}
+
+function pinLockError(): HttpError {
+  return new HttpError(429, "Trop de tentatives. Réessaie dans 15 minutes.");
+}
+
+async function getLoginAttempt(ctx: RequestContext, pseudoKey: string): Promise<LoginAttemptRow | null> {
+  return (
+    (await ctx.env.DB.prepare("SELECT * FROM login_attempts WHERE pseudo_key = ? LIMIT 1")
+      .bind(pseudoKey)
+      .first<LoginAttemptRow>()) ?? null
+  );
+}
+
+async function recordFailedLoginAttempt(
+  ctx: RequestContext,
+  pseudoKey: string,
+  attempt: LoginAttemptRow | null
+): Promise<void> {
+  const nextAttempt = nextFailedLoginAttempt(attempt);
+  const now = new Date().toISOString();
+  await ctx.env.DB.prepare(
+    `INSERT INTO login_attempts (pseudo_key, failed_attempts, window_started_at, locked_until, last_failed_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(pseudo_key) DO UPDATE SET
+       failed_attempts = excluded.failed_attempts,
+       window_started_at = excluded.window_started_at,
+       locked_until = excluded.locked_until,
+       last_failed_at = excluded.last_failed_at`
+  )
+    .bind(
+      pseudoKey,
+      nextAttempt.failedAttempts,
+      nextAttempt.windowStartedAt,
+      nextAttempt.lockedUntil,
+      now
+    )
+    .run();
+
+  if (nextAttempt.lockedUntil) {
+    throw pinLockError();
+  }
+}
+
+async function clearLoginAttempts(ctx: RequestContext, pseudoKey: string): Promise<void> {
+  await ctx.env.DB.prepare("DELETE FROM login_attempts WHERE pseudo_key = ?")
+    .bind(pseudoKey)
+    .run();
 }
 
 function isFinished(status: string): boolean {
@@ -406,6 +464,12 @@ async function login(ctx: RequestContext): Promise<Response> {
   const pseudo = normalizePseudo(body.pseudo ?? "");
   const pin = body.pin ?? "";
   assertPin(pin);
+  const pseudoKey = normalizePseudoKey(pseudo);
+
+  const loginAttempt = await getLoginAttempt(ctx, pseudoKey);
+  if (isLoginLocked(loginAttempt)) {
+    throw pinLockError();
+  }
 
   const user = await ctx.env.DB.prepare(
     `SELECT id, pseudo, pin_hash, created_at
@@ -418,8 +482,11 @@ async function login(ctx: RequestContext): Promise<Response> {
     .first<User & { pin_hash: string }>();
 
   if (!user || !(await verifyPin(pin, user.pin_hash))) {
+    await recordFailedLoginAttempt(ctx, pseudoKey, loginAttempt);
     throw new HttpError(401, "Pseudo ou PIN incorrect.");
   }
+
+  await clearLoginAttempts(ctx, pseudoKey);
 
   const token = await createSession(ctx.env, user.id);
   return json(
