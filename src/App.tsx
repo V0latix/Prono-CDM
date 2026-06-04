@@ -311,6 +311,8 @@ export function App() {
                 key={item.id}
                 className={view === item.id ? "active" : ""}
                 onClick={() => setView(item.id)}
+                aria-label={item.label}
+                title={item.label}
                 type="button"
               >
                 <Icon size={18} />
@@ -1112,20 +1114,13 @@ function Rules() {
       <h2>Barème</h2>
       <p>Score exact : 5 points. Bon résultat : 3 points. Bon écart de buts : +1 point.</p>
       <p>
-        Toute la phase à élimination directe est doublée : 10 points pour un score
-        exact, 6 points pour le bon résultat, 8 points si le bon écart est aussi
-        trouvé.
+        Les matchs à enjeu doublent le barème : 10 points pour un score exact,
+        6 points pour le bon résultat, 8 points si le bon écart est aussi trouvé.
       </p>
       <h2>Verrouillage</h2>
       <p>
         Un prono est modifiable jusqu'à l'heure de coup d'envoi enregistrée en base.
-        Le Worker refuse toute écriture après cette heure.
-      </p>
-      <h2>Élimination directe</h2>
-      <p>
-        Quand football-data.org fournit le vainqueur qualifié, le bon résultat est
-        calculé sur cette équipe. Si cette donnée manque, l'app utilise le score
-        final disponible comme hypothèse.
+        Après cette heure, il est automatiquement verrouillé.
       </p>
       <h2>Scores</h2>
       <p>

@@ -110,9 +110,11 @@ button {
 }
 
 .nav-list {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   flex: 1 1 auto;
-  justify-content: center;
+  width: min(100%, 690px);
+  min-width: 0;
   gap: 0;
   border: 2px solid var(--fg);
   background: transparent;
@@ -134,9 +136,17 @@ button {
   text-align: center;
   font-size: 0.8rem;
   font-weight: 700;
+  min-width: 0;
   transition:
     background-color 80ms ease,
     color 80ms ease;
+}
+
+.nav-list button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav-list button:last-child {
@@ -1067,11 +1077,11 @@ button {
     order: 2;
     flex: 1 1 100%;
     overflow-x: auto;
-    justify-content: flex-start;
+    width: 100%;
   }
 
   .nav-list button {
-    flex: 1 0 max-content;
+    padding-inline: 0.55rem;
   }
 
   .logout-button {
@@ -1127,6 +1137,15 @@ button {
   }
 
   .leaderboard-row > span:nth-child(n + 4) {
+    display: none;
+  }
+
+  .nav-list button {
+    min-height: 3rem;
+    padding-inline: 0.35rem;
+  }
+
+  .nav-list button span {
     display: none;
   }
 
