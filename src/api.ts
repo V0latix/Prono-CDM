@@ -56,7 +56,10 @@ export type LeaderboardRow = {
   points: number;
   exactScores: number;
   correctResults: number;
+  correctGoalDiffs: number;
   rank: number;
+  rankChange: number;
+  recentForm: Array<"exact" | "correct" | "bonus" | "miss">;
   photoUrl: string;
   tagline: string;
   favoriteTeam: string;

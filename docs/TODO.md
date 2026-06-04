@@ -23,11 +23,15 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 
 - Ajouter un classement par journée ou date de match.
 - Ajouter un classement hebdomadaire.
-- Ajouter des colonnes de tie-break : exacts, bons résultats, bonus écart, moyenne.
-- Ajouter une progression de rang : +2, -1, stable.
-- Ajouter une vue "forme récente" sur les 5 derniers matchs terminés.
 
 ## Priorité moyenne
+
+### Terminé - Classement
+
+- [x] Ajouter des colonnes de tie-break : exacts, bons résultats, bonus écart, moyenne.
+- [x] Ajouter une progression de rang : +2, -1, stable.
+- [x] Ajouter une vue "forme récente" sur les 5 derniers matchs terminés.
+- [x] Retirer les vues groupes et élimination directe du classement général.
 
 ### Terminé - Profil et compte
 

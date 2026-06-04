@@ -41,7 +41,10 @@ type LeaderboardRow = {
   points: number;
   exactScores: number;
   correctResults: number;
+  correctGoalDiffs: number;
   rank: number;
+  rankChange: number;
+  recentForm: Array<"exact" | "correct" | "bonus" | "miss">;
   photoUrl: string;
   tagline: string;
   favoriteTeam: string;
@@ -350,7 +353,7 @@ async function getPublicUserProfile(ctx: RequestContext): Promise<Response> {
     .bind(user.id)
     .first<UserProfileRow>();
   const stats = await getProfileStats(ctx, user.id);
-  const rank = (await buildLeaderboard(ctx, "general")).find(
+  const rank = (await buildLeaderboard(ctx)).find(
     (row) => row.userId === user.id
   );
 
@@ -525,32 +528,33 @@ async function savePrediction(ctx: RequestContext): Promise<Response> {
   return json(ctx.request, ctx.env, { match: publicMatch(match, prediction) });
 }
 
-async function buildLeaderboard(ctx: RequestContext, phase: string): Promise<LeaderboardRow[]> {
-  const users = await ctx.env.DB.prepare(
-    `SELECT users.id, users.pseudo, users.created_at,
-            user_profiles.photo_url, user_profiles.tagline, user_profiles.favorite_team
-     FROM users
-     LEFT JOIN user_profiles ON user_profiles.user_id = users.id
-     ORDER BY users.created_at ASC`
-  ).all<User & { photo_url: string | null; tagline: string | null; favorite_team: string | null }>();
-  const rows = await ctx.env.DB.prepare(
-    `SELECT predictions.*, matches.stage, matches.status
-     FROM predictions
-     JOIN matches ON matches.id = predictions.match_id`
-  ).all<PredictionRow & { stage: string; status: string }>();
+type LeaderboardPredictionRow = PredictionRow & {
+  stage: string;
+  status: string;
+  kickoff_at: string;
+};
+
+function createLeaderboardRows(
+  users: Array<User & { photo_url: string | null; tagline: string | null; favorite_team: string | null }>,
+  predictions: LeaderboardPredictionRow[]
+): LeaderboardRow[] {
   const byUser = new Map<string, LeaderboardRow>();
   const evaluatedByUser = new Map<string, number>();
   const successByUser = new Map<string, number>();
   const finishedPointsByUser = new Map<string, number>();
+  const recentRowsByUser = new Map<string, LeaderboardPredictionRow[]>();
 
-  for (const user of users.results ?? []) {
+  for (const user of users) {
     byUser.set(user.id, {
       userId: user.id,
       pseudo: user.pseudo,
       points: 0,
       exactScores: 0,
       correctResults: 0,
+      correctGoalDiffs: 0,
       rank: 0,
+      rankChange: 0,
+      recentForm: [],
       photoUrl: user.photo_url ?? "",
       tagline: user.tagline ?? "",
       favoriteTeam: user.favorite_team ?? "",
@@ -561,12 +565,10 @@ async function buildLeaderboard(ctx: RequestContext, phase: string): Promise<Lea
     evaluatedByUser.set(user.id, 0);
     successByUser.set(user.id, 0);
     finishedPointsByUser.set(user.id, 0);
+    recentRowsByUser.set(user.id, []);
   }
 
-  for (const row of rows.results ?? []) {
-    const stageKind = getStageKind(row.stage);
-    if (phase === "groups" && stageKind !== "GROUP") continue;
-    if (phase === "knockout" && stageKind !== "KNOCKOUT") continue;
+  for (const row of predictions) {
     const target = byUser.get(row.user_id);
     if (!target) continue;
     target.submittedPredictions += 1;
@@ -579,21 +581,19 @@ async function buildLeaderboard(ctx: RequestContext, phase: string): Promise<Lea
       );
       target.exactScores += row.exact_score ? 1 : 0;
       target.correctResults += row.correct_result && !row.exact_score ? 1 : 0;
+      target.correctGoalDiffs += row.correct_goal_diff && !row.exact_score ? 1 : 0;
       successByUser.set(
         row.user_id,
         (successByUser.get(row.user_id) ?? 0) +
           (row.exact_score || row.correct_result ? 1 : 0)
       );
+      recentRowsByUser.get(row.user_id)?.push(row);
     }
   }
 
-  const ranking = [...byUser.values()].sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
-    return a.pseudo.localeCompare(b.pseudo, "fr");
-  });
-  ranking.forEach((row, index) => {
-    row.rank = index + 1;
+  const ranking = [...byUser.values()];
+
+  for (const row of ranking) {
     const evaluated = evaluatedByUser.get(row.userId) ?? 0;
     row.averagePoints = evaluated
       ? (finishedPointsByUser.get(row.userId) ?? 0) / evaluated
@@ -601,7 +601,68 @@ async function buildLeaderboard(ctx: RequestContext, phase: string): Promise<Lea
     row.successRate = evaluated
       ? ((successByUser.get(row.userId) ?? 0) / evaluated) * 100
       : 0;
+    row.recentForm = (recentRowsByUser.get(row.userId) ?? [])
+      .sort((a, b) => Date.parse(b.kickoff_at) - Date.parse(a.kickoff_at))
+      .slice(0, 5)
+      .map((prediction) => {
+        if (prediction.exact_score) return "exact";
+        if (prediction.correct_goal_diff) return "bonus";
+        if (prediction.correct_result) return "correct";
+        return "miss";
+      });
+  }
+
+  ranking.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.exactScores !== a.exactScores) return b.exactScores - a.exactScores;
+    if (b.correctResults !== a.correctResults) return b.correctResults - a.correctResults;
+    if (b.correctGoalDiffs !== a.correctGoalDiffs) return b.correctGoalDiffs - a.correctGoalDiffs;
+    if (b.averagePoints !== a.averagePoints) return b.averagePoints - a.averagePoints;
+    return a.pseudo.localeCompare(b.pseudo, "fr");
   });
+
+  ranking.forEach((row, index) => {
+    row.rank = index + 1;
+  });
+
+  return ranking;
+}
+
+async function buildLeaderboard(ctx: RequestContext): Promise<LeaderboardRow[]> {
+  const users = await ctx.env.DB.prepare(
+    `SELECT users.id, users.pseudo, users.created_at,
+            user_profiles.photo_url, user_profiles.tagline, user_profiles.favorite_team
+     FROM users
+     LEFT JOIN user_profiles ON user_profiles.user_id = users.id
+     ORDER BY users.created_at ASC`
+  ).all<User & { photo_url: string | null; tagline: string | null; favorite_team: string | null }>();
+  const rows = await ctx.env.DB.prepare(
+    `SELECT predictions.*, matches.stage, matches.status, matches.kickoff_at
+     FROM predictions
+     JOIN matches ON matches.id = predictions.match_id`
+  ).all<LeaderboardPredictionRow>();
+  const userRows = users.results ?? [];
+  const predictionRows = rows.results ?? [];
+  const latestFinishedKickoff = predictionRows
+    .filter((row) => isFinished(row.status))
+    .map((row) => row.kickoff_at)
+    .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
+  const ranking = createLeaderboardRows(userRows, predictionRows);
+
+  if (latestFinishedKickoff) {
+    const previousRanking = createLeaderboardRows(
+      userRows,
+      predictionRows.filter(
+        (row) => !isFinished(row.status) || Date.parse(row.kickoff_at) < Date.parse(latestFinishedKickoff)
+      )
+    );
+    const previousRankByUser = new Map(
+      previousRanking.map((row) => [row.userId, row.rank])
+    );
+    for (const row of ranking) {
+      row.rankChange = (previousRankByUser.get(row.userId) ?? row.rank) - row.rank;
+    }
+  }
 
   return ranking;
 }
@@ -609,9 +670,8 @@ async function buildLeaderboard(ctx: RequestContext, phase: string): Promise<Lea
 async function leaderboard(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "GET");
   requireUser(ctx);
-  const phase = ctx.url.searchParams.get("phase") ?? "general";
-  const ranking = await buildLeaderboard(ctx, phase);
-  return json(ctx.request, ctx.env, { leaderboard: ranking, phase });
+  const ranking = await buildLeaderboard(ctx);
+  return json(ctx.request, ctx.env, { leaderboard: ranking });
 }
 
 async function dashboard(ctx: RequestContext): Promise<Response> {
@@ -661,7 +721,7 @@ async function dashboard(ctx: RequestContext): Promise<Response> {
         .bind(user.id, nextCompetitionDay.competition_day, now)
         .all<Record<string, unknown>>()
     : { results: [] };
-  const leaderboardData = await buildLeaderboard(ctx, "general");
+  const leaderboardData = await buildLeaderboard(ctx);
   const activity = await ctx.env.DB.prepare(
     `SELECT activity_feed.*, users.pseudo
      FROM activity_feed

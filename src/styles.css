@@ -475,7 +475,7 @@ button {
 
 .leaderboard-row {
   display: grid;
-  grid-template-columns: 46px 44px minmax(170px, 1fr) repeat(6, minmax(86px, auto));
+  grid-template-columns: 46px 44px minmax(170px, 1fr) repeat(7, minmax(78px, auto));
   align-items: center;
   width: 100%;
   min-height: 4.35rem;
@@ -538,6 +538,58 @@ button {
 .leaderboard-row:hover,
 .leaderboard-row:focus-visible {
   background: var(--surface);
+}
+
+.rank-change {
+  font-weight: 800;
+}
+
+.rank-change.up {
+  color: var(--success);
+}
+
+.rank-change.down {
+  color: var(--danger);
+}
+
+.recent-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.form-dot {
+  display: grid;
+  place-items: center;
+  width: 1.45rem;
+  aspect-ratio: 1;
+  border: 2px solid var(--fg);
+  background: #fff;
+  color: var(--fg);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.form-dot.exact {
+  background: var(--success);
+  color: #fff;
+}
+
+.form-dot.bonus {
+  background: var(--accent);
+  color: #fff;
+}
+
+.form-dot.correct {
+  background: var(--surface);
+}
+
+.form-dot.miss {
+  color: var(--danger);
+}
+
+.form-empty {
+  color: var(--muted);
 }
 
 .activity-item {
@@ -942,10 +994,12 @@ button {
   }
 
   .leaderboard-row {
-    grid-template-columns: 42px 40px minmax(140px, 1fr) 76px 84px;
+    grid-template-columns: 42px 40px minmax(140px, 1fr) 76px 84px 70px 130px;
   }
 
-  .leaderboard-row > span:nth-last-child(-n + 4) {
+  .leaderboard-row > span:nth-child(6),
+  .leaderboard-row > span:nth-child(7),
+  .leaderboard-row > span:nth-child(8) {
     display: none;
   }
 }

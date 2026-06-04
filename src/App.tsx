@@ -193,6 +193,19 @@ function formatPercent(value: number): string {
   return `${Math.round(value)}%`;
 }
 
+function rankChangeLabel(value: number): string {
+  if (value > 0) return `+${value}`;
+  if (value < 0) return String(value);
+  return "stable";
+}
+
+function recentFormLabel(value: LeaderboardRow["recentForm"][number]): string {
+  if (value === "exact") return "E";
+  if (value === "bonus") return "+";
+  if (value === "correct") return "R";
+  return "0";
+}
+
 function buildProfileStats(matches: Match[] = []): ProfileStats {
   const predictedMatches = matches.filter((match) => match.prediction);
   const finishedPredictedMatches = predictedMatches.filter(
@@ -690,10 +703,8 @@ function Leaderboard({
   currentUser: User;
   onOpenProfile: (userId: string) => void;
 }) {
-  const [phase, setPhase] = useState("general");
   const { data, error, reload, loading } = useResource<{ leaderboard: LeaderboardRow[] }>(
-    `/api/leaderboard?phase=${phase}`,
-    [phase]
+    "/api/leaderboard"
   );
 
   if (loading) return <ShellState label="Calcul du classement..." />;
@@ -702,22 +713,6 @@ function Leaderboard({
   return (
     <section className="content-section">
       <SectionTitle title="Classement général" action={<RefreshButton onClick={reload} />} />
-      <div className="segmented compact-tabs">
-        {[
-          ["general", "Général"],
-          ["groups", "Groupes"],
-          ["knockout", "Élimination"]
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            className={phase === id ? "active" : ""}
-            onClick={() => setPhase(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
       <div className="leaderboard-table">
         {data?.leaderboard.map((row) => (
           <button
@@ -737,9 +732,22 @@ function Leaderboard({
             <span>{row.points} pts</span>
             <span>{row.exactScores} exacts</span>
             <span>{row.correctResults} bons résultats</span>
-            <span>{row.submittedPredictions} pronos</span>
-            <span>{formatPercent(row.successRate)} réussite</span>
-            <span>{row.favoriteTeam || "Favori ?"}</span>
+            <span>{row.correctGoalDiffs} écarts</span>
+            <span>{row.averagePoints.toFixed(1)} moy.</span>
+            <span className={`rank-change ${row.rankChange > 0 ? "up" : row.rankChange < 0 ? "down" : ""}`}>
+              {rankChangeLabel(row.rankChange)}
+            </span>
+            <span className="recent-form" aria-label={`Forme récente ${row.recentForm.join(", ") || "vide"}`}>
+              {row.recentForm.length ? (
+                row.recentForm.map((item, index) => (
+                  <span key={`${item}-${index}`} className={`form-dot ${item}`}>
+                    {recentFormLabel(item)}
+                  </span>
+                ))
+              ) : (
+                <span className="form-empty">-</span>
+              )}
+            </span>
           </button>
         ))}
       </div>
