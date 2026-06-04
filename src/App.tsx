@@ -1415,7 +1415,7 @@ function Rules() {
       <h2>Barème</h2>
       <p>Score exact : 5 points. Bon résultat : 3 points. Bon écart de buts : +1 point.</p>
       <p>
-        Les matchs à enjeu doublent le barème : 10 points pour un score exact,
+        La phase finale double le barème : 10 points pour un score exact,
         6 points pour le bon résultat, 8 points si le bon écart est aussi trouvé.
       </p>
       <h2>Verrouillage</h2>

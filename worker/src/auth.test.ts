@@ -3,6 +3,7 @@ import {
   clearSessionCookie,
   hashPin,
   normalizePseudo,
+  normalizePseudoKey,
   serializeSessionCookie,
   validatePin,
   verifyPin
@@ -16,6 +17,11 @@ function env(overrides: Partial<Env> = {}): Env {
 describe("auth constraints", () => {
   it("normalizes pseudo whitespace without changing casing", () => {
     expect(normalizePseudo("  Romain   Desm  ")).toBe("Romain Desm");
+  });
+
+  it("builds a case-insensitive pseudo key for account lookup", () => {
+    expect(normalizePseudoKey("  CloVis   ")).toBe("clovis");
+    expect(normalizePseudoKey("DEMS")).toBe("dems");
   });
 
   it("accepts only numeric PINs with 4 to 8 digits", () => {

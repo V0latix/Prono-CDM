@@ -266,6 +266,8 @@ describe("App components", () => {
 
     await browserUser.click(screen.getByRole("button", { name: /règlement/i }));
     expect(await screen.findByText("Verrouillage")).toBeInTheDocument();
+    expect(screen.getByText(/La phase finale double le barème/)).toBeInTheDocument();
+    expect(screen.queryByText(/matchs à enjeu/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Le plan gratuit football-data.org/)).toBeInTheDocument();
     expect(screen.queryByText("Élimination directe")).not.toBeInTheDocument();
     expect(screen.queryByText(/Worker/i)).not.toBeInTheDocument();

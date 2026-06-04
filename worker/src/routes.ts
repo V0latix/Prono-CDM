@@ -10,6 +10,7 @@ import {
   deleteCurrentSession,
   hashPin,
   normalizePseudo,
+  normalizePseudoKey,
   serializeSessionCookie,
   validatePin,
   verifyPin
@@ -246,6 +247,16 @@ async function register(ctx: RequestContext): Promise<Response> {
   }
   assertPin(pin);
 
+  const pseudoKey = normalizePseudoKey(pseudo);
+  const existingUser = await ctx.env.DB.prepare(
+    "SELECT id FROM users WHERE pseudo = ? COLLATE NOCASE LIMIT 1"
+  )
+    .bind(pseudoKey)
+    .first<{ id: string }>();
+  if (existingUser) {
+    throw new HttpError(409, "Ce pseudo est déjà utilisé.");
+  }
+
   const userId = crypto.randomUUID();
   const pinHash = await hashPin(pin);
   try {
@@ -284,7 +295,11 @@ async function login(ctx: RequestContext): Promise<Response> {
   assertPin(pin);
 
   const user = await ctx.env.DB.prepare(
-    "SELECT id, pseudo, pin_hash, created_at FROM users WHERE pseudo = ? LIMIT 1"
+    `SELECT id, pseudo, pin_hash, created_at
+     FROM users
+     WHERE pseudo = ? COLLATE NOCASE
+     ORDER BY created_at ASC
+     LIMIT 1`
   )
     .bind(pseudo)
     .first<User & { pin_hash: string }>();

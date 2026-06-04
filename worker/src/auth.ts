@@ -36,6 +36,10 @@ export function normalizePseudo(pseudo: string): string {
   return pseudo.trim().replace(/\s+/g, " ");
 }
 
+export function normalizePseudoKey(pseudo: string): string {
+  return normalizePseudo(pseudo).toLocaleLowerCase("fr-FR");
+}
+
 export function validatePin(pin: string): void {
   if (!/^\d{4,8}$/.test(pin)) {
     throw new Error("Le PIN doit contenir 4 à 8 chiffres.");
