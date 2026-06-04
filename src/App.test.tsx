@@ -453,7 +453,7 @@ describe("App components", () => {
     expect(calls.some((call) => call.url === "/api/results")).toBe(false);
   });
 
-  it("toggles and persists the global dark mode", async () => {
+  it("selects and persists a high contrast theme", async () => {
     window.localStorage.clear();
     installFetchMock([
       { path: "/api/me", body: { user } },
@@ -476,10 +476,13 @@ describe("App components", () => {
     await screen.findByRole("heading", { name: "Dashboard" });
     expect(document.documentElement.dataset.theme).toBe("light");
 
-    await browserUser.click(screen.getByRole("button", { name: "Activer le mode sombre" }));
-    expect(document.documentElement.dataset.theme).toBe("dark");
-    expect(window.localStorage.getItem("prono-cdm-theme")).toBe("dark");
-    expect(screen.getByRole("button", { name: "Activer le mode clair" })).toBeInTheDocument();
+    const selector = screen.getByRole("combobox", { name: "Choisir le thème" });
+    expect(screen.getByRole("option", { name: "Contraste" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Électrique" })).toBeInTheDocument();
+
+    await browserUser.selectOptions(selector, "electric");
+    expect(document.documentElement.dataset.theme).toBe("electric");
+    expect(window.localStorage.getItem("prono-cdm-theme")).toBe("electric");
   });
 
   it("requires a qualified team for tied knockout predictions before saving", async () => {
@@ -524,7 +527,7 @@ describe("App components", () => {
     const saveButton = await screen.findByRole("button", { name: /enregistrer/i });
     expect(saveButton).toBeDisabled();
 
-    await browserUser.selectOptions(screen.getByRole("combobox"), "France");
+    await browserUser.selectOptions(screen.getByRole("combobox", { name: "Équipe qualifiée" }), "France");
     expect(saveButton).not.toBeDisabled();
     await browserUser.click(saveButton);
 

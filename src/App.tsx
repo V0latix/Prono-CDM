@@ -6,14 +6,13 @@ import {
   Lock,
   LogOut,
   Medal,
-  Moon,
+  Palette,
   RefreshCw,
   Scale,
   Save,
   ShieldCheck,
   Sparkles,
   Star,
-  Sun,
   Trophy,
   UserRound
 } from "lucide-react";
@@ -39,7 +38,14 @@ import {
 } from "./api";
 
 type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "profile" | "publicProfile";
-type ThemeMode = "light" | "dark";
+const themeOptions = [
+  { id: "light", label: "Clair" },
+  { id: "dark", label: "Sombre" },
+  { id: "contrast", label: "Contraste" },
+  { id: "electric", label: "Électrique" },
+  { id: "pitch", label: "Terrain" }
+] as const;
+type ThemeMode = (typeof themeOptions)[number]["id"];
 
 type DashboardData = {
   nextMatches: Match[];
@@ -287,8 +293,12 @@ function initialTheme(): ThemeMode {
     typeof window.localStorage?.getItem === "function"
       ? window.localStorage.getItem(themeStorageKey)
       : null;
-  if (stored === "light" || stored === "dark") return stored;
+  if (isThemeMode(stored)) return stored;
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function isThemeMode(value: string | null): value is ThemeMode {
+  return themeOptions.some((option) => option.id === value);
 }
 
 function readImageFile(file: File): Promise<string> {
@@ -470,8 +480,8 @@ export function App() {
     }
   }, [theme]);
 
-  function toggleTheme() {
-    setTheme((current) => (current === "dark" ? "light" : "dark"));
+  function changeTheme(nextTheme: ThemeMode) {
+    setTheme(nextTheme);
   }
 
   useEffect(() => {
@@ -486,7 +496,7 @@ export function App() {
   }
 
   if (!user) {
-    return <AuthScreen onAuth={setUser} theme={theme} onToggleTheme={toggleTheme} />;
+    return <AuthScreen onAuth={setUser} theme={theme} onThemeChange={changeTheme} />;
   }
 
   return (
@@ -518,7 +528,7 @@ export function App() {
           })}
         </nav>
         <div className="sidebar-actions">
-          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          <ThemeSelector theme={theme} onChange={changeTheme} />
           <button
             className="logout-button"
             type="button"
@@ -568,11 +578,11 @@ export function App() {
 function AuthScreen({
   onAuth,
   theme,
-  onToggleTheme
+  onThemeChange
 }: {
   onAuth: (user: User) => void;
   theme: ThemeMode;
-  onToggleTheme: () => void;
+  onThemeChange: (theme: ThemeMode) => void;
 }) {
   const [mode, setMode] = useState<"login" | "register">("register");
   const [pseudo, setPseudo] = useState("");
@@ -604,7 +614,7 @@ function AuthScreen({
     <div className="auth-layout">
       <section className="auth-panel">
         <div className="auth-actions">
-          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+          <ThemeSelector theme={theme} onChange={onThemeChange} />
         </div>
         <div className="brand compact">
           <div className="brand-mark">26</div>
@@ -994,6 +1004,7 @@ function PredictionEditor({
         </label>
         {tiedKnockout && (
           <select
+            aria-label="Équipe qualifiée"
             value={winnerTeam ?? ""}
             disabled={match.locked}
             onChange={(event) => setWinnerTeam(event.target.value || null)}
@@ -1535,25 +1546,33 @@ function BadgesSection({ badges }: { badges: ProfileBadge[] }) {
   );
 }
 
-function ThemeToggle({
+function ThemeSelector({
   theme,
-  onToggle
+  onChange
 }: {
   theme: ThemeMode;
-  onToggle: () => void;
+  onChange: (theme: ThemeMode) => void;
 }) {
-  const dark = theme === "dark";
   return (
-    <button
-      className="theme-toggle"
-      type="button"
-      onClick={onToggle}
-      aria-label={dark ? "Activer le mode clair" : "Activer le mode sombre"}
-      title={dark ? "Mode clair" : "Mode sombre"}
-    >
-      {dark ? <Sun size={18} /> : <Moon size={18} />}
-      <span>{dark ? "Clair" : "Sombre"}</span>
-    </button>
+    <label className="theme-toggle theme-select" title="Thème de couleurs">
+      <Palette size={18} />
+      <span className="visually-hidden">Thème</span>
+      <select
+        aria-label="Choisir le thème"
+        value={theme}
+        onChange={(event) => {
+          if (isThemeMode(event.target.value)) {
+            onChange(event.target.value);
+          }
+        }}
+      >
+        {themeOptions.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
