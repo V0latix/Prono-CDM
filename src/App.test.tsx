@@ -310,6 +310,45 @@ describe("App components", () => {
     expect(screen.getByLabelText("Score Argentine")).toBeDisabled();
   });
 
+  it("renders flags for football-data English team names", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/matches",
+        body: {
+          matches: [
+            match({
+              id: "swiss-1",
+              homeTeam: "Switzerland",
+              awayTeam: "Germany"
+            })
+          ]
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getAllByRole("button", { name: /mes pronos/i })[0]);
+
+    expect(await screen.findByText("Switzerland")).toBeInTheDocument();
+    expect(screen.getByText("Germany")).toBeInTheDocument();
+    expect(screen.getByText("🇨🇭")).toBeInTheDocument();
+    expect(screen.getByText("🇩🇪")).toBeInTheDocument();
+  });
+
   it("shows an empty waiting state in the results tab for now", async () => {
     const { calls } = installFetchMock([
       { path: "/api/me", body: { user } },
