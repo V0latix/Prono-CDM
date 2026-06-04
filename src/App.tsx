@@ -497,38 +497,6 @@ function Dashboard({ onOpenPredictions }: { onOpenPredictions: () => void }) {
         <Metric label="Points" value={String(data.rank?.points ?? 0)} />
         <Metric label="Scores exacts" value={String(data.rank?.exactScores ?? 0)} />
       </section>
-      <section className="content-section">
-        <SectionTitle
-          title="Données matchs"
-          action={
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={runSync}
-              disabled={syncing}
-            >
-              <RefreshCw size={16} />
-              {syncing ? "Synchronisation..." : "Synchroniser"}
-            </button>
-          }
-        />
-        <div className="sync-grid">
-          <SyncStat label="État" value={syncStatusLabel(data.syncStatus.status)} />
-          <SyncStat
-            label="Dernière réussite"
-            value={
-              data.syncStatus.lastSuccessAt
-                ? formatDate(data.syncStatus.lastSuccessAt)
-                : "-"
-            }
-          />
-          <SyncStat label="Matchs importés" value={String(data.syncStatus.lastSyncedMatches)} />
-        </div>
-        {data.syncStatus.lastError && (
-          <p className="form-error sync-error">{data.syncStatus.lastError}</p>
-        )}
-        {syncMessage && <p className="inline-message">{syncMessage}</p>}
-      </section>
       <section className="content-section dashboard-block-attention">
         <SectionTitle
           title="Prédictions à faire maintenant"
@@ -580,6 +548,38 @@ function Dashboard({ onOpenPredictions }: { onOpenPredictions: () => void }) {
             ))}
           </div>
         )}
+      </section>
+      <section className="content-section">
+        <SectionTitle
+          title="Données matchs"
+          action={
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={runSync}
+              disabled={syncing}
+            >
+              <RefreshCw size={16} />
+              {syncing ? "Synchronisation..." : "Synchroniser"}
+            </button>
+          }
+        />
+        <div className="sync-grid">
+          <SyncStat label="État" value={syncStatusLabel(data.syncStatus.status)} />
+          <SyncStat
+            label="Dernière réussite"
+            value={
+              data.syncStatus.lastSuccessAt
+                ? formatDate(data.syncStatus.lastSuccessAt)
+                : "-"
+            }
+          />
+          <SyncStat label="Matchs importés" value={String(data.syncStatus.lastSyncedMatches)} />
+        </div>
+        {data.syncStatus.lastError && (
+          <p className="form-error sync-error">{data.syncStatus.lastError}</p>
+        )}
+        {syncMessage && <p className="inline-message">{syncMessage}</p>}
       </section>
     </div>
   );

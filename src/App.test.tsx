@@ -243,6 +243,10 @@ describe("App components", () => {
     expect(screen.getByText(/1 à compléter/)).toBeInTheDocument();
     expect(screen.getByText("Marie prend la tête du classement")).toBeInTheDocument();
     expect(screen.getByText("Romain enchaîne 3 bons résultats")).toBeInTheDocument();
+    expect(
+      screen.getByText("Activité").compareDocumentPosition(screen.getByText("Données matchs")) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
 
     await browserUser.click(screen.getByRole("button", { name: /classement/i }));
     expect(await screen.findByText("Marie")).toBeInTheDocument();
