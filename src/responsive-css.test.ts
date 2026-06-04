@@ -30,4 +30,11 @@ describe("responsive CSS", () => {
     expect(tablet).not.toContain(".sync-grid,");
     expect(tablet).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
   });
+
+  it("defines dark theme variables for global surfaces", () => {
+    expect(css).toContain('html[data-theme="dark"]');
+    expect(css).toContain("--panel: #151a20");
+    expect(css).toContain("--on-accent: #07101f");
+    expect(css).toContain("background: var(--panel)");
+  });
 });

@@ -310,7 +310,36 @@ describe("App components", () => {
     expect(screen.getByLabelText("Score Argentine")).toBeDisabled();
   });
 
-  it("shows results without the redundant finished-matches title and previews future management", async () => {
+  it("shows an empty waiting state in the results tab for now", async () => {
+    const { calls } = installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getByRole("button", { name: /résultats/i }));
+
+    expect(screen.getByText("Résultats en attente.")).toBeInTheDocument();
+    expect(screen.queryByText("Matchs terminés")).not.toBeInTheDocument();
+    expect(screen.queryByText("Gestion à venir")).not.toBeInTheDocument();
+    expect(calls.some((call) => call.url === "/api/results")).toBe(false);
+  });
+
+  it("toggles and persists the global dark mode", async () => {
+    window.localStorage.clear();
     installFetchMock([
       { path: "/api/me", body: { user } },
       {
@@ -323,30 +352,6 @@ describe("App components", () => {
           activity: [],
           syncStatus
         }
-      },
-      {
-        path: "/api/results",
-        body: {
-          results: [
-            match({
-              id: "result-1",
-              status: "FINISHED",
-              locked: true,
-              homeScore: 2,
-              awayScore: 1,
-              prediction: {
-                predictedHomeScore: 2,
-                predictedAwayScore: 1,
-                predictedWinnerTeam: "France",
-                points: 5,
-                exactScore: true,
-                correctResult: true,
-                correctGoalDiff: true,
-                updatedAt: "2026-06-16T10:00:00.000Z"
-              }
-            })
-          ]
-        }
       }
     ]);
     const browserUser = userEvent.setup();
@@ -354,15 +359,12 @@ describe("App components", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: "Dashboard" });
-    await browserUser.click(screen.getByRole("button", { name: /résultats/i }));
+    expect(document.documentElement.dataset.theme).toBe("light");
 
-    expect(await screen.findByText("France - Argentine")).toBeInTheDocument();
-    expect(screen.getByText("🇫🇷")).toBeInTheDocument();
-    expect(screen.getByText("🇦🇷")).toBeInTheDocument();
-    expect(screen.queryByText("Matchs terminés")).not.toBeInTheDocument();
-    expect(screen.getByText("Gestion à venir")).toBeInTheDocument();
-    expect(screen.getByText("Scores des matchs finis")).toBeInTheDocument();
-    expect(screen.getByText("Classements associés")).toBeInTheDocument();
+    await browserUser.click(screen.getByRole("button", { name: "Activer le mode sombre" }));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(window.localStorage.getItem("prono-cdm-theme")).toBe("dark");
+    expect(screen.getByRole("button", { name: "Activer le mode clair" })).toBeInTheDocument();
   });
 
   it("requires a qualified team for tied knockout predictions before saving", async () => {

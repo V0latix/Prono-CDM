@@ -6,12 +6,14 @@ import {
   Lock,
   LogOut,
   Medal,
+  Moon,
   RefreshCw,
   Scale,
   Save,
   ShieldCheck,
   Sparkles,
   Star,
+  Sun,
   Trophy,
   UserRound
 } from "lucide-react";
@@ -37,6 +39,7 @@ import {
 } from "./api";
 
 type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "profile" | "publicProfile";
+type ThemeMode = "light" | "dark";
 
 type DashboardData = {
   nextMatches: Match[];
@@ -71,6 +74,7 @@ const defaultProfile: UserProfile = {
   favoriteTeam: "France",
   updatedAt: null
 };
+const themeStorageKey = "prono-cdm-theme";
 const profilePhotoMaxSize = 520;
 const profilePhotoQuality = 0.78;
 
@@ -235,6 +239,16 @@ function initials(pseudo: string): string {
   return pseudo.slice(0, 2).toUpperCase();
 }
 
+function initialTheme(): ThemeMode {
+  if (typeof window === "undefined") return "light";
+  const stored =
+    typeof window.localStorage?.getItem === "function"
+      ? window.localStorage.getItem(themeStorageKey)
+      : null;
+  if (stored === "light" || stored === "dark") return stored;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 function readImageFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith("image/")) {
@@ -393,6 +407,18 @@ export function App() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [view, setView] = useState<View>("dashboard");
   const [publicProfileUserId, setPublicProfileUserId] = useState("");
+  const [theme, setTheme] = useState<ThemeMode>(initialTheme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    if (typeof window.localStorage?.setItem === "function") {
+      window.localStorage.setItem(themeStorageKey, theme);
+    }
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
+  }
 
   useEffect(() => {
     api<{ user: User | null }>("/api/me")
@@ -406,7 +432,7 @@ export function App() {
   }
 
   if (!user) {
-    return <AuthScreen onAuth={setUser} />;
+    return <AuthScreen onAuth={setUser} theme={theme} onToggleTheme={toggleTheme} />;
   }
 
   return (
@@ -437,17 +463,20 @@ export function App() {
             );
           })}
         </nav>
-        <button
-          className="logout-button"
-          type="button"
-          onClick={async () => {
-            await api("/api/auth/logout", { method: "POST" });
-            setUser(null);
-          }}
-        >
-          <LogOut size={18} />
-          Déconnexion
-        </button>
+        <div className="sidebar-actions">
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          <button
+            className="logout-button"
+            type="button"
+            onClick={async () => {
+              await api("/api/auth/logout", { method: "POST" });
+              setUser(null);
+            }}
+          >
+            <LogOut size={18} />
+            Déconnexion
+          </button>
+        </div>
       </aside>
       <main className="main-area">
         <header className="topbar">
@@ -482,7 +511,15 @@ export function App() {
   );
 }
 
-function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
+function AuthScreen({
+  onAuth,
+  theme,
+  onToggleTheme
+}: {
+  onAuth: (user: User) => void;
+  theme: ThemeMode;
+  onToggleTheme: () => void;
+}) {
   const [mode, setMode] = useState<"login" | "register">("register");
   const [pseudo, setPseudo] = useState("");
   const [pin, setPin] = useState("");
@@ -512,6 +549,9 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
   return (
     <div className="auth-layout">
       <section className="auth-panel">
+        <div className="auth-actions">
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+        </div>
         <div className="brand compact">
           <div className="brand-mark">26</div>
           <div>
@@ -885,48 +925,10 @@ function Leaderboard({
 }
 
 function Results() {
-  const { data, error, reload, loading } = useResource<{ results: Match[] }>("/api/results");
-  if (loading) return <ShellState label="Chargement des résultats..." />;
-  if (error) return <ErrorState error={error} onRetry={reload} />;
-
   return (
-    <div className="view-grid">
-      <section className="content-section">
-        <div className="results-actions">
-          <RefreshButton onClick={reload} />
-        </div>
-        {data?.results.length ? (
-          <div className="match-list">
-            {data.results.map((match) => (
-              <MatchLine key={match.id} match={match} showResult />
-            ))}
-          </div>
-        ) : (
-          <EmptyState text="Aucun résultat disponible. Le plan gratuit football-data.org peut être différé." />
-        )}
-      </section>
-
-      <section className="content-section">
-        <SectionTitle title="Gestion à venir" />
-        <div className="result-planning-grid">
-          <div className="result-planning-card">
-            <Medal size={18} />
-            <strong>Scores des matchs finis</strong>
-            <span>Corriger ou valider un score après publication officielle.</span>
-          </div>
-          <div className="result-planning-card">
-            <RefreshCw size={18} />
-            <strong>Recalcul des points</strong>
-            <span>Relancer le calcul après une correction de résultat.</span>
-          </div>
-          <div className="result-planning-card">
-            <Trophy size={18} />
-            <strong>Classements associés</strong>
-            <span>Préparer des vues par journée, phase ou période.</span>
-          </div>
-        </div>
-      </section>
-    </div>
+    <section className="content-section results-empty-section">
+      <EmptyState text="Résultats en attente." />
+    </section>
   );
 }
 
@@ -1372,6 +1374,28 @@ function BadgesSection({ badges }: { badges: ProfileBadge[] }) {
         <EmptyState text="Les badges apparaîtront après les premiers résultats." />
       )}
     </section>
+  );
+}
+
+function ThemeToggle({
+  theme,
+  onToggle
+}: {
+  theme: ThemeMode;
+  onToggle: () => void;
+}) {
+  const dark = theme === "dark";
+  return (
+    <button
+      className="theme-toggle"
+      type="button"
+      onClick={onToggle}
+      aria-label={dark ? "Activer le mode clair" : "Activer le mode sombre"}
+      title={dark ? "Mode clair" : "Mode sombre"}
+    >
+      {dark ? <Sun size={18} /> : <Moon size={18} />}
+      <span>{dark ? "Clair" : "Sombre"}</span>
+    </button>
   );
 }
 
