@@ -648,6 +648,26 @@ async function removeGroupMember(
   });
 }
 
+async function deleteGroup(ctx: RequestContext, groupId: string): Promise<Response> {
+  assertMethod(ctx, "DELETE");
+  const user = requireUser(ctx);
+  const group = await ctx.env.DB.prepare("SELECT * FROM prediction_groups WHERE id = ? LIMIT 1")
+    .bind(groupId)
+    .first<GroupRow>();
+  if (!group) throw new HttpError(404, "Groupe introuvable.");
+  if (group.owner_user_id !== user.id) {
+    throw new HttpError(403, "Seul le créateur du groupe peut le supprimer.");
+  }
+
+  await ctx.env.DB.prepare("DELETE FROM prediction_groups WHERE id = ?")
+    .bind(group.id)
+    .run();
+
+  return json(ctx.request, ctx.env, {
+    groups: await getPublicGroups(ctx, user.id, { includeMembers: true })
+  });
+}
+
 async function listMatches(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "GET");
   const user = requireUser(ctx);
@@ -1098,6 +1118,8 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname === "/api/groups") {
     return ctx.request.method === "GET" ? listGroups(ctx) : createGroup(ctx);
   }
+  const groupDeleteMatch = pathname.match(/^\/api\/groups\/([^/]+)$/);
+  if (groupDeleteMatch && ctx.request.method === "DELETE") return deleteGroup(ctx, groupDeleteMatch[1]);
   const groupJoinMatch = pathname.match(/^\/api\/groups\/([^/]+)\/join$/);
   if (groupJoinMatch) return joinGroup(ctx, groupJoinMatch[1]);
   const groupLeaveMatch = pathname.match(/^\/api\/groups\/([^/]+)\/leave$/);

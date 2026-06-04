@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import type { Group, LeaderboardRow, Match, ProfileBadge } from "./api";
 import { installFetchMock } from "./test/fetchMock";
@@ -709,6 +709,11 @@ describe("App components", () => {
         body: { groups: [] }
       },
       {
+        method: "DELETE",
+        path: "/api/groups/group-1",
+        body: { groups: [] }
+      },
+      {
         path: "/api/matches",
         body: {
           matches: [
@@ -756,6 +761,7 @@ describe("App components", () => {
       }
     ]);
     const browserUser = userEvent.setup();
+    vi.stubGlobal("confirm", vi.fn(() => true));
 
     render(<App />);
 
@@ -774,6 +780,9 @@ describe("App components", () => {
 
     await browserUser.click(screen.getByRole("button", { name: "Retirer" }));
     await waitFor(() => expect(calls.some((call) => call.url === "/api/groups/group-1/members/user-2")).toBe(true));
+
+    await browserUser.click(screen.getByRole("button", { name: "Supprimer le groupe" }));
+    await waitFor(() => expect(calls.some((call) => call.url === "/api/groups/group-1" && call.init?.method === "DELETE")).toBe(true));
 
     const photo = new File(["avatar"], "avatar.png", { type: "image/png" });
     expect(screen.getByLabelText("Choisir une photo")).toHaveAttribute("accept", "image/*");

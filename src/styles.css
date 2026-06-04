@@ -686,6 +686,7 @@ button {
 .prediction-card-footer button,
 .primary-button,
 .secondary-button,
+.danger-button,
 .empty-state button,
 .icon-button {
   display: inline-flex;
@@ -710,6 +711,7 @@ button {
 .prediction-card-footer button:hover:not(:disabled),
 .primary-button:hover:not(:disabled),
 .secondary-button:hover:not(:disabled),
+.danger-button:hover:not(:disabled),
 .empty-state button:hover:not(:disabled),
 .icon-button:hover:not(:disabled) {
   border-color: var(--fg);
@@ -724,10 +726,17 @@ button {
   color: var(--fg);
 }
 
+.danger-button {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 .score-editor button:disabled,
 .prediction-card-footer button:disabled,
 .primary-button:disabled,
-.secondary-button:disabled {
+.secondary-button:disabled,
+.danger-button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -1414,6 +1423,10 @@ button {
   gap: 0.65rem;
 }
 
+.group-card-title {
+  min-width: 0;
+}
+
 .group-card-header strong,
 .public-group-item strong {
   display: block;
@@ -1421,6 +1434,7 @@ button {
   font-size: 1rem;
   font-weight: 800;
   letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
 }
 
 .group-card-header span,
@@ -1436,22 +1450,50 @@ button {
   border-top: 2px solid var(--fg);
 }
 
-.group-member-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
+.group-members-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
-.group-member-row span {
+.group-member-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.4rem;
+}
+
+.group-member-name {
   min-width: 0;
   overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.group-member-role {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.group-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
 .group-member-row .secondary-button,
 .group-card-actions .secondary-button,
-.group-card-actions .primary-button {
+.group-card-actions .primary-button,
+.group-card-actions .danger-button {
   min-height: 2.25rem;
+}
+
+.compact-button {
+  padding-inline: 0.65rem;
 }
 
 .group-card-actions {
@@ -1791,6 +1833,20 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .group-member-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .group-member-row .compact-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .group-card-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
   .prediction-day-header,
   .prediction-card-header,
   .prediction-card-footer {
@@ -1958,7 +2014,8 @@ button {
   .score-editor button,
   .prediction-card-footer button,
   .secondary-button,
-  .primary-button {
+  .primary-button,
+  .danger-button {
     min-height: 3rem;
     width: 100%;
   }

@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
+  Trash2,
   Trophy,
   UserRound
 } from "lucide-react";
@@ -1329,6 +1330,7 @@ function GroupCard({
   busyAction,
   onJoin,
   onLeave,
+  onDeleteGroup,
   onRemoveMember
 }: {
   group: Group;
@@ -1336,12 +1338,22 @@ function GroupCard({
   busyAction: string;
   onJoin?: () => void;
   onLeave?: () => void;
+  onDeleteGroup?: () => void;
   onRemoveMember?: (userId: string) => void;
 }) {
+  const isBusyWithGroup = busyAction.startsWith(`/api/groups/${group.id}`);
+  const members = group.members ?? [];
+
+  function confirmDeleteGroup() {
+    if (!onDeleteGroup) return;
+    const confirmed = window.confirm(`Supprimer le groupe "${group.name}" ? Cette action est définitive.`);
+    if (confirmed) onDeleteGroup();
+  }
+
   return (
     <article className="group-card">
       <div className="group-card-header">
-        <div>
+        <div className="group-card-title">
           <strong>{group.name}</strong>
           <span>
             {group.memberCount} membre{group.memberCount > 1 ? "s" : ""} · créé par {group.ownerPseudo}
@@ -1349,17 +1361,23 @@ function GroupCard({
         </div>
         {group.isOwner && <span className="status-chip success">Créateur</span>}
       </div>
-      {group.members?.length ? (
+      {members.length ? (
         <div className="group-members">
-          {group.members.map((member) => (
+          <div className="group-members-heading">
+            <span>Membres</span>
+            {group.isOwner && members.length > 1 && <span>Gestion</span>}
+          </div>
+          {members.map((member) => (
             <div key={member.userId} className="group-member-row">
-              <span>
-                {member.pseudo}
-                {member.role === "owner" ? " · créateur" : ""}
-              </span>
+              <span className="group-member-name">{member.pseudo}</span>
+              {member.role === "owner" ? (
+                <span className="group-member-role">Créateur</span>
+              ) : (
+                <span className="group-member-role">Membre</span>
+              )}
               {group.isOwner && member.userId !== currentUserId && onRemoveMember && (
                 <button
-                  className="secondary-button"
+                  className="secondary-button compact-button"
                   type="button"
                   disabled={busyAction === `/api/groups/${group.id}/members/${member.userId}`}
                   onClick={() => onRemoveMember(member.userId)}
@@ -1390,6 +1408,17 @@ function GroupCard({
             onClick={onLeave}
           >
             Quitter
+          </button>
+        )}
+        {onDeleteGroup && group.isOwner && (
+          <button
+            className="danger-button"
+            type="button"
+            disabled={isBusyWithGroup}
+            onClick={confirmDeleteGroup}
+          >
+            <Trash2 size={16} />
+            Supprimer le groupe
           </button>
         )}
       </div>
@@ -1671,6 +1700,7 @@ function Profile({ user }: { user: User }) {
                     currentUserId={user.id}
                     busyAction={groupAction}
                     onLeave={() => runGroupAction(`/api/groups/${group.id}/leave`, "POST", "Groupe quitté.")}
+                    onDeleteGroup={() => runGroupAction(`/api/groups/${group.id}`, "DELETE", "Groupe supprimé.")}
                     onRemoveMember={(memberUserId) =>
                       runGroupAction(
                         `/api/groups/${group.id}/members/${memberUserId}`,
