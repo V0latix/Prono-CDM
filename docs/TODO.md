@@ -40,23 +40,22 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 - [x] Ajouter un bouton "Supprimer ma photo" dans le profil.
 - [x] Ajouter une page profil publique par joueur depuis le classement.
 - [x] Afficher les stats profil dans le classement dans une fiche compacte.
+- [x] Ajouter une section badges sur les profils privé et public.
+- [x] Rendre l'accès aux profils joueurs visible depuis chaque ligne du classement.
 
 ### Social et fun
 
-- Rendre le mini feed d'activité plus riche :
-  - score exact trouvé
-  - nouveau leader
-  - série de bons résultats
-  - remontée au classement
+- Ajouter une remontée au classement dans le mini feed d'activité.
 - Ajouter des badges :
-  - Premier score exact
   - Roi du nul
-  - Série de 3 bons résultats
-  - Dernière minute
-  - Sans faute sur une journée
 - Ajouter des réactions simples sur les activités : bravo, rageant, chanceux.
 - Ajouter un petit message de chambre quand un joueur passe premier.
 - Ajouter une fiche "rival du moment" basée sur le joueur le plus proche au classement.
+
+### Terminé - Social et fun
+
+- [x] Rendre le mini feed d'activité plus riche : score exact trouvé, nouveau leader, série de bons résultats.
+- [x] Ajouter les badges : Premier score exact, Série de 3 bons résultats, Dernière minute, Sans faute sur une journée.
 
 ### Stats avancées
 

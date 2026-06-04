@@ -14,6 +14,7 @@ import {
   validatePin,
   verifyPin
 } from "./auth";
+import { getUserBadges } from "./badges";
 import { getFootballDataSyncStatus, syncFootballData } from "./football-data";
 import { HttpError, json, parseJson, requireUser, type RequestContext } from "./http";
 import type { MatchRow, PredictionRow, User, UserProfileRow } from "./types";
@@ -330,7 +331,10 @@ async function getProfile(ctx: RequestContext): Promise<Response> {
     .bind(user.id)
     .first<UserProfileRow>();
 
-  return json(ctx.request, ctx.env, { profile: publicProfile(profile) });
+  return json(ctx.request, ctx.env, {
+    profile: publicProfile(profile),
+    badges: await getUserBadges(ctx.env, user.id)
+  });
 }
 
 async function getPublicUserProfile(ctx: RequestContext): Promise<Response> {
@@ -361,6 +365,7 @@ async function getPublicUserProfile(ctx: RequestContext): Promise<Response> {
     user: { id: user.id, pseudo: user.pseudo },
     profile: publicProfile(profile),
     stats,
+    badges: await getUserBadges(ctx.env, user.id),
     rank: rank?.rank ?? null
   });
 }
@@ -393,7 +398,10 @@ async function saveProfile(ctx: RequestContext): Promise<Response> {
     .bind(user.id)
     .first<UserProfileRow>();
 
-  return json(ctx.request, ctx.env, { profile: publicProfile(profile) });
+  return json(ctx.request, ctx.env, {
+    profile: publicProfile(profile),
+    badges: await getUserBadges(ctx.env, user.id)
+  });
 }
 
 async function listMatches(ctx: RequestContext): Promise<Response> {

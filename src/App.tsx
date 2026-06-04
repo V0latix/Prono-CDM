@@ -30,6 +30,7 @@ import {
   type LeaderboardRow,
   type Match,
   type Profile as UserProfile,
+  type ProfileBadge,
   type ProfileStats as PublicProfileStats,
   type SyncStatus,
   type User
@@ -204,6 +205,12 @@ function recentFormLabel(value: LeaderboardRow["recentForm"][number]): string {
   if (value === "bonus") return "+";
   if (value === "correct") return "R";
   return "0";
+}
+
+function activityIcon(type: string) {
+  if (type === "new_leader") return <Trophy size={16} />;
+  if (type === "correct_streak") return <Sparkles size={16} />;
+  return <Check size={16} />;
 }
 
 function buildProfileStats(matches: Match[] = []): ProfileStats {
@@ -565,7 +572,7 @@ function Dashboard({ onOpenPredictions }: { onOpenPredictions: () => void }) {
           <div className="activity-list">
             {data.activity.map((item) => (
               <div key={item.id} className="activity-item">
-                <Check size={16} />
+                <span className={`activity-icon ${item.type}`}>{activityIcon(item.type)}</span>
                 <span>{item.message}</span>
               </div>
             ))}
@@ -748,6 +755,10 @@ function Leaderboard({
                 <span className="form-empty">-</span>
               )}
             </span>
+            <span className="leaderboard-profile-link">
+              <UserRound size={14} />
+              Profil
+            </span>
           </button>
         ))}
       </div>
@@ -778,7 +789,10 @@ function Results() {
 
 function Profile({ user }: { user: User }) {
   const matchesResource = useResource<{ matches: Match[] }>("/api/matches");
-  const profileResource = useResource<{ profile: UserProfile }>("/api/profile", [user.id]);
+  const profileResource = useResource<{ profile: UserProfile; badges: ProfileBadge[] }>(
+    "/api/profile",
+    [user.id]
+  );
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -807,7 +821,7 @@ function Profile({ user }: { user: User }) {
     setSaveError("");
     setSaved(false);
     try {
-      const response = await api<{ profile: UserProfile }>("/api/profile", {
+      const response = await api<{ profile: UserProfile; badges: ProfileBadge[] }>("/api/profile", {
         method: "PUT",
         body: JSON.stringify({
           photoUrl: profile.photoUrl,
@@ -874,6 +888,8 @@ function Profile({ user }: { user: User }) {
           </div>
         </div>
       </section>
+
+      <BadgesSection badges={profileResource.data?.badges ?? []} />
 
       <section className="content-section">
         <SectionTitle title="Préférences" />
@@ -1014,6 +1030,7 @@ type PublicProfileData = {
   user: User;
   profile: UserProfile;
   stats: PublicProfileStats;
+  badges: ProfileBadge[];
   rank: number | null;
 };
 
@@ -1056,6 +1073,8 @@ function PublicProfile({ userId, onBack }: { userId: string; onBack: () => void 
           Retour classement
         </button>
       </section>
+
+      <BadgesSection badges={data.badges} />
 
       <section className="content-section profile-stats-section">
         <SectionTitle title="Stats publiques" action={<RefreshButton onClick={reload} />} />
@@ -1180,6 +1199,32 @@ function ProfileStatCard({
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
+  );
+}
+
+function BadgesSection({ badges }: { badges: ProfileBadge[] }) {
+  return (
+    <section className="content-section profile-badges-section">
+      <SectionTitle title="Badges" />
+      {badges.length ? (
+        <div className="badge-grid">
+          {badges.map((badge) => (
+            <div key={badge.id} className={badge.earned ? "badge-card earned" : "badge-card"}>
+              <span className="badge-icon">
+                <Medal size={18} />
+              </span>
+              <div>
+                <strong>{badge.label}</strong>
+                <p>{badge.description}</p>
+              </div>
+              <span className="badge-state">{badge.earned ? "Débloqué" : "À débloquer"}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState text="Les badges apparaîtront après les premiers résultats." />
+      )}
+    </section>
   );
 }
 

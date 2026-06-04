@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
-import type { LeaderboardRow, Match } from "./api";
+import type { LeaderboardRow, Match, ProfileBadge } from "./api";
 import { installFetchMock } from "./test/fetchMock";
 
 const user = { id: "user-1", pseudo: "Romain" };
@@ -53,6 +53,37 @@ function leaderboardRow(overrides: Partial<LeaderboardRow> = {}): LeaderboardRow
     successRate: 60,
     ...overrides
   };
+}
+
+function profileBadges(overrides: Partial<ProfileBadge>[] = []): ProfileBadge[] {
+  const badges: ProfileBadge[] = [
+    {
+      id: "first_exact",
+      label: "Premier score exact",
+      description: "A trouvé au moins un score exact.",
+      earned: true
+    },
+    {
+      id: "correct_streak_3",
+      label: "Série de 3 bons résultats",
+      description: "A enchaîné trois matchs réussis.",
+      earned: false
+    },
+    {
+      id: "last_minute",
+      label: "Dernière minute",
+      description: "A posé un prono dans l'heure avant le coup d'envoi.",
+      earned: true
+    },
+    {
+      id: "perfect_day",
+      label: "Sans faute sur une journée",
+      description: "A réussi tous les matchs d'une journée terminée.",
+      earned: false
+    }
+  ];
+
+  return badges.map((badge, index) => ({ ...badge, ...overrides[index] }));
 }
 
 describe("App components", () => {
@@ -142,7 +173,11 @@ describe("App components", () => {
             })
           ],
           rank: leaderboardRow(),
-          activity: [{ id: "a1", type: "exact_score", message: "Romain a trouvé le score exact", created_at: "2026-06-04" }],
+          activity: [
+            { id: "a1", type: "exact_score", message: "Romain a trouvé le score exact", created_at: "2026-06-04" },
+            { id: "a2", type: "new_leader", message: "Marie prend la tête du classement", created_at: "2026-06-04" },
+            { id: "a3", type: "correct_streak", message: "Romain enchaîne 3 bons résultats", created_at: "2026-06-04" }
+          ],
           syncStatus
         }
       },
@@ -189,6 +224,7 @@ describe("App components", () => {
             groupPoints: 8,
             knockoutPoints: 0
           },
+          badges: profileBadges(),
           rank: 2
         }
       }
@@ -205,16 +241,20 @@ describe("App components", () => {
     expect(screen.getByText("Prédictions à faire maintenant")).toBeInTheDocument();
     expect(screen.getByText("Maroc - Japon")).toBeInTheDocument();
     expect(screen.getByText(/1 à compléter/)).toBeInTheDocument();
+    expect(screen.getByText("Marie prend la tête du classement")).toBeInTheDocument();
+    expect(screen.getByText("Romain enchaîne 3 bons résultats")).toBeInTheDocument();
 
     await browserUser.click(screen.getByRole("button", { name: /classement/i }));
     expect(await screen.findByText("Marie")).toBeInTheDocument();
     expect(screen.getByText("12 pts")).toBeInTheDocument();
     expect(screen.getByText("Toujours dans le bon wagon.")).toBeInTheDocument();
+    expect(screen.getAllByText("Profil").length).toBeGreaterThan(0);
 
     await browserUser.click(screen.getByRole("button", { name: /marie/i }));
     expect(await screen.findByRole("heading", { name: "Profil joueur" })).toBeInTheDocument();
     expect(screen.getByText("Rang : #2")).toBeInTheDocument();
     expect(screen.getByText("Stats publiques")).toBeInTheDocument();
+    expect(screen.getByText("Premier score exact")).toBeInTheDocument();
 
     await browserUser.click(screen.getByRole("button", { name: /règlement/i }));
     expect(await screen.findByText("Verrouillage")).toBeInTheDocument();
@@ -371,7 +411,8 @@ describe("App components", () => {
             tagline: "Prêt à viser le score exact.",
             favoriteTeam: "France",
             updatedAt: null
-          }
+          },
+          badges: profileBadges()
         }
       },
       {
@@ -415,7 +456,8 @@ describe("App components", () => {
             tagline: "Le spécialiste du 2-1.",
             favoriteTeam: "Brésil",
             updatedAt: "2026-06-04T10:00:00.000Z"
-          }
+          },
+          badges: profileBadges()
         }
       }
     ]);
@@ -445,6 +487,8 @@ describe("App components", () => {
     expect(await screen.findByText("Profil enregistré.")).toBeInTheDocument();
     expect(screen.getByText("Favori : Brésil")).toBeInTheDocument();
     expect(screen.queryByText("Match préféré")).not.toBeInTheDocument();
+    expect(screen.getByText("Badges")).toBeInTheDocument();
+    expect(screen.getByText("Dernière minute")).toBeInTheDocument();
     expect(screen.getByText("Stats pronostics")).toBeInTheDocument();
     expect(screen.getByText("1/2")).toBeInTheDocument();
     expect(screen.getByText("2-1 (1x)")).toBeInTheDocument();

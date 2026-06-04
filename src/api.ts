@@ -10,6 +10,13 @@ export type Profile = {
   updatedAt?: string | null;
 };
 
+export type ProfileBadge = {
+  id: "first_exact" | "correct_streak_3" | "last_minute" | "perfect_day";
+  label: string;
+  description: string;
+  earned: boolean;
+};
+
 export type ProfileStats = {
   submittedPredictions: number;
   totalMatches: number;

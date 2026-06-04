@@ -475,7 +475,7 @@ button {
 
 .leaderboard-row {
   display: grid;
-  grid-template-columns: 46px 44px minmax(170px, 1fr) repeat(7, minmax(78px, auto));
+  grid-template-columns: 46px 44px minmax(170px, 1fr) repeat(8, minmax(74px, auto));
   align-items: center;
   width: 100%;
   min-height: 4.35rem;
@@ -592,9 +592,43 @@ button {
   color: var(--muted);
 }
 
+.leaderboard-profile-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  color: var(--accent);
+  font-weight: 800;
+}
+
 .activity-item {
   justify-content: flex-start;
   min-height: 3rem;
+}
+
+.activity-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.9rem;
+  aspect-ratio: 1;
+  border: 2px solid var(--fg);
+  background: var(--surface);
+}
+
+.activity-icon.exact_score {
+  background: var(--success);
+  color: #fff;
+}
+
+.activity-icon.new_leader {
+  background: var(--accent);
+  color: #fff;
+}
+
+.activity-icon.correct_streak {
+  background: #fff;
+  color: var(--accent);
 }
 
 .profile-layout,
@@ -755,6 +789,72 @@ button {
 
 .profile-stats-section {
   grid-column: 1 / -1;
+}
+
+.profile-badges-section {
+  grid-column: 1 / -1;
+}
+
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.badge-card {
+  display: grid;
+  grid-template-columns: 2.25rem 1fr;
+  gap: 0.75rem;
+  min-height: 8rem;
+  padding: 0.85rem;
+  border: 2px solid var(--fg);
+  background: var(--surface);
+  opacity: 0.62;
+}
+
+.badge-card.earned {
+  background: #fff;
+  opacity: 1;
+}
+
+.badge-icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  aspect-ratio: 1;
+  border: 2px solid var(--fg);
+  background: #fff;
+  color: var(--fg);
+}
+
+.badge-card.earned .badge-icon {
+  background: var(--accent);
+  color: #fff;
+}
+
+.badge-card strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.badge-card p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.badge-state {
+  grid-column: 1 / -1;
+  align-self: end;
+  color: var(--accent);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .profile-stat-grid {
@@ -988,6 +1088,7 @@ button {
   .sync-grid,
   .profile-layout,
   .public-profile-layout,
+  .badge-grid,
   .profile-stat-grid,
   .profile-split-stats {
     grid-template-columns: 1fr;
@@ -999,7 +1100,8 @@ button {
 
   .leaderboard-row > span:nth-child(6),
   .leaderboard-row > span:nth-child(7),
-  .leaderboard-row > span:nth-child(8) {
+  .leaderboard-row > span:nth-child(8),
+  .leaderboard-row > span:nth-child(10) {
     display: none;
   }
 }
