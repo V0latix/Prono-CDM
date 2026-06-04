@@ -43,53 +43,40 @@ html[data-theme="dark"] {
   color-scheme: dark;
 }
 
-html[data-theme="contrast"] {
-  --bg: #000000;
-  --fg: #ffffff;
-  --accent: #ffe100;
-  --surface: #202020;
-  --panel: #0b0b0b;
-  --muted: #c9c9c9;
-  --danger: #ff5a5f;
-  --success: #4dff88;
-  --success-soft: rgba(77, 255, 136, 0.16);
-  --danger-soft: rgba(255, 90, 95, 0.18);
-  --nav-shadow: rgba(255, 255, 255, 0.2);
-  --on-accent: #000000;
-
-  color-scheme: dark;
+html[data-theme="classic"] {
+  color-scheme: light;
 }
 
-html[data-theme="electric"] {
-  --bg: #050816;
-  --fg: #f7fbff;
-  --accent: #00d4ff;
-  --surface: #111936;
-  --panel: #0a1024;
-  --muted: #b7c4dc;
-  --danger: #ff4d8d;
-  --success: #59ffb3;
-  --success-soft: rgba(89, 255, 179, 0.14);
-  --danger-soft: rgba(255, 77, 141, 0.14);
-  --nav-shadow: rgba(0, 212, 255, 0.28);
-  --on-accent: #04101a;
-
-  color-scheme: dark;
-}
-
-html[data-theme="pitch"] {
-  --bg: #07140d;
-  --fg: #f8fff4;
-  --accent: #f2c94c;
-  --surface: #10271a;
-  --panel: #0b1c13;
-  --muted: #bdd3bf;
+html[data-theme="grass"] {
+  --bg: #06160c;
+  --fg: #f8fff2;
+  --accent: #9cff4a;
+  --surface: #12391f;
+  --panel: #0c2415;
+  --muted: #c6d8c0;
   --danger: #ff6b6b;
   --success: #7dff93;
-  --success-soft: rgba(125, 255, 147, 0.14);
+  --success-soft: rgba(125, 255, 147, 0.16);
   --danger-soft: rgba(255, 107, 107, 0.14);
-  --nav-shadow: rgba(242, 201, 76, 0.24);
-  --on-accent: #07140d;
+  --nav-shadow: rgba(156, 255, 74, 0.24);
+  --on-accent: #06160c;
+
+  color-scheme: dark;
+}
+
+html[data-theme="france"] {
+  --bg: #020b2d;
+  --fg: #fffaf0;
+  --accent: #e30613;
+  --surface: #123c8c;
+  --panel: #071b55;
+  --muted: #c8d8ff;
+  --danger: #ff4f5e;
+  --success: #ffffff;
+  --success-soft: rgba(255, 255, 255, 0.14);
+  --danger-soft: rgba(227, 6, 19, 0.18);
+  --nav-shadow: rgba(227, 6, 19, 0.34);
+  --on-accent: #ffffff;
 
   color-scheme: dark;
 }
@@ -974,6 +961,11 @@ button {
   object-fit: cover;
 }
 
+.profile-photo-frame.compact {
+  width: 96px;
+  font-size: 1.9rem;
+}
+
 .profile-intro {
   min-width: 0;
 }
@@ -1053,6 +1045,105 @@ button {
 .profile-form input[type="range"] {
   width: 100%;
   accent-color: var(--accent);
+}
+
+.profile-setup-layout {
+  align-items: start;
+  padding-block: 1.25rem;
+}
+
+.profile-setup-panel {
+  width: min(100%, 720px);
+}
+
+.profile-setup-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+  border: 2px solid var(--fg);
+  background: var(--surface);
+}
+
+.profile-setup-preview h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.profile-setup-preview p {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.theme-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.theme-choice-grid legend {
+  grid-column: 1 / -1;
+  margin-bottom: 0.45rem;
+  font-weight: 700;
+}
+
+.theme-choice-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 4rem;
+  padding: 0.65rem;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.theme-choice-card.active {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.theme-choice-card input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.theme-choice-card strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+
+.theme-swatch {
+  display: block;
+  width: 2.4rem;
+  aspect-ratio: 1;
+  border: 2px solid currentColor;
+  background: linear-gradient(135deg, #f7f7f5 0 50%, #1a56db 50% 100%);
+}
+
+.theme-swatch.dark {
+  background: linear-gradient(135deg, #101317 0 50%, #75a7ff 50% 100%);
+}
+
+.theme-swatch.grass {
+  background: linear-gradient(135deg, #06160c 0 50%, #9cff4a 50% 100%);
+}
+
+.theme-swatch.france {
+  background: linear-gradient(90deg, #1a56db 0 33%, #ffffff 33% 66%, #d71920 66% 100%);
 }
 
 .photo-dropzone {
@@ -1609,6 +1700,15 @@ button {
   .profile-hero {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .profile-setup-preview {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .theme-choice-grid {
+    grid-template-columns: 1fr;
   }
 
   .leaderboard-row {

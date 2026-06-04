@@ -39,11 +39,10 @@ import {
 
 type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "profile" | "publicProfile";
 const themeOptions = [
-  { id: "light", label: "Clair" },
-  { id: "dark", label: "Sombre" },
-  { id: "contrast", label: "Contraste" },
-  { id: "electric", label: "Électrique" },
-  { id: "pitch", label: "Terrain" }
+  { id: "classic", label: "Classique" },
+  { id: "dark", label: "Dark mode" },
+  { id: "grass", label: "Mode gazon" },
+  { id: "france", label: "Bleu blanc rouge" }
 ] as const;
 type ThemeMode = (typeof themeOptions)[number]["id"];
 
@@ -288,13 +287,13 @@ function initials(pseudo: string): string {
 }
 
 function initialTheme(): ThemeMode {
-  if (typeof window === "undefined") return "light";
+  if (typeof window === "undefined") return "classic";
   const stored =
     typeof window.localStorage?.getItem === "function"
       ? window.localStorage.getItem(themeStorageKey)
       : null;
   if (isThemeMode(stored)) return stored;
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "classic";
 }
 
 function isThemeMode(value: string | null): value is ThemeMode {
@@ -469,6 +468,7 @@ function buildProfileStats(matches: Match[] = []): ProfileStats {
 export function App() {
   const [user, setUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [profileSetupPending, setProfileSetupPending] = useState(false);
   const [view, setView] = useState<View>("dashboard");
   const [publicProfileUserId, setPublicProfileUserId] = useState("");
   const [theme, setTheme] = useState<ThemeMode>(initialTheme);
@@ -496,7 +496,27 @@ export function App() {
   }
 
   if (!user) {
-    return <AuthScreen onAuth={setUser} theme={theme} onThemeChange={changeTheme} />;
+    return (
+      <AuthScreen
+        onAuth={(authUser, needsProfileSetup) => {
+          setUser(authUser);
+          setProfileSetupPending(needsProfileSetup);
+        }}
+        theme={theme}
+        onThemeChange={changeTheme}
+      />
+    );
+  }
+
+  if (profileSetupPending) {
+    return (
+      <ProfileSetup
+        user={user}
+        theme={theme}
+        onThemeChange={changeTheme}
+        onComplete={() => setProfileSetupPending(false)}
+      />
+    );
   }
 
   return (
@@ -580,7 +600,7 @@ function AuthScreen({
   theme,
   onThemeChange
 }: {
-  onAuth: (user: User) => void;
+  onAuth: (user: User, needsProfileSetup: boolean) => void;
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
 }) {
@@ -602,7 +622,7 @@ function AuthScreen({
           body: JSON.stringify({ pseudo, pin })
         }
       );
-      onAuth(data.user);
+      onAuth(data.user, mode === "register");
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : "Erreur inconnue.");
     } finally {
@@ -668,6 +688,179 @@ function AuthScreen({
           <button className="primary-button" type="submit" disabled={loading}>
             <ShieldCheck size={18} />
             {loading ? "Validation..." : mode === "register" ? "Créer mon compte" : "Me connecter"}
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function ProfileSetup({
+  user,
+  theme,
+  onThemeChange,
+  onComplete
+}: {
+  user: User;
+  theme: ThemeMode;
+  onThemeChange: (theme: ThemeMode) => void;
+  onComplete: () => void;
+}) {
+  const [profile, setProfile] = useState<UserProfile>(defaultProfile);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [photoError, setPhotoError] = useState("");
+  const [draggingPhoto, setDraggingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+
+  function updateProfile(update: Partial<UserProfile>) {
+    setProfile((current) => ({ ...current, ...update }));
+    setError("");
+  }
+
+  async function usePhotoFile(file: File | undefined) {
+    if (!file) return;
+    setPhotoError("");
+    try {
+      updateProfile({ photoUrl: await readImageFile(file) });
+    } catch (uploadError) {
+      setPhotoError(uploadError instanceof Error ? uploadError.message : "Impossible d'utiliser cette photo.");
+    }
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await api<{ profile: UserProfile; badges: ProfileBadge[] }>("/api/profile", {
+        method: "PUT",
+        body: JSON.stringify({
+          photoUrl: profile.photoUrl,
+          tagline: profile.tagline,
+          favoriteTeam: profile.favoriteTeam
+        })
+      });
+      onComplete();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Impossible d'enregistrer le profil.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="auth-layout profile-setup-layout">
+      <section className="auth-panel profile-setup-panel">
+        <div className="brand compact">
+          <div className="brand-mark">26</div>
+          <div>
+            <strong>Prono CDM</strong>
+            <span>Création du profil</span>
+          </div>
+        </div>
+        <div className="profile-setup-preview">
+          <div className="profile-photo-frame compact">
+            {profile.photoUrl ? (
+              <img src={profile.photoUrl} alt={`Photo de ${user.pseudo}`} />
+            ) : (
+              <span>{initials(user.pseudo)}</span>
+            )}
+          </div>
+          <div>
+            <span className="eyebrow">Bienvenue</span>
+            <h1>{user.pseudo}</h1>
+            <p>{profile.tagline || defaultProfile.tagline}</p>
+          </div>
+        </div>
+        <form className="profile-form" onSubmit={submit}>
+          <div className="profile-form-field">
+            <span>
+              <Camera size={16} />
+              Photo de profil
+            </span>
+            <div
+              className={draggingPhoto ? "photo-dropzone dragging" : "photo-dropzone"}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setDraggingPhoto(true);
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDragLeave={() => setDraggingPhoto(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDraggingPhoto(false);
+                void usePhotoFile(event.dataTransfer.files[0]);
+              }}
+            >
+              <Camera size={22} />
+              <strong>Dépose une photo ici</strong>
+              <p>ou choisis une image depuis ton appareil</p>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+              >
+                Choisir une photo
+              </button>
+              <input
+                ref={photoInputRef}
+                className="visually-hidden"
+                aria-label="Choisir une photo de profil"
+                type="file"
+                accept="image/*"
+                onChange={(event) => {
+                  void usePhotoFile(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
+            </div>
+            {photoError && <p className="form-error">{photoError}</p>}
+          </div>
+          <label>
+            <span>
+              <Sparkles size={16} />
+              Phrase d'accroche
+            </span>
+            <input
+              value={profile.tagline}
+              onChange={(event) => updateProfile({ tagline: event.target.value })}
+              maxLength={90}
+              placeholder="Ex: personne ne bat mon 2-1"
+            />
+          </label>
+          <label>
+            <span>
+              <Star size={16} />
+              Équipe favorite
+            </span>
+            <input
+              value={profile.favoriteTeam}
+              onChange={(event) => updateProfile({ favoriteTeam: event.target.value })}
+              maxLength={40}
+              placeholder="France, Brésil, Argentine..."
+            />
+          </label>
+          <fieldset className="theme-choice-grid">
+            <legend>Thème de l'app</legend>
+            {themeOptions.map((option) => (
+              <label key={option.id} className={`theme-choice-card ${theme === option.id ? "active" : ""}`}>
+                <input
+                  type="radio"
+                  name="profile-theme"
+                  value={option.id}
+                  checked={theme === option.id}
+                  onChange={() => onThemeChange(option.id)}
+                />
+                <span className={`theme-swatch ${option.id}`} aria-hidden="true" />
+                <strong>{option.label}</strong>
+              </label>
+            ))}
+          </fieldset>
+          {error && <p className="form-error">{error}</p>}
+          <button className="primary-button" type="submit" disabled={saving}>
+            <Save size={18} />
+            {saving ? "Enregistrement..." : "Créer mon profil"}
           </button>
         </form>
       </section>

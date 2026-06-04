@@ -92,6 +92,19 @@ describe("App components", () => {
       { path: "/api/me", body: { user: null } },
       { method: "POST", path: "/api/auth/register", body: { user } },
       {
+        method: "PUT",
+        path: "/api/profile",
+        body: {
+          profile: {
+            photoUrl: "",
+            tagline: "La remontada commence maintenant.",
+            favoriteTeam: "France",
+            updatedAt: "2026-06-04T10:00:00.000Z"
+          },
+          badges: []
+        }
+      },
+      {
         path: "/api/dashboard",
         body: {
           nextMatches: [],
@@ -114,13 +127,27 @@ describe("App components", () => {
     await browserUser.type(screen.getByLabelText("Code PIN"), "1234");
     await browserUser.click(screen.getByRole("button", { name: /créer mon compte/i }));
 
-    await screen.findByText("Romain");
+    expect(await screen.findByText("Création du profil")).toBeInTheDocument();
+    await browserUser.clear(screen.getByLabelText(/phrase d'accroche/i));
+    await browserUser.type(screen.getByLabelText(/phrase d'accroche/i), "La remontada commence maintenant.");
+    await browserUser.click(screen.getByRole("radio", { name: "Bleu blanc rouge" }));
+    await browserUser.click(screen.getByRole("button", { name: /créer mon profil/i }));
+
+    await screen.findByRole("heading", { name: "Dashboard" });
     const registerCall = calls.find((call) => call.url === "/api/auth/register");
     expect(registerCall).toBeDefined();
     expect(JSON.parse(String(registerCall?.init?.body))).toEqual({
       pseudo: "Romain",
       pin: "1234"
     });
+    const profileCall = calls.find((call) => call.url === "/api/profile" && call.init?.method === "PUT");
+    expect(profileCall).toBeDefined();
+    expect(JSON.parse(String(profileCall?.init?.body))).toEqual({
+      photoUrl: "",
+      tagline: "La remontada commence maintenant.",
+      favoriteTeam: "France"
+    });
+    expect(window.localStorage.getItem("prono-cdm-theme")).toBe("france");
   });
 
   it("switches to login and displays server authentication errors", async () => {
@@ -453,7 +480,7 @@ describe("App components", () => {
     expect(calls.some((call) => call.url === "/api/results")).toBe(false);
   });
 
-  it("selects and persists a high contrast theme", async () => {
+  it("selects and persists a requested app theme", async () => {
     window.localStorage.clear();
     installFetchMock([
       { path: "/api/me", body: { user } },
@@ -474,15 +501,15 @@ describe("App components", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: "Dashboard" });
-    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.dataset.theme).toBe("classic");
 
     const selector = screen.getByRole("combobox", { name: "Choisir le thème" });
-    expect(screen.getByRole("option", { name: "Contraste" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Électrique" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Mode gazon" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Bleu blanc rouge" })).toBeInTheDocument();
 
-    await browserUser.selectOptions(selector, "electric");
-    expect(document.documentElement.dataset.theme).toBe("electric");
-    expect(window.localStorage.getItem("prono-cdm-theme")).toBe("electric");
+    await browserUser.selectOptions(selector, "grass");
+    expect(document.documentElement.dataset.theme).toBe("grass");
+    expect(window.localStorage.getItem("prono-cdm-theme")).toBe("grass");
   });
 
   it("requires a qualified team for tied knockout predictions before saving", async () => {
