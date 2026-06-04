@@ -774,18 +774,43 @@ function Results() {
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
   return (
-    <section className="content-section">
-      <SectionTitle title="Matchs terminés" action={<RefreshButton onClick={reload} />} />
-      {data?.results.length ? (
-        <div className="match-list">
-          {data.results.map((match) => (
-            <MatchLine key={match.id} match={match} showResult />
-          ))}
+    <div className="view-grid">
+      <section className="content-section">
+        <div className="results-actions">
+          <RefreshButton onClick={reload} />
         </div>
-      ) : (
-        <EmptyState text="Aucun résultat disponible. Le plan gratuit football-data.org peut être différé." />
-      )}
-    </section>
+        {data?.results.length ? (
+          <div className="match-list">
+            {data.results.map((match) => (
+              <MatchLine key={match.id} match={match} showResult />
+            ))}
+          </div>
+        ) : (
+          <EmptyState text="Aucun résultat disponible. Le plan gratuit football-data.org peut être différé." />
+        )}
+      </section>
+
+      <section className="content-section">
+        <SectionTitle title="Gestion à venir" />
+        <div className="result-planning-grid">
+          <div className="result-planning-card">
+            <Medal size={18} />
+            <strong>Scores des matchs finis</strong>
+            <span>Corriger ou valider un score après publication officielle.</span>
+          </div>
+          <div className="result-planning-card">
+            <RefreshCw size={18} />
+            <strong>Recalcul des points</strong>
+            <span>Relancer le calcul après une correction de résultat.</span>
+          </div>
+          <div className="result-planning-card">
+            <Trophy size={18} />
+            <strong>Classements associés</strong>
+            <span>Préparer des vues par journée, phase ou période.</span>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 
