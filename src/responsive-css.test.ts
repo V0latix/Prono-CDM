@@ -37,4 +37,11 @@ describe("responsive CSS", () => {
     expect(css).toContain("--on-accent: #07101f");
     expect(css).toContain("background: var(--panel)");
   });
+
+  it("uses a more readable sans-serif font on high contrast color themes", () => {
+    expect(css).toContain('html[data-theme="grass"]');
+    expect(css).toContain('html[data-theme="france"]');
+    expect(css).toContain('--font-display: "Inter", sans-serif');
+    expect(css).toContain('--font-body: "Inter", sans-serif');
+  });
 });

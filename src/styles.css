@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Space+Mono:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Syne:wght@400;700;800&family=Space+Mono:wght@400;700&display=swap");
 
 :root {
   --bg: #f7f7f5;
@@ -60,6 +60,8 @@ html[data-theme="grass"] {
   --danger-soft: rgba(255, 107, 107, 0.14);
   --nav-shadow: rgba(156, 255, 74, 0.24);
   --on-accent: #06160c;
+  --font-display: "Inter", sans-serif;
+  --font-body: "Inter", sans-serif;
 
   color-scheme: dark;
 }
@@ -77,6 +79,8 @@ html[data-theme="france"] {
   --danger-soft: rgba(227, 6, 19, 0.18);
   --nav-shadow: rgba(227, 6, 19, 0.34);
   --on-accent: #ffffff;
+  --font-display: "Inter", sans-serif;
+  --font-body: "Inter", sans-serif;
 
   color-scheme: dark;
 }

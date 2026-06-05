@@ -5,7 +5,7 @@ MVP web gratuit pour organiser une ligue privée de pronostics entre amis sur la
 ## Stack
 
 - Frontend : React + Vite
-- Hosting frontend : Cloudflare Pages
+- Hosting frontend : Vercel en production actuelle, Cloudflare Pages possible
 - API : Cloudflare Worker
 - Base : Cloudflare D1
 - Source matchs/scores : football-data.org, appelée uniquement par le Worker
@@ -128,6 +128,22 @@ Endpoints internes utiles :
 
 ```bash
 npm run deploy:api
+```
+
+## Déploiement frontend
+
+La prod ne doit pas être écrasée directement. Pour chaque changement frontend :
+
+```bash
+npm test
+npm run build
+npm run deploy:web:preview
+```
+
+Vercel renvoie une URL de preview séparée de la production. Tester cette URL, puis seulement après validation lancer :
+
+```bash
+npm run deploy:web:prod
 ```
 
 ## Déploiement Cloudflare Pages
