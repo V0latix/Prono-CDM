@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clearSessionCookie,
+  getUserFromSession,
   hashPin,
   isLoginLocked,
   LOGIN_LOCK_MS,
@@ -156,5 +157,34 @@ describe("auth constraints", () => {
     expect(cookie).toContain("pcdm_session=");
     expect(cookie).toContain("Max-Age=0");
     expect(cookie).toContain("HttpOnly");
+  });
+
+  it("accepts bearer session tokens when cookies are unavailable", async () => {
+    const request = new Request("https://api.example.test/api/dashboard", {
+      headers: {
+        authorization: "Bearer preview-token"
+      }
+    });
+    const db = {
+      prepare() {
+        return {
+          bind() {
+            return this;
+          },
+          async first() {
+            return {
+              id: "user-1",
+              pseudo: "Dems",
+              created_at: "2026-06-05T12:00:00.000Z"
+            };
+          }
+        };
+      }
+    };
+
+    await expect(getUserFromSession(request, env({ DB: db as unknown as D1Database }))).resolves.toMatchObject({
+      id: "user-1",
+      pseudo: "Dems"
+    });
   });
 });

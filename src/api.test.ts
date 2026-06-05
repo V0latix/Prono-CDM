@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { api, resolveApiBase } from "./api";
+import { api, resolveApiBase, setApiSessionToken } from "./api";
 
 describe("api client", () => {
   it("sends JSON requests with credentials included", async () => {
@@ -80,6 +80,28 @@ describe("api client", () => {
       "/api/me",
       expect.objectContaining({
         credentials: "include"
+      })
+    );
+  });
+
+  it("adds a bearer token when the preview session fallback is stored", async () => {
+    setApiSessionToken("preview-token", true);
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api("/api/dashboard");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/dashboard",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: "Bearer preview-token"
+        })
       })
     );
   });

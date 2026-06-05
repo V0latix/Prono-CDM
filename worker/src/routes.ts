@@ -449,7 +449,7 @@ async function register(ctx: RequestContext): Promise<Response> {
   return json(
     ctx.request,
     ctx.env,
-    { user: { id: userId, pseudo } },
+    { user: { id: userId, pseudo }, sessionToken: token },
     {
       headers: {
         "Set-Cookie": serializeSessionCookie(ctx.request, ctx.env, token)
@@ -492,7 +492,7 @@ async function login(ctx: RequestContext): Promise<Response> {
   return json(
     ctx.request,
     ctx.env,
-    { user: { id: user.id, pseudo: user.pseudo, createdAt: user.created_at } },
+    { user: { id: user.id, pseudo: user.pseudo, createdAt: user.created_at }, sessionToken: token },
     {
       headers: {
         "Set-Cookie": serializeSessionCookie(ctx.request, ctx.env, token)

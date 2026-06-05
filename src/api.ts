@@ -124,6 +124,7 @@ export type SyncStatus = {
 
 const CONFIGURED_API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 const PUBLIC_WORKER_API_BASE = "https://prono-cdm-api.volatix-prono-cdm.workers.dev";
+const SESSION_TOKEN_STORAGE_KEY = "prono-cdm-session-token";
 
 export function resolveApiBase(
   hostname = typeof window !== "undefined" ? window.location.hostname : "",
@@ -139,17 +140,38 @@ function apiBase(): string {
   return resolveApiBase();
 }
 
+function getSessionToken(): string {
+  if (typeof window === "undefined") return "";
+  return window.sessionStorage.getItem(SESSION_TOKEN_STORAGE_KEY) ?? "";
+}
+
+export function setApiSessionToken(token: string | null, force = false): void {
+  if (typeof window === "undefined") return;
+  if (token && (force || apiBase())) {
+    window.sessionStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token);
+  } else {
+    window.sessionStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
+  }
+}
+
 export async function api<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const sessionToken = getSessionToken();
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    ...(options.headers as Record<string, string> | undefined)
+  };
+  const hasAuthorization = Object.keys(headers).some((key) => key.toLowerCase() === "authorization");
+  if (sessionToken && !hasAuthorization) {
+    headers.authorization = `Bearer ${sessionToken}`;
+  }
+
   const response = await fetch(`${apiBase()}${path}`, {
     ...options,
     credentials: "include",
-    headers: {
-      "content-type": "application/json",
-      ...options.headers
-    }
+    headers
   });
   const payload = (await response.json().catch(() => ({}))) as unknown;
 

@@ -30,6 +30,7 @@ import {
 } from "react";
 import {
   api,
+  setApiSessionToken,
   type ActivityItem,
   type Group,
   type LeaderboardRow,
@@ -572,6 +573,7 @@ export function App() {
             type="button"
             onClick={async () => {
               await api("/api/auth/logout", { method: "POST" });
+              setApiSessionToken(null);
               setUser(null);
             }}
           >
@@ -676,13 +678,14 @@ function AuthScreen({
     setLoading(true);
     setError("");
     try {
-      const data = await api<{ user: User }>(
+      const data = await api<{ user: User; sessionToken?: string }>(
         mode === "register" ? "/api/auth/register" : "/api/auth/login",
         {
           method: "POST",
           body: JSON.stringify({ pseudo, pin })
         }
       );
+      setApiSessionToken(data.sessionToken ?? null);
       onAuth(data.user, mode === "register");
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : "Erreur inconnue.");

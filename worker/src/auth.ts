@@ -205,7 +205,11 @@ export async function getUserFromSession(
   request: Request,
   env: Env
 ): Promise<User | null> {
-  const token = parseCookies(request).get(SESSION_COOKIE);
+  const authHeader = request.headers.get("authorization") ?? "";
+  const bearerToken = authHeader.toLowerCase().startsWith("bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
+  const token = bearerToken || parseCookies(request).get(SESSION_COOKIE);
   if (!token) return null;
 
   const tokenHash = await sha256Hex(token);
@@ -226,7 +230,11 @@ export async function deleteCurrentSession(
   request: Request,
   env: Env
 ): Promise<void> {
-  const token = parseCookies(request).get(SESSION_COOKIE);
+  const authHeader = request.headers.get("authorization") ?? "";
+  const bearerToken = authHeader.toLowerCase().startsWith("bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
+  const token = bearerToken || parseCookies(request).get(SESSION_COOKIE);
   if (!token) return;
   await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?")
     .bind(await sha256Hex(token))

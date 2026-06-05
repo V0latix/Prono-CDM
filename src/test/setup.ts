@@ -24,5 +24,6 @@ beforeEach(() => {
 
 afterEach(() => {
   document.documentElement.removeAttribute("data-theme");
+  window.sessionStorage.clear();
   vi.restoreAllMocks();
 });
