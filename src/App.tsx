@@ -3,6 +3,7 @@ import {
   Camera,
   Check,
   ClipboardList,
+  Info,
   Lock,
   LogOut,
   Medal,
@@ -15,6 +16,7 @@ import {
   Star,
   Trash2,
   Trophy,
+  X,
   UserRound
 } from "lucide-react";
 import {
@@ -74,6 +76,21 @@ const viewTitles: Record<View, string> = {
   profile: "Profil",
   publicProfile: "Profil joueur"
 };
+
+const releaseNotes = [
+  {
+    title: "Preview avant production",
+    description: "Les changements peuvent maintenant être testés sur un lien séparé avant d'être mis en production."
+  },
+  {
+    title: "Thèmes plus lisibles",
+    description: "Les thèmes Gazon et Bleu blanc rouge utilisent une police plus confortable à lire."
+  },
+  {
+    title: "Groupes entre amis",
+    description: "Crée des groupes, rejoins ceux de tes potes et compare les classements par groupe."
+  }
+];
 
 const defaultProfile: UserProfile = {
   photoUrl: "",
@@ -569,10 +586,13 @@ export function App() {
             <p>Coupe du monde 2026</p>
             <h1>{viewTitles[view]}</h1>
           </div>
-          <button className="user-pill" type="button" onClick={() => setView("profile")}>
-            <UserRound size={18} />
-            {user.pseudo}
-          </button>
+          <div className="topbar-actions">
+            <WhatsNewBubble />
+            <button className="user-pill" type="button" onClick={() => setView("profile")}>
+              <UserRound size={18} />
+              {user.pseudo}
+            </button>
+          </div>
         </header>
         {view === "dashboard" && <Dashboard onOpenPredictions={() => setView("predictions")} />}
         {view === "predictions" && <Predictions />}
@@ -592,6 +612,46 @@ export function App() {
           <PublicProfile userId={publicProfileUserId} onBack={() => setView("leaderboard")} />
         )}
       </main>
+    </div>
+  );
+}
+
+function WhatsNewBubble() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="whats-new">
+      <button
+        className="news-button"
+        type="button"
+        aria-expanded={isOpen}
+        aria-controls="whats-new-panel"
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        <Info size={18} />
+        <span>Nouveautés</span>
+      </button>
+      {isOpen ? (
+        <section className="news-panel" id="whats-new-panel" aria-label="Nouveautés de l'application">
+          <div className="news-panel-header">
+            <div>
+              <span>Quoi de neuf</span>
+              <strong>Dernières nouveautés</strong>
+            </div>
+            <button type="button" aria-label="Fermer les nouveautés" onClick={() => setIsOpen(false)}>
+              <X size={16} />
+            </button>
+          </div>
+          <ul>
+            {releaseNotes.map((note) => (
+              <li key={note.title}>
+                <strong>{note.title}</strong>
+                <p>{note.description}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -561,6 +561,38 @@ describe("App components", () => {
     expect(window.localStorage.getItem("prono-cdm-theme")).toBe("grass");
   });
 
+  it("opens a small info bubble with recent app updates", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Dashboard" });
+    expect(screen.queryByRole("region", { name: "Nouveautés de l'application" })).not.toBeInTheDocument();
+
+    await browserUser.click(screen.getByRole("button", { name: "Nouveautés" }));
+    const panel = screen.getByRole("region", { name: "Nouveautés de l'application" });
+    expect(within(panel).getByText("Dernières nouveautés")).toBeInTheDocument();
+    expect(within(panel).getByText("Preview avant production")).toBeInTheDocument();
+    expect(within(panel).getByText("Thèmes plus lisibles")).toBeInTheDocument();
+
+    await browserUser.click(within(panel).getByRole("button", { name: "Fermer les nouveautés" }));
+    expect(screen.queryByRole("region", { name: "Nouveautés de l'application" })).not.toBeInTheDocument();
+  });
+
   it("requires a qualified team for tied knockout predictions before saving", async () => {
     const { calls } = installFetchMock([
       { path: "/api/me", body: { user } },
