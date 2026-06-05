@@ -123,15 +123,20 @@ export type SyncStatus = {
 };
 
 const CONFIGURED_API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+const PUBLIC_WORKER_API_BASE = "https://prono-cdm-api.volatix-prono-cdm.workers.dev";
+
+export function resolveApiBase(
+  hostname = typeof window !== "undefined" ? window.location.hostname : "",
+  configuredApiBase = CONFIGURED_API_BASE
+): string {
+  if (hostname.endsWith(".vercel.app")) {
+    return configuredApiBase || PUBLIC_WORKER_API_BASE;
+  }
+  return configuredApiBase;
+}
 
 function apiBase(): string {
-  if (
-    typeof window !== "undefined" &&
-    window.location.hostname.endsWith(".vercel.app")
-  ) {
-    return "";
-  }
-  return CONFIGURED_API_BASE;
+  return resolveApiBase();
 }
 
 export async function api<T>(
