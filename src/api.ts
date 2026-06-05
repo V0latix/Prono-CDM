@@ -11,7 +11,19 @@ export type Profile = {
 };
 
 export type ProfileBadge = {
-  id: "first_exact" | "correct_streak_3" | "last_minute" | "perfect_day";
+  id:
+    | "first_exact"
+    | "correct_streak_3"
+    | "last_minute"
+    | "perfect_day"
+    | "good_student"
+    | "madame_irma"
+    | "black_cat"
+    | "emotional_var"
+    | "ruthless"
+    | "wild_optimist"
+    | "rivalry_started"
+    | "locker_room_vibe";
   label: string;
   description: string;
   earned: boolean;

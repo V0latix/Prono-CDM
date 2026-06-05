@@ -586,6 +586,7 @@ describe("App components", () => {
     await browserUser.click(screen.getByRole("button", { name: "Nouveautés" }));
     const panel = screen.getByRole("region", { name: "Nouveautés de l'application" });
     expect(within(panel).getByText("Dernières nouveautés")).toBeInTheDocument();
+    expect(within(panel).getByText("Nouveaux badges fun")).toBeInTheDocument();
     expect(within(panel).getByText("Thèmes plus lisibles")).toBeInTheDocument();
     expect(within(panel).getByText("Groupes entre amis")).toBeInTheDocument();
     expect(within(panel).queryByText(/preview|production|déploiement/i)).not.toBeInTheDocument();

@@ -535,7 +535,7 @@ async function getProfile(ctx: RequestContext): Promise<Response> {
 
 async function getPublicUserProfile(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "GET");
-  requireUser(ctx);
+  const viewer = requireUser(ctx);
   const match = ctx.url.pathname.match(/^\/api\/users\/([^/]+)\/profile$/);
   const userId = match?.[1];
   if (!userId) throw new HttpError(400, "Utilisateur manquant.");
@@ -546,6 +546,15 @@ async function getPublicUserProfile(ctx: RequestContext): Promise<Response> {
     .bind(userId)
     .first<User>();
   if (!user) throw new HttpError(404, "Utilisateur introuvable.");
+
+  if (viewer.id !== user.id) {
+    await ctx.env.DB.prepare(
+      `INSERT OR IGNORE INTO profile_views (viewer_user_id, viewed_user_id)
+       VALUES (?, ?)`
+    )
+      .bind(viewer.id, user.id)
+      .run();
+  }
 
   const profile = await ctx.env.DB.prepare(
     "SELECT * FROM user_profiles WHERE user_id = ? LIMIT 1"

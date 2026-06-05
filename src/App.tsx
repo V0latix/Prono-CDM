@@ -79,6 +79,10 @@ const viewTitles: Record<View, string> = {
 
 const releaseNotes = [
   {
+    title: "Nouveaux badges fun",
+    description: "Bon élève, Madame Irma, le chat noir et d'autres badges viennent pimenter les profils."
+  },
+  {
     title: "Thèmes plus lisibles",
     description: "Les thèmes Gazon et Bleu blanc rouge passent sur une police sans-serif plus nette, avec un meilleur confort de lecture."
   },
