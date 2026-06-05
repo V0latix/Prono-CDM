@@ -2,6 +2,8 @@
 
 MVP web gratuit pour organiser une ligue privée de pronostics entre amis sur la Coupe du monde 2026.
 
+Pour les agents de code, lire aussi [`CLAUDE.md`](./CLAUDE.md). Ce fichier documente l'architecture, les flux API/D1, les pieges de preview Vercel et les regles de modification.
+
 ## Stack
 
 - Frontend : React + Vite
