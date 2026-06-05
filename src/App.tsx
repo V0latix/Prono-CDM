@@ -84,7 +84,7 @@ const releaseNotes = [
   },
   {
     title: "Thèmes plus lisibles",
-    description: "Les thèmes Gazon et Bleu blanc rouge utilisent une police plus confortable à lire."
+    description: "Les thèmes Gazon et Bleu blanc rouge passent sur une police sans-serif plus nette, avec un meilleur confort de lecture."
   },
   {
     title: "Groupes entre amis",
