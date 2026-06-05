@@ -79,10 +79,6 @@ const viewTitles: Record<View, string> = {
 
 const releaseNotes = [
   {
-    title: "Preview avant production",
-    description: "Les changements peuvent maintenant être testés sur un lien séparé avant d'être mis en production."
-  },
-  {
     title: "Thèmes plus lisibles",
     description: "Les thèmes Gazon et Bleu blanc rouge passent sur une police sans-serif plus nette, avec un meilleur confort de lecture."
   },

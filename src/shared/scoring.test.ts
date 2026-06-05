@@ -86,4 +86,34 @@ describe("scorePrediction", () => {
       )
     ).toMatchObject({ points: 8, correctResult: true, correctGoalDiff: true });
   });
+
+  it("keeps unplayed matches at zero without marking the prediction as successful", () => {
+    expect(
+      scorePrediction(
+        { stage: "GROUP_STAGE", homeScore: null, awayScore: null, winner: null },
+        { predictedHomeScore: 2, predictedAwayScore: 1, predictedWinner: null }
+      )
+    ).toEqual({
+      points: 0,
+      exactScore: false,
+      correctResult: false,
+      correctGoalDiff: false,
+      stageKind: "GROUP"
+    });
+  });
+
+  it("falls back to the available final score for knockout matches when the API winner is missing", () => {
+    expect(
+      scorePrediction(
+        { stage: "FINAL", homeScore: 2, awayScore: 0, winner: null },
+        { predictedHomeScore: 1, predictedAwayScore: 0, predictedWinner: null }
+      )
+    ).toMatchObject({
+      points: 6,
+      exactScore: false,
+      correctResult: true,
+      correctGoalDiff: false,
+      stageKind: "KNOCKOUT"
+    });
+  });
 });
