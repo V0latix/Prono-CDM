@@ -4,10 +4,13 @@ import {
   Check,
   ClipboardList,
   Info,
+  Link2,
   Lock,
   LogOut,
   Medal,
+  Minus,
   Palette,
+  Plus,
   RefreshCw,
   Scale,
   Save,
@@ -79,6 +82,26 @@ const viewTitles: Record<View, string> = {
 };
 
 const releaseNotes = [
+  {
+    title: "Invite tes potes en un lien",
+    description: "Chaque groupe a maintenant un code d'invitation à partager. Tes amis le saisissent ou cliquent sur ton lien pour te rejoindre direct.",
+    date: "2026-06-06"
+  },
+  {
+    title: "Page Résultats enfin là",
+    description: "Retrouve tous les matchs terminés avec ton prono, le vrai score et les points gagnés, match par match.",
+    date: "2026-06-06"
+  },
+  {
+    title: "Compte à rebours du prochain match",
+    description: "Quand il te reste un prono à poser, un bandeau t'affiche le temps restant avant le coup d'envoi pour ne plus rien oublier.",
+    date: "2026-06-06"
+  },
+  {
+    title: "Saisie des scores plus rapide",
+    description: "Des boutons + et - permettent d'ajuster les scores d'un pouce, parfait sur mobile.",
+    date: "2026-06-06"
+  },
   {
     title: "Nouveaux badges fun",
     description: "Bon élève, Madame Irma, le chat noir et d'autres badges viennent pimenter les profils."
@@ -511,6 +534,35 @@ export function App() {
       .finally(() => setCheckingSession(false));
   }, []);
 
+  // Deep-link d'invitation : ?join=CODE rejoint automatiquement le groupe une
+  // fois l'utilisateur connecté, puis nettoie l'URL.
+  useEffect(() => {
+    if (!user || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("join");
+    if (!code) return;
+    let cancelled = false;
+    api<{ joinedGroupName: string }>("/api/groups/join-by-code", {
+      method: "POST",
+      body: JSON.stringify({ code })
+    })
+      .catch(() => undefined)
+      .finally(() => {
+        if (cancelled) return;
+        params.delete("join");
+        const query = params.toString();
+        window.history.replaceState(
+          {},
+          "",
+          `${window.location.pathname}${query ? `?${query}` : ""}`
+        );
+        setView("profile");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   if (checkingSession) {
     return <ShellState label="Chargement de la session..." />;
   }
@@ -647,7 +699,10 @@ function WhatsNewBubble() {
           <ul>
             {releaseNotes.map((note) => (
               <li key={note.title}>
-                <strong>{note.title}</strong>
+                <div className="news-item-head">
+                  <strong>{note.title}</strong>
+                  {note.date ? <span className="news-date">{formatDay(note.date)}</span> : null}
+                </div>
                 <p>{note.description}</p>
               </li>
             ))}
@@ -935,6 +990,56 @@ function ProfileSetup({
   );
 }
 
+function formatCountdown(msRemaining: number): string {
+  const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (days > 0) return `${days}j ${hours}h ${minutes}min`;
+  if (hours > 0) return `${hours}h ${minutes}min`;
+  if (minutes > 0) return `${minutes}min ${String(seconds).padStart(2, "0")}s`;
+  return `${seconds}s`;
+}
+
+function NextMatchCountdown({
+  match,
+  onOpenPredictions
+}: {
+  match: Match;
+  onOpenPredictions: () => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const remaining = Date.parse(match.kickoffAt) - now;
+  if (remaining <= 0) return null;
+
+  return (
+    <section className="next-match-banner" aria-live="polite">
+      <div className="next-match-banner-info">
+        <span className="eyebrow">
+          <CalendarClock size={16} /> Prono à poser avant le coup d'envoi
+        </span>
+        <strong>
+          {match.homeTeam} - {match.awayTeam}
+        </strong>
+        <span className="next-match-countdown">
+          Il te reste <strong>{formatCountdown(remaining)}</strong> · {formatDate(match.kickoffAt)}
+        </span>
+      </div>
+      <button className="primary-button" type="button" onClick={onOpenPredictions}>
+        <ClipboardList size={16} />
+        Poser mon prono
+      </button>
+    </section>
+  );
+}
+
 function Dashboard({ onOpenPredictions }: { onOpenPredictions: () => void }) {
   const { data, error, reload, loading } = useResource<DashboardData>("/api/dashboard");
   const [syncing, setSyncing] = useState(false);
@@ -944,13 +1049,15 @@ function Dashboard({ onOpenPredictions }: { onOpenPredictions: () => void }) {
     setSyncing(true);
     setSyncMessage("");
     try {
-      const result = await api<{ synced: number; error?: string }>("/api/admin/sync", {
+      const result = await api<{ synced: number; error?: string; throttled?: boolean }>("/api/admin/sync", {
         method: "POST"
       });
       setSyncMessage(
-        result.error
-          ? result.error
-          : `${result.synced} match${result.synced > 1 ? "s" : ""} synchronisé${result.synced > 1 ? "s" : ""}.`
+        result.throttled
+          ? "Synchro déjà à jour, réessaie dans un instant."
+          : result.error
+            ? result.error
+            : `${result.synced} match${result.synced > 1 ? "s" : ""} synchronisé${result.synced > 1 ? "s" : ""}.`
       );
       await reload();
     } catch (syncError) {
@@ -969,9 +1076,16 @@ function Dashboard({ onOpenPredictions }: { onOpenPredictions: () => void }) {
   const pendingPredictionCount = data.predictionDayMatches.filter(
     (match) => !match.locked && !match.prediction
   ).length;
+  // Bandeau compte à rebours : uniquement si un prono reste à poser.
+  const nextPendingMatch = data.nextMatches.find(
+    (match) => !match.locked && !match.prediction
+  );
 
   return (
     <div className="view-grid">
+      {nextPendingMatch ? (
+        <NextMatchCountdown match={nextPendingMatch} onOpenPredictions={onOpenPredictions} />
+      ) : null}
       <section className="summary-strip">
         <Metric label="Rang" value={data.rank ? `#${data.rank.rank}` : "-"} />
         <Metric label="Points" value={String(data.rank?.points ?? 0)} />
@@ -1163,6 +1277,59 @@ function Predictions() {
   );
 }
 
+function clampScore(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(30, Math.round(value)));
+}
+
+function ScoreInput({
+  team,
+  value,
+  disabled,
+  onChange
+}: {
+  team: string;
+  value: number;
+  disabled: boolean;
+  onChange: (next: number) => void;
+}) {
+  return (
+    <div className="score-control">
+      <span>{team}</span>
+      <div className="score-stepper">
+        <button
+          type="button"
+          className="score-step"
+          aria-label={`Diminuer le score ${team}`}
+          disabled={disabled || value <= 0}
+          onClick={() => onChange(clampScore(value - 1))}
+        >
+          <Minus size={16} />
+        </button>
+        <input
+          aria-label={`Score ${team}`}
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={30}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onChange(clampScore(Number(event.target.value)))}
+        />
+        <button
+          type="button"
+          className="score-step"
+          aria-label={`Augmenter le score ${team}`}
+          disabled={disabled || value >= 30}
+          onClick={() => onChange(clampScore(value + 1))}
+        >
+          <Plus size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PredictionEditor({
   match,
   saving,
@@ -1237,31 +1404,19 @@ function PredictionEditor({
         </span>
       </div>
       <div className="score-editor">
-        <label className="score-control">
-          <span>{match.homeTeam}</span>
-          <input
-            aria-label={`Score ${match.homeTeam}`}
-            type="number"
-            min={0}
-            max={30}
-            value={home}
-            disabled={match.locked}
-            onChange={(event) => setHome(Number(event.target.value))}
-          />
-        </label>
+        <ScoreInput
+          team={match.homeTeam}
+          value={home}
+          disabled={match.locked}
+          onChange={setHome}
+        />
         <span className="score-divider">-</span>
-        <label className="score-control">
-          <span>{match.awayTeam}</span>
-          <input
-            aria-label={`Score ${match.awayTeam}`}
-            type="number"
-            min={0}
-            max={30}
-            value={away}
-            disabled={match.locked}
-            onChange={(event) => setAway(Number(event.target.value))}
-          />
-        </label>
+        <ScoreInput
+          team={match.awayTeam}
+          value={away}
+          disabled={match.locked}
+          onChange={setAway}
+        />
         {tiedKnockout && (
           <select
             aria-label="Équipe qualifiée"
@@ -1408,11 +1563,27 @@ function GroupCard({
 }) {
   const isBusyWithGroup = busyAction.startsWith(`/api/groups/${group.id}`);
   const members = group.members ?? [];
+  const [copied, setCopied] = useState<"code" | "link" | "">("");
 
   function confirmDeleteGroup() {
     if (!onDeleteGroup) return;
     const confirmed = window.confirm(`Supprimer le groupe "${group.name}" ? Cette action est définitive.`);
     if (confirmed) onDeleteGroup();
+  }
+
+  function inviteLink(code: string): string {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}/?join=${code}`;
+  }
+
+  async function copyToClipboard(value: string, kind: "code" | "link") {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(kind);
+      window.setTimeout(() => setCopied(""), 2000);
+    } catch {
+      setCopied("");
+    }
   }
 
   return (
@@ -1426,6 +1597,32 @@ function GroupCard({
         </div>
         {group.isOwner && <span className="status-chip success">Créateur</span>}
       </div>
+      {group.isMember && group.inviteCode ? (
+        <div className="group-invite">
+          <div className="group-invite-code">
+            <span className="eyebrow">Code d'invitation</span>
+            <strong>{group.inviteCode}</strong>
+          </div>
+          <div className="group-invite-actions">
+            <button
+              type="button"
+              className="secondary-button compact-button"
+              onClick={() => copyToClipboard(group.inviteCode as string, "code")}
+            >
+              {copied === "code" ? <Check size={14} /> : null}
+              {copied === "code" ? "Copié" : "Copier le code"}
+            </button>
+            <button
+              type="button"
+              className="secondary-button compact-button"
+              onClick={() => copyToClipboard(inviteLink(group.inviteCode as string), "link")}
+            >
+              {copied === "link" ? <Check size={14} /> : <Link2 size={14} />}
+              {copied === "link" ? "Copié" : "Copier le lien"}
+            </button>
+          </div>
+        </div>
+      ) : null}
       {members.length ? (
         <div className="group-members">
           <div className="group-members-heading">
@@ -1492,9 +1689,60 @@ function GroupCard({
 }
 
 function Results() {
+  const { data, error, reload, loading } = useResource<{ results: Match[] }>("/api/results");
+
+  if (loading) return <ShellState label="Chargement des résultats..." />;
+  if (error) return <ErrorState error={error} onRetry={reload} />;
+
+  const results = data?.results ?? [];
+  const predicted = results.filter((match) => match.prediction);
+  const totalPoints = predicted.reduce((sum, match) => sum + (match.prediction?.points ?? 0), 0);
+  const exactScores = predicted.filter((match) => match.prediction?.exactScore).length;
+  const groupedResults = results.reduce<Array<{ day: string; matches: Match[] }>>(
+    (groups, match) => {
+      const day = matchDayKey(match);
+      const currentGroup = groups.at(-1);
+      if (currentGroup?.day === day) {
+        currentGroup.matches.push(match);
+      } else {
+        groups.push({ day, matches: [match] });
+      }
+      return groups;
+    },
+    []
+  );
+
   return (
-    <section className="content-section results-empty-section">
-      <EmptyState text="Résultats en attente." />
+    <section className="content-section">
+      <SectionTitle title="Résultats" action={<RefreshButton onClick={reload} />} />
+      {results.length ? (
+        <>
+          <div className="prediction-summary" aria-label="Résumé des résultats">
+            <Metric label="Matchs joués" value={String(results.length)} />
+            <Metric label="Points gagnés" value={String(totalPoints)} />
+            <Metric label="Scores exacts" value={String(exactScores)} />
+          </div>
+          <div className="prediction-day-list">
+            {groupedResults.map((group) => (
+              <section className="prediction-day" key={group.day}>
+                <div className="prediction-day-header">
+                  <h2>{formatDay(group.day)}</h2>
+                  <span className="status-chip">
+                    {group.matches.length} match{group.matches.length > 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="match-list">
+                  {group.matches.map((match) => (
+                    <MatchLine key={match.id} match={match} showResult />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </>
+      ) : (
+        <EmptyState text="Aucun match terminé pour l'instant. Reviens après les premiers coups de sifflet final." />
+      )}
     </section>
   );
 }
@@ -1514,6 +1762,7 @@ function Profile({ user }: { user: User }) {
   const [groupName, setGroupName] = useState("");
   const [groupMessage, setGroupMessage] = useState("");
   const [groupAction, setGroupAction] = useState("");
+  const [joinCode, setJoinCode] = useState("");
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const predictionStats = buildProfileStats(matchesResource.data?.matches ?? []);
 
@@ -1591,6 +1840,28 @@ function Profile({ user }: { user: User }) {
       await refreshGroups();
     } catch (error) {
       setGroupMessage(error instanceof Error ? error.message : "Impossible de créer le groupe.");
+    } finally {
+      setGroupAction("");
+    }
+  }
+
+  async function joinByCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setGroupMessage("");
+    setGroupAction("join-by-code");
+    try {
+      const response = await api<{ groups: Group[]; joinedGroupName: string }>(
+        "/api/groups/join-by-code",
+        {
+          method: "POST",
+          body: JSON.stringify({ code: joinCode })
+        }
+      );
+      setJoinCode("");
+      setGroupMessage(`Tu as rejoint "${response.joinedGroupName}".`);
+      await refreshGroups();
+    } catch (error) {
+      setGroupMessage(error instanceof Error ? error.message : "Code d'invitation invalide.");
     } finally {
       setGroupAction("");
     }
@@ -1752,7 +2023,31 @@ function Profile({ user }: { user: User }) {
             {groupAction === "create" ? "Création..." : "Créer"}
           </button>
         </form>
-        {groupMessage && <p className={groupMessage.includes("Impossible") || groupMessage.includes("déjà") ? "form-error" : "inline-message"}>{groupMessage}</p>}
+        <form className="group-create-form" onSubmit={joinByCode}>
+          <label>
+            <span>Rejoindre avec un code</span>
+            <input
+              value={joinCode}
+              onChange={(event) => setJoinCode(event.target.value)}
+              maxLength={12}
+              placeholder="Ex: 7KQ4MP"
+              autoCapitalize="characters"
+              required
+            />
+          </label>
+          <button className="secondary-button" type="submit" disabled={groupAction === "join-by-code"}>
+            {groupAction === "join-by-code" ? "Validation..." : "Rejoindre via le code"}
+          </button>
+        </form>
+        {groupMessage && (
+          <p
+            className={
+              /impossible|déjà|invalide|aucun groupe/i.test(groupMessage) ? "form-error" : "inline-message"
+            }
+          >
+            {groupMessage}
+          </p>
+        )}
         <div className="groups-layout">
           <div className="group-column">
             <h3>Mes groupes</h3>

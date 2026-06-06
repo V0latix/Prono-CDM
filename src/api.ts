@@ -57,6 +57,7 @@ export type Group = {
   memberCount: number;
   isMember: boolean;
   isOwner: boolean;
+  inviteCode: string | null;
   createdAt: string;
   members?: GroupMember[];
 };

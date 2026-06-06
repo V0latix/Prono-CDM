@@ -793,8 +793,33 @@ button {
 }
 
 .score-editor input {
-  width: 4rem;
+  width: 3.4rem;
   text-align: center;
+}
+
+.score-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.score-editor .score-step {
+  min-height: 2.55rem;
+  width: 2.4rem;
+  min-width: 2.4rem;
+  padding: 0;
+  border: 2px solid var(--fg);
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.score-editor .score-step:hover:not(:disabled) {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.score-editor .score-step:disabled {
+  opacity: 0.4;
 }
 
 .score-editor select {
@@ -1619,6 +1644,78 @@ button {
 .group-card-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.group-invite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border: 2px dashed var(--fg);
+  background: var(--surface);
+}
+
+.group-invite-code {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.group-invite-code strong {
+  font-size: 1.05rem;
+  letter-spacing: 0.18em;
+}
+
+.group-invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.next-match-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem;
+  border: 2px solid var(--accent);
+  border-left-width: 6px;
+  background: var(--panel);
+}
+
+.next-match-banner-info {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.next-match-banner-info strong {
+  font-size: 1.05rem;
+}
+
+.next-match-countdown {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.next-match-countdown strong {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.news-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.news-date {
+  color: var(--muted);
+  font-size: 0.7rem;
+  white-space: nowrap;
 }
 
 .auth-layout,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clearSessionCookie,
+  DUMMY_PIN_HASH,
   getUserFromSession,
   hashPin,
   isLoginLocked,
@@ -10,6 +11,7 @@ import {
   nextFailedLoginAttempt,
   normalizePseudo,
   normalizePseudoKey,
+  purgeExpiredSessions,
   serializeSessionCookie,
   validatePin,
   verifyPin
@@ -157,6 +159,35 @@ describe("auth constraints", () => {
     expect(cookie).toContain("pcdm_session=");
     expect(cookie).toContain("Max-Age=0");
     expect(cookie).toContain("HttpOnly");
+  });
+
+  it("never matches a real PIN against the dummy hash used for unknown accounts", async () => {
+    expect(await verifyPin("1234", DUMMY_PIN_HASH)).toBe(false);
+    expect(await verifyPin("00000000", DUMMY_PIN_HASH)).toBe(false);
+  });
+
+  it("purges only expired sessions using the current timestamp", async () => {
+    const calls: Array<{ sql: string; args: unknown[] }> = [];
+    const db = {
+      prepare(sql: string) {
+        return {
+          bind(...args: unknown[]) {
+            calls.push({ sql, args });
+            return this;
+          },
+          async run() {
+            return { meta: { changes: 1 } };
+          }
+        };
+      }
+    };
+
+    await purgeExpiredSessions(env({ DB: db as unknown as D1Database }));
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].sql).toContain("DELETE FROM sessions WHERE expires_at <=");
+    expect(typeof calls[0].args[0]).toBe("string");
+    expect(Number.isFinite(Date.parse(calls[0].args[0] as string))).toBe(true);
   });
 
   it("accepts bearer session tokens when cookies are unavailable", async () => {

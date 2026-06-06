@@ -1,4 +1,4 @@
-import { getUserFromSession } from "./auth";
+import { getUserFromSession, purgeExpiredSessions } from "./auth";
 import { syncFootballData } from "./football-data";
 import { corsHeaders, errorResponse, notFound, type RequestContext } from "./http";
 import { route } from "./routes";
@@ -29,6 +29,7 @@ export default {
   },
 
   async scheduled(_event: ScheduledEvent, env: Env): Promise<void> {
+    await purgeExpiredSessions(env).catch((error) => console.error(error));
     const result = await syncFootballData(env);
     if (result.error) {
       console.error(result.error);

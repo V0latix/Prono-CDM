@@ -62,6 +62,7 @@ export type GroupRow = {
   id: string;
   name: string;
   owner_user_id: string;
+  invite_code: string | null;
   created_at: string;
 };
 

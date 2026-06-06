@@ -91,6 +91,15 @@ export function validatePin(pin: string): void {
   }
 }
 
+/**
+ * Hash factice valide (jamais associé à un compte) utilisé pour exécuter une
+ * vérification PIN à coût constant quand le pseudo n'existe pas. Cela évite de
+ * révéler l'existence d'un compte via le temps de réponse.
+ */
+export const DUMMY_PIN_HASH =
+  "sha256$00000000000000000000000000000000$" +
+  "0000000000000000000000000000000000000000000000000000000000000000";
+
 export async function hashPin(pin: string): Promise<string> {
   validatePin(pin);
   const saltHex = randomHex(16);
@@ -224,6 +233,12 @@ export async function getUserFromSession(
     .first<User>();
 
   return user ?? null;
+}
+
+export async function purgeExpiredSessions(env: Env): Promise<void> {
+  await env.DB.prepare("DELETE FROM sessions WHERE expires_at <= ?")
+    .bind(new Date().toISOString())
+    .run();
 }
 
 export async function deleteCurrentSession(

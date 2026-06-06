@@ -80,6 +80,8 @@ Important :
   - les headers CORS dans `worker/src/http.ts`
   - que le Worker deploye accepte `authorization`
 
+CORS : `worker/src/http.ts` ne reflete jamais une origine arbitraire. `isAllowedOrigin()` autorise uniquement les origines de `FRONTEND_ORIGIN` (liste separee par virgules), le dev local et les sous-domaines `*.vercel.app` en https. Si tu ajoutes un domaine de prod custom, ajoute-le a `FRONTEND_ORIGIN`.
+
 ## API Worker
 
 L'entree est `worker/src/index.ts` :
@@ -102,6 +104,7 @@ Routes principales dans `worker/src/routes.ts` :
 - `GET /api/users/:id/profile`
 - `GET /api/groups`
 - `POST /api/groups`
+- `POST /api/groups/join-by-code`
 - `POST /api/groups/:id/join`
 - `POST /api/groups/:id/leave`
 - `DELETE /api/groups/:id/members/:userId`
@@ -252,6 +255,7 @@ Migrations existantes :
 - `0005_groups.sql` : groupes.
 - `0006_login_attempts.sql` : brute force PIN.
 - `0007_profile_views.sql` : vues de profils pour badge rivalite.
+- `0008_group_invite_codes.sql` : code d'invitation par groupe (colonne `invite_code` + index unique). Les groupes existants recoivent un code en lazy backfill.
 
 Commandes :
 
@@ -277,9 +281,11 @@ Suites importantes :
 - `src/api.test.ts` : client API, erreurs, base Worker preview, bearer fallback.
 - `src/responsive-css.test.ts` : contraintes CSS responsive/themes.
 - `src/shared/scoring.test.ts` : calcul des points.
-- `worker/src/auth.test.ts` : PIN, hashing, locks, cookies, bearer.
+- `worker/src/auth.test.ts` : PIN, hashing, locks, cookies, bearer, purge sessions, hash factice.
 - `worker/src/football-data.test.ts` : normalisation API externe.
 - `worker/src/badges.test.ts` : badges profil.
+- `worker/src/http.test.ts` : allowlist CORS, requireUser, errorResponse.
+- `worker/src/invites.test.ts` : codes d'invitation et throttle de synchro.
 
 Avant commit ou preview :
 

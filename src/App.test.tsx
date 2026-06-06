@@ -64,6 +64,7 @@ function group(overrides: Partial<Group> = {}): Group {
     memberCount: 2,
     isMember: true,
     isOwner: true,
+    inviteCode: "7KQ4MP",
     createdAt: "2026-06-04T10:00:00.000Z",
     members: [
       { userId: "user-1", pseudo: "Romain", role: "owner", joinedAt: "2026-06-04T10:00:00.000Z" },
@@ -309,7 +310,10 @@ describe("App components", () => {
 
     render(<App />);
 
-    expect(await screen.findAllByText("France - Argentine")).toHaveLength(2);
+    // France - Argentine apparaît dans le bandeau compte à rebours, la liste du
+    // jour de compétition et la liste des prochains matchs.
+    expect(await screen.findAllByText("France - Argentine")).toHaveLength(3);
+    expect(screen.getByRole("button", { name: /poser mon prono/i })).toBeInTheDocument();
     expect(screen.getByText("#1")).toBeInTheDocument();
     expect(screen.getByText("12")).toBeInTheDocument();
     expect(screen.getByText("Synchronisé")).toBeInTheDocument();
@@ -501,7 +505,7 @@ describe("App components", () => {
     });
   });
 
-  it("shows an empty waiting state in the results tab for now", async () => {
+  it("lists finished matches with the user prediction and earned points", async () => {
     const { calls } = installFetchMock([
       { path: "/api/me", body: { user } },
       {
@@ -514,6 +518,30 @@ describe("App components", () => {
           activity: [],
           syncStatus
         }
+      },
+      {
+        path: "/api/results",
+        body: {
+          results: [
+            match({
+              id: "match-done",
+              status: "FINISHED",
+              homeScore: 2,
+              awayScore: 1,
+              locked: true,
+              prediction: {
+                predictedHomeScore: 2,
+                predictedAwayScore: 1,
+                predictedWinnerTeam: "France",
+                points: 5,
+                exactScore: true,
+                correctResult: true,
+                correctGoalDiff: true,
+                updatedAt: "2026-06-04T10:00:00.000Z"
+              }
+            })
+          ]
+        }
       }
     ]);
     const browserUser = userEvent.setup();
@@ -523,10 +551,35 @@ describe("App components", () => {
     await screen.findByRole("heading", { name: "Dashboard" });
     await browserUser.click(screen.getByRole("button", { name: /résultats/i }));
 
-    expect(screen.getByText("Résultats en attente.")).toBeInTheDocument();
-    expect(screen.queryByText("Matchs terminés")).not.toBeInTheDocument();
-    expect(screen.queryByText("Gestion à venir")).not.toBeInTheDocument();
-    expect(calls.some((call) => call.url === "/api/results")).toBe(false);
+    expect(await screen.findByText("Points gagnés")).toBeInTheDocument();
+    expect(screen.getByText("2-1 · 5 pts")).toBeInTheDocument();
+    expect(calls.some((call) => call.url === "/api/results")).toBe(true);
+  });
+
+  it("shows an empty state in the results tab when no match is finished", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      { path: "/api/results", body: { results: [] } }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getByRole("button", { name: /résultats/i }));
+
+    expect(await screen.findByText(/Aucun match terminé/)).toBeInTheDocument();
   });
 
   it("selects and persists a requested app theme", async () => {
@@ -849,6 +902,60 @@ describe("App components", () => {
     expect(saveCall).toBeDefined();
     const saveBody = JSON.parse(String(saveCall?.init?.body));
     expect(saveBody.photoUrl).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it("shows the group invite code and joins another group by code", async () => {
+    const { calls } = installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/profile",
+        body: {
+          profile: {
+            photoUrl: "",
+            tagline: "Prêt à viser le score exact.",
+            favoriteTeam: "France",
+            updatedAt: null
+          },
+          badges: profileBadges(),
+          groups: [group()]
+        }
+      },
+      { path: "/api/groups", body: { groups: [group()] } },
+      { path: "/api/matches", body: { matches: [] } },
+      {
+        method: "POST",
+        path: "/api/groups/join-by-code",
+        body: { joinedGroupName: "Les Bleus", groups: [group()] }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await browserUser.click(await screen.findByRole("button", { name: /romain/i }));
+    expect(await screen.findByText("Code d'invitation")).toBeInTheDocument();
+    expect(screen.getByText("7KQ4MP")).toBeInTheDocument();
+
+    await browserUser.type(screen.getByPlaceholderText("Ex: 7KQ4MP"), "abc234");
+    await browserUser.click(screen.getByRole("button", { name: "Rejoindre via le code" }));
+
+    await waitFor(() =>
+      expect(calls.some((call) => call.url === "/api/groups/join-by-code")).toBe(true)
+    );
+    const joinCall = calls.find((call) => call.url === "/api/groups/join-by-code");
+    expect(JSON.parse(String(joinCall?.init?.body))).toEqual({ code: "abc234" });
+    expect(await screen.findByText('Tu as rejoint "Les Bleus".')).toBeInTheDocument();
   });
 
   it("opens the predictions view from the next competition day section", async () => {

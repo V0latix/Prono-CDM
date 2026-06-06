@@ -32,6 +32,34 @@ export function json(
   });
 }
 
+const DEV_ORIGINS = new Set([
+  "http://localhost:5173",
+  "http://127.0.0.1:5173"
+]);
+
+/**
+ * Décide si une origine cross-domain est autorisée à recevoir les réponses CORS
+ * avec credentials. On n'autorise jamais le reflet d'une origine arbitraire :
+ * - les origines listées dans FRONTEND_ORIGIN (séparées par des virgules) ;
+ * - les origines de dev local ;
+ * - les sous-domaines de preview Vercel en https.
+ */
+export function isAllowedOrigin(origin: string, env: Env): boolean {
+  if (env.FRONTEND_ORIGIN) {
+    const configured = env.FRONTEND_ORIGIN.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (configured.includes(origin)) return true;
+  }
+  if (DEV_ORIGINS.has(origin)) return true;
+  try {
+    const url = new URL(origin);
+    return url.protocol === "https:" && url.hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+}
+
 export function corsHeaders(request: Request, env: Env): HeadersInit {
   const origin = request.headers.get("origin");
   const headers: Record<string, string> = {
@@ -41,7 +69,7 @@ export function corsHeaders(request: Request, env: Env): HeadersInit {
     "Vary": "Origin"
   };
 
-  if (origin && (!env.FRONTEND_ORIGIN || origin === env.FRONTEND_ORIGIN)) {
+  if (origin && isAllowedOrigin(origin, env)) {
     headers["Access-Control-Allow-Origin"] = origin;
   }
 

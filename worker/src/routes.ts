@@ -8,6 +8,7 @@ import {
   clearSessionCookie,
   createSession,
   deleteCurrentSession,
+  DUMMY_PIN_HASH,
   hashPin,
   isLoginLocked,
   nextFailedLoginAttempt,
@@ -19,6 +20,12 @@ import {
 } from "./auth";
 import { getUserBadges } from "./badges";
 import { getFootballDataSyncStatus, syncFootballData } from "./football-data";
+import {
+  generateInviteCode,
+  isValidInviteCode,
+  normalizeInviteCode,
+  shouldThrottleSync
+} from "./invites";
 import { HttpError, json, parseJson, requireUser, type RequestContext } from "./http";
 import type { GroupMemberRow, GroupRow, MatchRow, PredictionRow, User, UserProfileRow } from "./types";
 
@@ -49,6 +56,10 @@ type ProfilePayload = {
 
 type GroupPayload = {
   name?: string;
+};
+
+type JoinByCodePayload = {
+  code?: string;
 };
 
 type LeaderboardRow = {
@@ -97,6 +108,7 @@ type PublicGroup = {
   memberCount: number;
   isMember: boolean;
   isOwner: boolean;
+  inviteCode: string | null;
   createdAt: string;
   members?: PublicGroupMember[];
 };
@@ -126,6 +138,8 @@ function asLimitedString(value: unknown, field: string, maxLength: number): stri
 }
 
 function asProfilePhoto(value: unknown): string {
+  // Les photos sont compressées côté client (~50 Ko) ; ce cap large est un
+  // simple garde-fou anti-abus et n'empêche pas les photos prises au téléphone.
   const photo = asLimitedString(value, "La photo", 1_000_000);
   if (
     photo &&
@@ -283,14 +297,17 @@ function publicGroup(
   currentUserId: string,
   members?: PublicGroupMember[]
 ): PublicGroup {
+  const isMember = Boolean(group.is_member);
   return {
     id: group.id,
     name: group.name,
     ownerUserId: group.owner_user_id,
     ownerPseudo: group.owner_pseudo,
     memberCount: Number(group.member_count ?? 0),
-    isMember: Boolean(group.is_member),
+    isMember,
     isOwner: group.owner_user_id === currentUserId,
+    // Le code n'est partagé qu'aux membres pour éviter de le récupérer en masse.
+    inviteCode: isMember ? group.invite_code ?? null : null,
     createdAt: group.created_at,
     members
   };
@@ -349,6 +366,25 @@ async function getGroupMembersByGroupId(
   return membersByGroup;
 }
 
+async function assignInviteCode(ctx: RequestContext, groupId: string): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const code = generateInviteCode();
+    const result = await ctx.env.DB.prepare(
+      "UPDATE prediction_groups SET invite_code = ? WHERE id = ? AND invite_code IS NULL"
+    )
+      .bind(code, groupId)
+      .run();
+    if (result.meta.changes && result.meta.changes > 0) return code;
+    const existing = await ctx.env.DB.prepare(
+      "SELECT invite_code FROM prediction_groups WHERE id = ? LIMIT 1"
+    )
+      .bind(groupId)
+      .first<{ invite_code: string | null }>();
+    if (existing?.invite_code) return existing.invite_code;
+  }
+  throw new HttpError(500, "Impossible de générer un code d'invitation.");
+}
+
 async function getPublicGroups(
   ctx: RequestContext,
   currentUserId: string,
@@ -356,6 +392,13 @@ async function getPublicGroups(
 ): Promise<PublicGroup[]> {
   const rows = await getGroupRows(ctx, currentUserId, options.userId);
   const groups = rows.results ?? [];
+  // Backfill paresseux : les groupes créés avant les codes d'invitation
+  // reçoivent un code dès qu'un membre consulte la liste.
+  for (const group of groups) {
+    if (group.is_member && !group.invite_code) {
+      group.invite_code = await assignInviteCode(ctx, group.id);
+    }
+  }
   const membersByGroup = options.includeMembers
     ? await getGroupMembersByGroupId(ctx, groups.map((group) => group.id))
     : new Map<string, PublicGroupMember[]>();
@@ -481,7 +524,10 @@ async function login(ctx: RequestContext): Promise<Response> {
     .bind(pseudo)
     .first<User & { pin_hash: string }>();
 
-  if (!user || !(await verifyPin(pin, user.pin_hash))) {
+  // On vérifie toujours un hash (factice si le compte n'existe pas) pour que le
+  // temps de réponse ne révèle pas l'existence d'un pseudo.
+  const pinValid = await verifyPin(pin, user?.pin_hash ?? DUMMY_PIN_HASH);
+  if (!user || !pinValid) {
     await recordFailedLoginAttempt(ctx, pseudoKey, loginAttempt);
     throw new HttpError(401, "Pseudo ou PIN incorrect.");
   }
@@ -631,9 +677,9 @@ async function createGroup(ctx: RequestContext): Promise<Response> {
   const groupId = crypto.randomUUID();
   try {
     await ctx.env.DB.prepare(
-      "INSERT INTO prediction_groups (id, name, owner_user_id) VALUES (?, ?, ?)"
+      "INSERT INTO prediction_groups (id, name, owner_user_id, invite_code) VALUES (?, ?, ?, ?)"
     )
-      .bind(groupId, name, user.id)
+      .bind(groupId, name, user.id, generateInviteCode())
       .run();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -669,6 +715,35 @@ async function joinGroup(ctx: RequestContext, groupId: string): Promise<Response
     .run();
 
   return json(ctx.request, ctx.env, {
+    groups: await getPublicGroups(ctx, user.id, { includeMembers: true })
+  });
+}
+
+async function joinGroupByCode(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "POST");
+  const user = requireUser(ctx);
+  const body = await parseJson<JoinByCodePayload>(ctx.request);
+  const code = normalizeInviteCode(body.code ?? "");
+  if (!isValidInviteCode(code)) {
+    throw new HttpError(400, "Code d'invitation invalide.");
+  }
+
+  const group = await ctx.env.DB.prepare(
+    "SELECT * FROM prediction_groups WHERE invite_code = ? LIMIT 1"
+  )
+    .bind(code)
+    .first<GroupRow>();
+  if (!group) throw new HttpError(404, "Aucun groupe ne correspond à ce code.");
+
+  await ctx.env.DB.prepare(
+    "INSERT OR IGNORE INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')"
+  )
+    .bind(group.id, user.id)
+    .run();
+
+  return json(ctx.request, ctx.env, {
+    joinedGroupId: group.id,
+    joinedGroupName: group.name,
     groups: await getPublicGroups(ctx, user.id, { includeMembers: true })
   });
 }
@@ -843,18 +918,21 @@ async function savePrediction(ctx: RequestContext): Promise<Response> {
         : match.away_team;
   }
 
+  // Timestamps ISO UTC explicites pour que les comparaisons de dates (badges
+  // "dernière minute", "VAR émotionnelle"...) restent cohérentes avec kickoff_at.
+  const now = new Date().toISOString();
   await ctx.env.DB.prepare(
     `INSERT INTO predictions (
        id, user_id, match_id, predicted_home_score, predicted_away_score,
-       predicted_winner_team, predicted_winner_code, updated_at
+       predicted_winner_team, predicted_winner_code, created_at, updated_at
      )
-     VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id, match_id) DO UPDATE SET
        predicted_home_score = excluded.predicted_home_score,
        predicted_away_score = excluded.predicted_away_score,
        predicted_winner_team = excluded.predicted_winner_team,
        predicted_winner_code = excluded.predicted_winner_code,
-       updated_at = CURRENT_TIMESTAMP`
+       updated_at = excluded.updated_at`
   )
     .bind(
       crypto.randomUUID(),
@@ -863,7 +941,9 @@ async function savePrediction(ctx: RequestContext): Promise<Response> {
       predictedHomeScore,
       predictedAwayScore,
       predictedWinnerTeam,
-      predictedWinnerCode
+      predictedWinnerCode,
+      now,
+      now
     )
     .run();
 
@@ -1158,13 +1238,27 @@ async function results(ctx: RequestContext): Promise<Response> {
 
 async function syncNow(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "POST");
-  if (ctx.env.ADMIN_TOKEN) {
-    const auth = ctx.request.headers.get("authorization");
-    if (auth !== `Bearer ${ctx.env.ADMIN_TOKEN}`) {
-      throw new HttpError(403, "Jeton admin invalide.");
-    }
-  } else {
+  const auth = ctx.request.headers.get("authorization");
+  const isAdmin = Boolean(ctx.env.ADMIN_TOKEN) && auth === `Bearer ${ctx.env.ADMIN_TOKEN}`;
+  if (ctx.env.ADMIN_TOKEN && !isAdmin) {
+    // Un token admin existe mais le header ne correspond pas : on exige quand
+    // même un utilisateur connecté (le bouton dashboard reste utilisable).
     requireUser(ctx);
+  } else if (!ctx.env.ADMIN_TOKEN) {
+    requireUser(ctx);
+  }
+
+  // Protection du quota football-data : on ignore les synchros rapprochées
+  // déclenchées par les utilisateurs (le cron et l'admin ne sont pas limités).
+  if (!isAdmin) {
+    const status = await getFootballDataSyncStatus(ctx.env);
+    if (shouldThrottleSync(status)) {
+      return json(ctx.request, ctx.env, {
+        synced: status.lastSyncedMatches,
+        status,
+        throttled: true
+      });
+    }
   }
 
   return json(ctx.request, ctx.env, await syncFootballData(ctx.env));
@@ -1194,6 +1288,7 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname === "/api/groups") {
     return ctx.request.method === "GET" ? listGroups(ctx) : createGroup(ctx);
   }
+  if (pathname === "/api/groups/join-by-code") return joinGroupByCode(ctx);
   const groupDeleteMatch = pathname.match(/^\/api\/groups\/([^/]+)$/);
   if (groupDeleteMatch && ctx.request.method === "DELETE") return deleteGroup(ctx, groupDeleteMatch[1]);
   const groupJoinMatch = pathname.match(/^\/api\/groups\/([^/]+)\/join$/);
