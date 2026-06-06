@@ -4,6 +4,7 @@ import {
   Check,
   ClipboardList,
   Info,
+  Languages,
   Link2,
   Lock,
   LogOut,
@@ -26,6 +27,8 @@ import {
   type ChangeEvent,
   type DragEvent,
   type FormEvent,
+  createContext,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -53,6 +56,97 @@ const themeOptions = [
   { id: "france", label: "Bleu blanc rouge" }
 ] as const;
 type ThemeMode = (typeof themeOptions)[number]["id"];
+
+const languageOptions = [
+  { id: "fr", label: "Français" },
+  { id: "en", label: "English" }
+] as const;
+type Language = (typeof languageOptions)[number]["id"];
+const languageStorageKey = "prono-cdm-language";
+
+// football-data renvoie les noms d'équipes en anglais. On les traduit en
+// français pour l'affichage selon la langue choisie. Les variantes d'orthographe
+// anglaises pointent vers le même nom français.
+const teamTranslationEntries: Array<[string, string]> = [
+  ["Argentina", "Argentine"],
+  ["Australia", "Australie"],
+  ["Austria", "Autriche"],
+  ["Belgium", "Belgique"],
+  ["Bolivia", "Bolivie"],
+  ["Brazil", "Brésil"],
+  ["Cameroon", "Cameroun"],
+  ["Canada", "Canada"],
+  ["Cape Verde", "Cap-Vert"],
+  ["Chile", "Chili"],
+  ["China", "Chine"],
+  ["China PR", "Chine"],
+  ["Colombia", "Colombie"],
+  ["Costa Rica", "Costa Rica"],
+  ["Croatia", "Croatie"],
+  ["Czech Republic", "République tchèque"],
+  ["Czechia", "République tchèque"],
+  ["Denmark", "Danemark"],
+  ["DR Congo", "RD Congo"],
+  ["Ecuador", "Équateur"],
+  ["Egypt", "Égypte"],
+  ["England", "Angleterre"],
+  ["France", "France"],
+  ["Georgia", "Géorgie"],
+  ["Germany", "Allemagne"],
+  ["Ghana", "Ghana"],
+  ["Greece", "Grèce"],
+  ["Guatemala", "Guatemala"],
+  ["Haiti", "Haïti"],
+  ["Honduras", "Honduras"],
+  ["Hungary", "Hongrie"],
+  ["Indonesia", "Indonésie"],
+  ["Iran", "Iran"],
+  ["Iraq", "Irak"],
+  ["Ireland", "Irlande"],
+  ["Republic of Ireland", "Irlande"],
+  ["Italy", "Italie"],
+  ["Ivory Coast", "Côte d'Ivoire"],
+  ["Côte d'Ivoire", "Côte d'Ivoire"],
+  ["Jamaica", "Jamaïque"],
+  ["Japan", "Japon"],
+  ["Jordan", "Jordanie"],
+  ["Korea Republic", "Corée du Sud"],
+  ["South Korea", "Corée du Sud"],
+  ["North Korea", "Corée du Nord"],
+  ["Korea DPR", "Corée du Nord"],
+  ["Mexico", "Mexique"],
+  ["Morocco", "Maroc"],
+  ["Netherlands", "Pays-Bas"],
+  ["New Zealand", "Nouvelle-Zélande"],
+  ["Nigeria", "Nigéria"],
+  ["Norway", "Norvège"],
+  ["Panama", "Panama"],
+  ["Paraguay", "Paraguay"],
+  ["Peru", "Pérou"],
+  ["Poland", "Pologne"],
+  ["Portugal", "Portugal"],
+  ["Qatar", "Qatar"],
+  ["Romania", "Roumanie"],
+  ["Saudi Arabia", "Arabie saoudite"],
+  ["Scotland", "Écosse"],
+  ["Senegal", "Sénégal"],
+  ["Serbia", "Serbie"],
+  ["Slovakia", "Slovaquie"],
+  ["Slovenia", "Slovénie"],
+  ["South Africa", "Afrique du Sud"],
+  ["Spain", "Espagne"],
+  ["Sweden", "Suède"],
+  ["Switzerland", "Suisse"],
+  ["Tunisia", "Tunisie"],
+  ["Turkey", "Turquie"],
+  ["Türkiye", "Turquie"],
+  ["Ukraine", "Ukraine"],
+  ["United States", "États-Unis"],
+  ["USA", "États-Unis"],
+  ["Uruguay", "Uruguay"],
+  ["Uzbekistan", "Ouzbékistan"],
+  ["Wales", "Pays de Galles"]
+];
 
 type DashboardData = {
   nextMatches: Match[];
@@ -83,6 +177,11 @@ const viewTitles: Record<View, string> = {
 
 const releaseNotes = [
   {
+    title: "Choisis la langue des équipes",
+    description: "Affiche les noms d'équipes en français ou en anglais. Le réglage est dans ton profil et s'applique partout dans l'app.",
+    date: "2026-06-06"
+  },
+  {
     title: "Invite tes potes en un lien",
     description: "Chaque groupe a maintenant un code d'invitation à partager. Tes amis le saisissent ou cliquent sur ton lien pour te rejoindre direct.",
     date: "2026-06-06"
@@ -104,17 +203,17 @@ const releaseNotes = [
   },
   {
     title: "Nouveaux badges fun",
-    description: "Bon élève, Madame Irma, le chat noir et d'autres badges viennent pimenter les profils."
+    description: "Bon élève, Madame Irma, le chat noir et d'autres badges viennent pimenter les profils.",
     date: "2026-05-06"
   },
   {
     title: "Thèmes plus lisibles",
-    description: "Les thèmes Gazon et Bleu blanc rouge passent sur une police sans-serif plus nette, avec un meilleur confort de lecture."
+    description: "Les thèmes Gazon et Bleu blanc rouge passent sur une police sans-serif plus nette, avec un meilleur confort de lecture.",
     date: "2026-05-06"
   },
   {
     title: "Groupes entre amis",
-    description: "Crée des groupes, rejoins ceux de tes potes et compare les classements par groupe."
+    description: "Crée des groupes, rejoins ceux de tes potes et compare les classements par groupe.",
     date: "2026-05-06"
   }
 ];
@@ -320,6 +419,32 @@ function teamFlag(team: string): string {
   return teamFlags.get(normalizeTeamKey(team)) ?? "";
 }
 
+const englishToFrenchTeam = new Map(
+  teamTranslationEntries.map(([english, french]) => [normalizeTeamKey(english), french])
+);
+const frenchToEnglishTeam = new Map(
+  teamTranslationEntries.map(([english, french]) => [normalizeTeamKey(french), english])
+);
+
+function translateTeam(team: string, language: Language): string {
+  if (!team) return team;
+  const key = normalizeTeamKey(team);
+  if (language === "fr") return englishToFrenchTeam.get(key) ?? team;
+  return frenchToEnglishTeam.get(key) ?? team;
+}
+
+const LanguageContext = createContext<Language>("fr");
+
+function useLanguage(): Language {
+  return useContext(LanguageContext);
+}
+
+// Hook pratique : renvoie une fonction de traduction d'équipe liée à la langue active.
+function useTeamLabel(): (team: string) => string {
+  const language = useLanguage();
+  return (team: string) => translateTeam(team, language);
+}
+
 function syncStatusLabel(status: SyncStatus["status"]): string {
   if (status === "success") return "Synchronisé";
   if (status === "running") return "Synchronisation en cours";
@@ -344,6 +469,19 @@ function initialTheme(): ThemeMode {
 
 function isThemeMode(value: string | null): value is ThemeMode {
   return themeOptions.some((option) => option.id === value);
+}
+
+function isLanguage(value: string | null): value is Language {
+  return languageOptions.some((option) => option.id === value);
+}
+
+function initialLanguage(): Language {
+  if (typeof window === "undefined") return "fr";
+  const stored =
+    typeof window.localStorage?.getItem === "function"
+      ? window.localStorage.getItem(languageStorageKey)
+      : null;
+  return isLanguage(stored) ? stored : "fr";
 }
 
 function readImageFile(file: File): Promise<string> {
@@ -518,6 +656,7 @@ export function App() {
   const [view, setView] = useState<View>("dashboard");
   const [publicProfileUserId, setPublicProfileUserId] = useState("");
   const [theme, setTheme] = useState<ThemeMode>(initialTheme);
+  const [language, setLanguage] = useState<Language>(initialLanguage);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -525,6 +664,17 @@ export function App() {
       window.localStorage.setItem(themeStorageKey, theme);
     }
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    if (typeof window.localStorage?.setItem === "function") {
+      window.localStorage.setItem(languageStorageKey, language);
+    }
+  }, [language]);
+
+  function changeLanguage(nextLanguage: Language) {
+    setLanguage(nextLanguage);
+  }
 
   function changeTheme(nextTheme: ThemeMode) {
     setTheme(nextTheme);
@@ -595,6 +745,7 @@ export function App() {
   }
 
   return (
+    <LanguageContext.Provider value={language}>
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
@@ -664,12 +815,15 @@ export function App() {
         )}
         {view === "results" && <Results />}
         {view === "rules" && <Rules />}
-        {view === "profile" && <Profile user={user} />}
+        {view === "profile" && (
+          <Profile user={user} language={language} onLanguageChange={changeLanguage} />
+        )}
         {view === "publicProfile" && publicProfileUserId && (
           <PublicProfile userId={publicProfileUserId} onBack={() => setView("leaderboard")} />
         )}
       </main>
     </div>
+    </LanguageContext.Provider>
   );
 }
 
@@ -1013,6 +1167,7 @@ function NextMatchCountdown({
   onOpenPredictions: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
+  const teamLabel = useTeamLabel();
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
@@ -1029,7 +1184,7 @@ function NextMatchCountdown({
           <CalendarClock size={16} /> Prono à poser avant le coup d'envoi
         </span>
         <strong>
-          {match.homeTeam} - {match.awayTeam}
+          {teamLabel(match.homeTeam)} - {teamLabel(match.awayTeam)}
         </strong>
         <span className="next-match-countdown">
           Il te reste <strong>{formatCountdown(remaining)}</strong> · {formatDate(match.kickoffAt)}
@@ -1349,6 +1504,7 @@ function PredictionEditor({
   const [winnerTeam, setWinnerTeam] = useState<string | null>(
     match.prediction?.predictedWinnerTeam ?? null
   );
+  const teamLabel = useTeamLabel();
   const tiedKnockout = match.stageKind === "KNOCKOUT" && home === away;
 
   useEffect(() => {
@@ -1392,15 +1548,15 @@ function PredictionEditor({
           <strong className="match-teams prediction-match-title" aria-hidden="true">
             <span className="match-team">
               {teamFlag(match.homeTeam) && <span className="team-flag">{teamFlag(match.homeTeam)}</span>}
-              <span>{match.homeTeam}</span>
+              <span>{teamLabel(match.homeTeam)}</span>
             </span>
             <span className="match-separator">-</span>
             <span className="match-team">
               {teamFlag(match.awayTeam) && <span className="team-flag">{teamFlag(match.awayTeam)}</span>}
-              <span>{match.awayTeam}</span>
+              <span>{teamLabel(match.awayTeam)}</span>
             </span>
           </strong>
-          <span className="visually-hidden">{match.homeTeam} - {match.awayTeam}</span>
+          <span className="visually-hidden">{teamLabel(match.homeTeam)} - {teamLabel(match.awayTeam)}</span>
         </div>
         <span className={`prediction-state ${predictionStateClass(match)}`}>
           {predictionStateLabel(match)}
@@ -1408,14 +1564,14 @@ function PredictionEditor({
       </div>
       <div className="score-editor">
         <ScoreInput
-          team={match.homeTeam}
+          team={teamLabel(match.homeTeam)}
           value={home}
           disabled={match.locked}
           onChange={setHome}
         />
         <span className="score-divider">-</span>
         <ScoreInput
-          team={match.awayTeam}
+          team={teamLabel(match.awayTeam)}
           value={away}
           disabled={match.locked}
           onChange={setAway}
@@ -1428,8 +1584,8 @@ function PredictionEditor({
             onChange={(event) => setWinnerTeam(event.target.value || null)}
           >
             <option value="">Qualifié</option>
-            <option value={match.homeTeam}>{match.homeTeam}</option>
-            <option value={match.awayTeam}>{match.awayTeam}</option>
+            <option value={match.homeTeam}>{teamLabel(match.homeTeam)}</option>
+            <option value={match.awayTeam}>{teamLabel(match.awayTeam)}</option>
           </select>
         )}
       </div>
@@ -1750,7 +1906,15 @@ function Results() {
   );
 }
 
-function Profile({ user }: { user: User }) {
+function Profile({
+  user,
+  language,
+  onLanguageChange
+}: {
+  user: User;
+  language: Language;
+  onLanguageChange: (language: Language) => void;
+}) {
   const matchesResource = useResource<{ matches: Match[] }>("/api/matches");
   const profileResource = useResource<{ profile: UserProfile; badges: ProfileBadge[]; groups: Group[] }>(
     "/api/profile",
@@ -1910,7 +2074,7 @@ function Profile({ user }: { user: User }) {
           <div className="profile-chips">
             <span>
               <Star size={16} />
-              Favori : {profile.favoriteTeam || "Non renseigné"}
+              Favori : {profile.favoriteTeam ? translateTeam(profile.favoriteTeam, language) : "Non renseigné"}
             </span>
             <span>
               <ClipboardList size={16} />
@@ -2006,6 +2170,32 @@ function Profile({ user }: { user: User }) {
           </button>
           {saved && <p className="inline-message">Profil enregistré.</p>}
         </form>
+      </section>
+
+      <section className="content-section preferences-section">
+        <SectionTitle title="Préférences" />
+        <label className="preference-row">
+          <span>
+            <Languages size={16} />
+            Langue des noms d'équipes
+          </span>
+          <select
+            aria-label="Choisir la langue"
+            value={language}
+            onChange={(event) => {
+              if (isLanguage(event.target.value)) onLanguageChange(event.target.value);
+            }}
+          >
+            {languageOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="section-subtitle">
+          Choisis la langue d'affichage des équipes (ex : « Allemagne » ou « Germany »). Le réglage s'applique à toute l'app.
+        </p>
       </section>
 
       <section className="content-section groups-section">
@@ -2162,6 +2352,7 @@ function PublicProfile({ userId, onBack }: { userId: string; onBack: () => void 
     `/api/users/${userId}/profile`,
     [userId]
   );
+  const teamLabel = useTeamLabel();
 
   if (loading) return <ShellState label="Chargement du profil joueur..." />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
@@ -2188,7 +2379,7 @@ function PublicProfile({ userId, onBack }: { userId: string; onBack: () => void 
             </span>
             <span>
               <Star size={16} />
-              Favori : {data.profile.favoriteTeam || "Non renseigné"}
+              Favori : {data.profile.favoriteTeam ? teamLabel(data.profile.favoriteTeam) : "Non renseigné"}
             </span>
           </div>
         </div>
@@ -2239,7 +2430,7 @@ function PublicProfile({ userId, onBack }: { userId: string; onBack: () => void 
           </div>
           <div>
             <span>Favori compétition</span>
-            <strong>{data.profile.favoriteTeam || "-"}</strong>
+            <strong>{data.profile.favoriteTeam ? teamLabel(data.profile.favoriteTeam) : "-"}</strong>
           </div>
         </div>
       </section>
@@ -2279,6 +2470,9 @@ function MatchLine({
   compact?: boolean;
   showResult?: boolean;
 }) {
+  const teamLabel = useTeamLabel();
+  const homeTeam = teamLabel(match.homeTeam);
+  const awayTeam = teamLabel(match.awayTeam);
   return (
     <article className={compact ? "match-line compact" : "match-line"}>
       <div>
@@ -2286,15 +2480,15 @@ function MatchLine({
         <strong className="match-teams" aria-hidden="true">
           <span className="match-team">
             {teamFlag(match.homeTeam) && <span className="team-flag">{teamFlag(match.homeTeam)}</span>}
-            <span>{match.homeTeam}</span>
+            <span>{homeTeam}</span>
           </span>
           <span className="match-separator">-</span>
           <span className="match-team">
             {teamFlag(match.awayTeam) && <span className="team-flag">{teamFlag(match.awayTeam)}</span>}
-            <span>{match.awayTeam}</span>
+            <span>{awayTeam}</span>
           </span>
         </strong>
-        <span className="visually-hidden">{match.homeTeam} - {match.awayTeam}</span>
+        <span className="visually-hidden">{homeTeam} - {awayTeam}</span>
       </div>
       <div className="match-meta">
         {showResult && <span className="score-badge">{scoreLabel(match)}</span>}

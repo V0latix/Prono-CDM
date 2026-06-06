@@ -1705,6 +1705,30 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+.preference-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.preference-row > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+}
+
+.preference-row select {
+  min-height: 2.55rem;
+  border: 2px solid var(--fg);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--fg);
+  padding: 0 0.65rem;
+}
+
 .news-item-head {
   display: flex;
   align-items: baseline;

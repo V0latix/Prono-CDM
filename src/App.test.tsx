@@ -425,8 +425,10 @@ describe("App components", () => {
     await screen.findByRole("heading", { name: "Dashboard" });
     await browserUser.click(screen.getAllByRole("button", { name: /mes pronos/i })[0]);
 
-    expect((await screen.findAllByText("Switzerland")).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Germany").length).toBeGreaterThan(0);
+    // Les noms anglais de football-data sont traduits en français par défaut,
+    // mais les drapeaux restent reconnus à partir du nom d'origine.
+    expect((await screen.findAllByText("Suisse")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Allemagne").length).toBeGreaterThan(0);
     expect(screen.getByText("🇨🇭")).toBeInTheDocument();
     expect(screen.getByText("🇩🇪")).toBeInTheDocument();
   });
@@ -612,6 +614,59 @@ describe("App components", () => {
     await browserUser.selectOptions(selector, "grass");
     expect(document.documentElement.dataset.theme).toBe("grass");
     expect(window.localStorage.getItem("prono-cdm-theme")).toBe("grass");
+  });
+
+  it("translates team names to French by default and switches language from the profile", async () => {
+    window.localStorage.clear();
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [match({ id: "m1", homeTeam: "Germany", awayTeam: "Brazil" })],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/profile",
+        body: {
+          profile: {
+            photoUrl: "",
+            tagline: "Prêt à viser le score exact.",
+            favoriteTeam: "Germany",
+            updatedAt: null
+          },
+          badges: profileBadges(),
+          groups: []
+        }
+      },
+      { path: "/api/groups", body: { groups: [] } },
+      { path: "/api/matches", body: { matches: [] } }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    // Par défaut (FR) les noms anglais de football-data sont traduits.
+    expect(await screen.findAllByText("Allemagne - Brésil")).not.toHaveLength(0);
+    expect(screen.queryByText("Germany - Brazil")).not.toBeInTheDocument();
+
+    await browserUser.click(screen.getByRole("button", { name: /romain/i }));
+    await screen.findByRole("heading", { level: 1, name: "Profil" });
+    expect(screen.getByText(/Favori : Allemagne/)).toBeInTheDocument();
+
+    await browserUser.selectOptions(
+      screen.getByRole("combobox", { name: "Choisir la langue" }),
+      "en"
+    );
+
+    expect(screen.getByText(/Favori : Germany/)).toBeInTheDocument();
+    expect(screen.queryByText(/Favori : Allemagne/)).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("prono-cdm-language")).toBe("en");
   });
 
   it("opens a small info bubble with recent app updates", async () => {
