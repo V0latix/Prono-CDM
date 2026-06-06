@@ -105,14 +105,17 @@ const releaseNotes = [
   {
     title: "Nouveaux badges fun",
     description: "Bon élève, Madame Irma, le chat noir et d'autres badges viennent pimenter les profils."
+    date: "2026-05-06"
   },
   {
     title: "Thèmes plus lisibles",
     description: "Les thèmes Gazon et Bleu blanc rouge passent sur une police sans-serif plus nette, avec un meilleur confort de lecture."
+    date: "2026-05-06"
   },
   {
     title: "Groupes entre amis",
     description: "Crée des groupes, rejoins ceux de tes potes et compare les classements par groupe."
+    date: "2026-05-06"
   }
 ];
 
