@@ -2086,7 +2086,7 @@ function Profile({
 
       <BadgesSection badges={profileResource.data?.badges ?? []} />
 
-      <section className="content-section">
+      <section className="content-section profile-edit-section">
         <SectionTitle title="Profil" />
         <form className="profile-form" onSubmit={saveProfile}>
           <div className="profile-form-field">

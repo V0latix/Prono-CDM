@@ -44,4 +44,13 @@ describe("responsive CSS", () => {
     expect(css).toContain('--font-display: "Inter", sans-serif');
     expect(css).toContain('--font-body: "Inter", sans-serif');
   });
+
+  it("puts profile editing before badges on mobile", () => {
+    const mobile = mediaBlock(640);
+
+    expect(mobile).toContain(".profile-edit-section");
+    expect(mobile).toContain("order: 2");
+    expect(mobile).toContain(".profile-badges-section");
+    expect(mobile).toContain("order: 3");
+  });
 });

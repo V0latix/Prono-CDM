@@ -2185,8 +2185,29 @@ button {
   }
 
   .profile-hero {
+    order: 1;
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .profile-edit-section {
+    order: 2;
+  }
+
+  .profile-badges-section {
+    order: 3;
+  }
+
+  .preferences-section {
+    order: 4;
+  }
+
+  .groups-section {
+    order: 5;
+  }
+
+  .profile-stats-section {
+    order: 6;
   }
 
   .profile-setup-preview {
