@@ -2702,3 +2702,74 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* Onglet Résultats : sélecteur Matchs / Poules et classement des poules */
+.results-view-toggle {
+  margin-bottom: 1.2rem;
+}
+
+.standings-list {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.standings-group-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  margin: 0 0 0.55rem;
+}
+
+.standings-scroll {
+  overflow-x: auto;
+}
+
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid var(--fg);
+  font-size: 0.92rem;
+}
+
+.standings-table th,
+.standings-table td {
+  padding: 0.5rem 0.4rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.standings-table thead th {
+  background: var(--surface);
+  font-weight: 800;
+  border-bottom: 2px solid var(--fg);
+}
+
+.standings-table tbody tr + tr td {
+  border-top: 1px solid var(--fg);
+}
+
+.standings-table .standings-rank {
+  width: 1.9rem;
+  color: var(--muted);
+}
+
+.standings-table .standings-team {
+  text-align: left;
+  min-width: 7.5rem;
+}
+
+.standings-table .standings-team .team-flag {
+  margin-right: 0.4rem;
+}
+
+.standings-table .standings-points {
+  font-weight: 800;
+}
+
+.standings-table tr.qualified td {
+  background: var(--success-soft);
+}
+
+.standings-table tr.qualified .standings-rank {
+  color: var(--success);
+  font-weight: 800;
+}

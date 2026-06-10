@@ -21,7 +21,7 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 
 ### Résultat
 
--Ajouter et integrer les classement des différents groupes directement dans l'appli
+- [x] Ajouter et integrer les classement des différents groupes directement dans l'appli (onglet Résultats > Poules : classement par poule, calculé depuis les matchs terminés)
 
 ### Terminé - Classement
 

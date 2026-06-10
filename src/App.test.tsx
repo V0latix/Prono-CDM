@@ -734,6 +734,60 @@ describe("App components", () => {
     expect(calls.some((call) => call.url === "/api/results")).toBe(true);
   });
 
+  it("affiche le classement des poules dans l'onglet résultats", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/results",
+        body: {
+          results: [
+            match({
+              id: "r1",
+              group: "GROUP_A",
+              homeTeam: "France",
+              awayTeam: "Canada",
+              homeScore: 2,
+              awayScore: 0,
+              status: "FINISHED"
+            }),
+            match({
+              id: "r2",
+              group: "GROUP_A",
+              homeTeam: "Maroc",
+              awayTeam: "Mexique",
+              homeScore: 1,
+              awayScore: 1,
+              status: "FINISHED"
+            })
+          ]
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getByRole("button", { name: /résultats/i }));
+    await browserUser.click(screen.getByRole("button", { name: "Poules" }));
+
+    expect(await screen.findByText("Groupe A")).toBeInTheDocument();
+    // France a gagné 2-0 (3 pts) : en tête de poule et donc qualifiée (top 2).
+    const franceRow = screen.getByText("France").closest("tr");
+    expect(franceRow).toHaveClass("qualified");
+  });
+
   it("shows an empty state in the results tab when no match is finished", async () => {
     installFetchMock([
       { path: "/api/me", body: { user } },
@@ -758,6 +812,9 @@ describe("App components", () => {
     await browserUser.click(screen.getByRole("button", { name: /résultats/i }));
 
     expect(await screen.findByText(/Aucun match terminé/)).toBeInTheDocument();
+
+    await browserUser.click(screen.getByRole("button", { name: "Poules" }));
+    expect(await screen.findByText(/classements des poules apparaîtront/)).toBeInTheDocument();
   });
 
   it("selects and persists a requested app theme from the profile", async () => {
