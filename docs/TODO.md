@@ -4,27 +4,24 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 
 ## Priorité haute
 
+- Ajouté des indications sur tous les matchs de la phase de groupe relatif au groupe dans lequel se joue le match. Et par la suite indiqué 1/8 de final, 1/4 final, etc
+
 ### Pronostics
 
-- Ajouter un filtre "À faire" dans Mes pronos pour voir uniquement les matchs ouverts sans prono.
-- Ajouter un filtre par phase : groupes, 16es, 8es, quarts, demies, finale.
-- Ajouter une sauvegarde rapide inline sans devoir cliquer sur chaque bouton si les scores changent.
 - Ajouter un état visuel plus fort pour les matchs bientôt verrouillés.
-- Afficher un compte à rebours avant verrouillage pour les matchs du jour.
 
 ### Dashboard
 
-- Mettre en avant les pronos urgents dans une section dédiée "À verrouiller bientôt".
-- Ajouter un résumé de progression : pronos faits, restants, verrouillés.
 - Ajouter une carte "dernier résultat calculé" avec points gagnés.
-- Ajouter une alerte si la synchro football-data.org est en erreur ou trop ancienne.
+- Ajouter un cron automatique pour mettre a jour les résultats des matchs. 
 
 ### Classement
 
-- Ajouter un classement par journée ou date de match.
 - Ajouter un classement hebdomadaire.
 
-## Priorité moyenne
+### Résultat
+
+-Ajouter et integrer les classement des différents groupes directement dans l'appli
 
 ### Terminé - Classement
 
@@ -94,9 +91,12 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 ### Notifications
 
 - Ajouter des rappels navigateur pour les pronos non faits.
-- Ajouter un email ou webhook optionnel pour rappeler les matchs du lendemain.
 - Ajouter une notification après recalcul des points.
 - Ajouter une notification quand un joueur devient premier.
+
+### Terminé - Notifications
+
+- [x] Ajouter un email optionnel pour rappeler les matchs à pronostiquer (~24h avant le coup d'envoi, opt-in + confirmation, via Brevo).
 
 ### Qualité et robustesse
 
