@@ -3,7 +3,13 @@ import { afterEach, beforeEach, vi } from "vitest";
 
 let localStorageData: Record<string, string> = {};
 
+// Certains tests (intégration D1/Worker) tournent en environnement Node sans DOM
+// via `// @vitest-environment node`. Ce setup global est partagé : on ne touche
+// au DOM que quand il existe réellement.
+const hasDom = typeof window !== "undefined";
+
 beforeEach(() => {
+  if (!hasDom) return;
   localStorageData = {};
   Object.defineProperty(window, "localStorage", {
     configurable: true,
@@ -23,7 +29,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  document.documentElement.removeAttribute("data-theme");
-  window.sessionStorage.clear();
+  if (hasDom) {
+    document.documentElement.removeAttribute("data-theme");
+    window.sessionStorage.clear();
+  }
   vi.restoreAllMocks();
 });

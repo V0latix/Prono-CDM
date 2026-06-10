@@ -65,6 +65,11 @@ type ProfilePayload = {
   favoriteTeam?: string;
 };
 
+type PinChangePayload = {
+  currentPin?: string;
+  newPin?: string;
+};
+
 type GroupPayload = {
   name?: string;
 };
@@ -823,6 +828,34 @@ async function saveProfile(ctx: RequestContext): Promise<Response> {
   });
 }
 
+async function changePin(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "POST");
+  const user = requireUser(ctx);
+  const body = await parseJson<PinChangePayload>(ctx.request);
+  const currentPin = body.currentPin ?? "";
+  const newPin = body.newPin ?? "";
+  assertPin(currentPin);
+  assertPin(newPin);
+  if (currentPin === newPin) {
+    throw new HttpError(400, "Le nouveau PIN doit être différent de l'actuel.");
+  }
+
+  const row = await ctx.env.DB.prepare(
+    "SELECT pin_hash FROM users WHERE id = ? LIMIT 1"
+  )
+    .bind(user.id)
+    .first<{ pin_hash: string }>();
+  if (!row || !(await verifyPin(currentPin, row.pin_hash))) {
+    throw new HttpError(403, "PIN actuel incorrect.");
+  }
+
+  await ctx.env.DB.prepare("UPDATE users SET pin_hash = ? WHERE id = ?")
+    .bind(await hashPin(newPin), user.id)
+    .run();
+
+  return json(ctx.request, ctx.env, { ok: true });
+}
+
 async function listGroups(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "GET");
   const user = requireUser(ctx);
@@ -1467,6 +1500,7 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname === "/api/auth/login") return login(ctx);
   if (pathname === "/api/auth/logout") return logout(ctx);
   if (pathname === "/api/me") return me(ctx);
+  if (pathname === "/api/profile/pin") return changePin(ctx);
   if (pathname === "/api/profile") {
     return ctx.request.method === "GET" ? getProfile(ctx) : saveProfile(ctx);
   }
