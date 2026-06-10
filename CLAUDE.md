@@ -23,6 +23,7 @@ Le frontend ne doit jamais appeler football-data.org directement. Il lit uniquem
 - `src/api.ts` : client API frontend, base URL, fallback de session preview.
 - `src/shared/scoring.ts` : calcul pur des points, partageable frontend/Worker.
 - `src/shared/week.ts` : bornes de la semaine pour le classement hebdomadaire.
+- `src/shared/standings.ts` : calcul pur du classement des poules (onglet Resultats), a partir des matchs termines.
 - `src/styles.css` : design system global, themes, responsive.
 - `worker/src/index.ts` : entree Worker, CORS, session, cron.
 - `worker/src/routes.ts` : routes API, auth, profils, groupes, pronos, classements.
@@ -62,8 +63,8 @@ Points d'attention :
 - Le bouton pseudo ouvre le profil utilisateur.
 - La bulle `Nouveautes` lit la constante `releaseNotes` dans `src/App.tsx`.
 - Les release notes doivent rester orientees utilisateur. Ne pas y mettre de details techniques de deploy, Worker, preview, migration ou API.
-- Les themes disponibles sont `classic`, `dark`, `grass`, `france`.
-- Les themes `grass` et `france` utilisent `Inter` pour une meilleure lisibilite.
+- Les themes disponibles sont `classic`, `dark`, `minuit`, `ardoise`, `grass`, `neon`, `france`.
+- Les themes `ardoise`, `grass`, `neon` et `france` utilisent `Inter` pour une meilleure lisibilite.
 - La carte "Predictions a faire maintenant" du dashboard n'affiche PAS un jour
   calendaire : elle regroupe une "session" de matchs consecutifs (coups d'envoi
   espaces de moins de 9h, voir `worker/src/prediction-session.ts`). Sinon les
@@ -316,6 +317,7 @@ Suites importantes :
 - `src/api.test.ts` : client API, erreurs, base Worker preview, bearer fallback.
 - `src/responsive-css.test.ts` : contraintes CSS responsive/themes.
 - `src/shared/scoring.test.ts` : calcul des points.
+- `src/shared/standings.test.ts` : classement des poules (points 3/1/0, tie-break diff/buts).
 - `worker/src/auth.test.ts` : PIN, hashing, locks, cookies, bearer, purge sessions, hash factice.
 - `worker/src/football-data.test.ts` : normalisation API externe.
 - `worker/src/badges.test.ts` : badges profil.
@@ -378,7 +380,7 @@ Contraintes :
 - Garder une interface dense, lisible, orientee usage.
 - Les cartes sont reservees aux items/outils/modales.
 - Pas de texte technique visible pour l'utilisateur.
-- La page Resultats est volontairement vide/en attente pour l'instant.
+- La page Resultats a deux vues (selecteur Matchs / Poules) : les matchs termines avec pronos/points, et le classement des poules calcule cote client via `src/shared/standings.ts`.
 - Le reglement ne doit pas parler de Worker ni de details backend.
 - Le reglement parle de "phase finale", pas de "matchs a enjeu".
 

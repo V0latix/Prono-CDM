@@ -49,6 +49,7 @@ import {
   type User
 } from "./api";
 import { currentWeekRange } from "./shared/week";
+import { computeGroupStandings, type GroupStanding } from "./shared/standings";
 
 type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "profile" | "publicProfile";
 const themeOptions = [
@@ -182,6 +183,11 @@ const viewTitles: Record<View, string> = {
 };
 
 const releaseNotes = [
+  {
+    title: "Le classement des poules dans Résultats",
+    description: "Dans l'onglet Résultats, bascule sur « Poules » pour voir le classement de chaque groupe (Groupe A, B…) avec points, victoires et différence de buts. Les deux premiers de chaque poule sont mis en avant.",
+    date: "2026-06-10"
+  },
   {
     title: "Les matchs de la nuit aussi à pronostiquer",
     description: "La carte « Prédictions à faire maintenant » regroupe désormais toute la soirée de matchs, y compris ceux qui se jouent après minuit. Plus aucun match de nuit oublié.",
@@ -2091,11 +2097,14 @@ function GroupCard({
 
 function Results() {
   const { data, error, reload, loading } = useResource<{ results: Match[] }>("/api/results");
+  const [view, setView] = useState<"matches" | "poules">("matches");
+
+  const results = data?.results ?? EMPTY_MATCHES;
+  const standings = useMemo(() => computeGroupStandings(results), [results]);
 
   if (loading) return <ShellState label="Chargement des résultats..." />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
-  const results = data?.results ?? [];
   const predicted = results.filter((match) => match.prediction);
   const totalPoints = predicted.reduce((sum, match) => sum + (match.prediction?.points ?? 0), 0);
   const exactScores = predicted.filter((match) => match.prediction?.exactScore).length;
@@ -2116,35 +2125,118 @@ function Results() {
   return (
     <section className="content-section">
       <SectionTitle title="Résultats" action={<RefreshButton onClick={reload} />} />
-      {results.length ? (
-        <>
-          <div className="prediction-summary" aria-label="Résumé des résultats">
-            <Metric label="Matchs joués" value={String(results.length)} />
-            <Metric label="Points gagnés" value={String(totalPoints)} />
-            <Metric label="Scores exacts" value={String(exactScores)} />
-          </div>
-          <div className="prediction-day-list">
-            {groupedResults.map((group) => (
-              <section className="prediction-day" key={group.day}>
-                <div className="prediction-day-header">
-                  <h2>{formatDay(group.day)}</h2>
-                  <span className="status-chip">
-                    {group.matches.length} match{group.matches.length > 1 ? "s" : ""}
-                  </span>
-                </div>
-                <div className="match-list">
-                  {group.matches.map((match) => (
-                    <MatchLine key={match.id} match={match} showResult />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        </>
+      <div className="period-toggle results-view-toggle" role="group" aria-label="Affichage des résultats">
+        <button
+          type="button"
+          className={view === "matches" ? "active" : ""}
+          aria-pressed={view === "matches"}
+          onClick={() => setView("matches")}
+        >
+          Matchs
+        </button>
+        <button
+          type="button"
+          className={view === "poules" ? "active" : ""}
+          aria-pressed={view === "poules"}
+          onClick={() => setView("poules")}
+        >
+          Poules
+        </button>
+      </div>
+      {view === "matches" ? (
+        results.length ? (
+          <>
+            <div className="prediction-summary" aria-label="Résumé des résultats">
+              <Metric label="Matchs joués" value={String(results.length)} />
+              <Metric label="Points gagnés" value={String(totalPoints)} />
+              <Metric label="Scores exacts" value={String(exactScores)} />
+            </div>
+            <div className="prediction-day-list">
+              {groupedResults.map((group) => (
+                <section className="prediction-day" key={group.day}>
+                  <div className="prediction-day-header">
+                    <h2>{formatDay(group.day)}</h2>
+                    <span className="status-chip">
+                      {group.matches.length} match{group.matches.length > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="match-list">
+                    {group.matches.map((match) => (
+                      <MatchLine key={match.id} match={match} showResult />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </>
+        ) : (
+          <EmptyState text="Aucun match terminé pour l'instant. Reviens après les premiers coups de sifflet final." />
+        )
       ) : (
-        <EmptyState text="Aucun match terminé pour l'instant. Reviens après les premiers coups de sifflet final." />
+        <GroupStandingsView standings={standings} />
       )}
     </section>
+  );
+}
+
+// Reference stable pour le fallback de `useResource`, afin que le useMemo des
+// classements ne se recalcule pas a chaque rendu pendant le chargement.
+const EMPTY_MATCHES: Match[] = [];
+
+function formatGoalDiff(diff: number): string {
+  return diff > 0 ? `+${diff}` : String(diff);
+}
+
+function GroupStandingsView({ standings }: { standings: GroupStanding[] }) {
+  const teamLabel = useTeamLabel();
+
+  if (standings.length === 0) {
+    return (
+      <EmptyState text="Les classements des poules apparaîtront dès les premiers matchs terminés." />
+    );
+  }
+
+  return (
+    <div className="standings-list">
+      {standings.map((standing) => (
+        <section className="standings-group" key={standing.group}>
+          <h2 className="standings-group-title">Groupe {groupLetter(standing.group)}</h2>
+          <div className="standings-scroll">
+            <table className="standings-table">
+              <thead>
+                <tr>
+                  <th scope="col" className="standings-rank">#</th>
+                  <th scope="col" className="standings-team">Équipe</th>
+                  <th scope="col" title="Joués">J</th>
+                  <th scope="col" title="Gagnés">G</th>
+                  <th scope="col" title="Nuls">N</th>
+                  <th scope="col" title="Perdus">P</th>
+                  <th scope="col" title="Différence de buts">Diff</th>
+                  <th scope="col" title="Points">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standing.rows.map((row, index) => (
+                  <tr key={row.team} className={index < 2 ? "qualified" : ""}>
+                    <td className="standings-rank">{index + 1}</td>
+                    <td className="standings-team">
+                      {teamFlag(row.team) && <span className="team-flag">{teamFlag(row.team)}</span>}
+                      <span>{teamLabel(row.team)}</span>
+                    </td>
+                    <td>{row.played}</td>
+                    <td>{row.won}</td>
+                    <td>{row.drawn}</td>
+                    <td>{row.lost}</td>
+                    <td>{formatGoalDiff(row.goalDiff)}</td>
+                    <td className="standings-points">{row.points}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }
 
