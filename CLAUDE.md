@@ -29,6 +29,9 @@ Le frontend ne doit jamais appeler football-data.org directement. Il lit uniquem
 - `worker/src/football-data.ts` : synchronisation football-data.org vers D1.
 - `worker/src/scoring-db.ts` : recalcul des points et feed d'activite apres synchro.
 - `worker/src/badges.ts` : calcul des badges de profil.
+- `worker/src/email.ts` : envoi email transactionnel via Brevo.
+- `worker/src/notifications.ts` : rappels "fais tes pronos" 24h avant kickoff.
+- `worker/src/types.ts` : type `Env` (bindings, secrets).
 - `migrations/*.sql` : schema D1 versionne.
 - `vercel.json` : rewrites historiques `/api`, mais les previews Vercel utilisent aussi l'API Worker directe.
 
@@ -101,6 +104,10 @@ Routes principales dans `worker/src/routes.ts` :
 - `GET /api/me`
 - `GET /api/profile`
 - `PUT /api/profile`
+- `GET /api/notifications`
+- `PUT /api/notifications`
+- `POST /api/notifications/verify`
+- `POST /api/notifications/unsubscribe`
 - `GET /api/users/:id/profile`
 - `GET /api/groups`
 - `POST /api/groups`
@@ -175,6 +182,24 @@ Cron :
 [triggers]
 crons = ["*/30 * * * *"]
 ```
+
+Le `scheduled()` du Worker lance `syncFootballData(env)` puis `sendPredictionReminders(env)` (rappels email).
+
+## Notifications email
+
+Fichiers : `worker/src/email.ts`, `worker/src/notifications.ts`.
+
+- Email via Brevo (300 mails/jour gratuits, expediteur verifie sans domaine requis).
+- Sans `BREVO_API_KEY` ou `EMAIL_FROM`, l'envoi est no-op (`return false`) : ne casse jamais le flux applicatif (local/tests).
+- L'email n'est jamais expose publiquement (table dediee, hors `user_profiles`).
+- Rappel envoye une seule fois par match et par joueur (table `notification_log`), pour les pronos manquants d'un match qui debute dans moins de 24h.
+- Seuls les joueurs ayant active ET confirme leurs notifications recoivent un rappel.
+
+Variables :
+
+- `BREVO_API_KEY` : secret requis pour l'envoi.
+- `EMAIL_FROM` : email expediteur verifie.
+- `EMAIL_FROM_NAME` : nom expediteur (optionnel).
 
 ## Scoring
 
@@ -256,6 +281,8 @@ Migrations existantes :
 - `0006_login_attempts.sql` : brute force PIN.
 - `0007_profile_views.sql` : vues de profils pour badge rivalite.
 - `0008_group_invite_codes.sql` : code d'invitation par groupe (colonne `invite_code` + index unique). Les groupes existants recoivent un code en lazy backfill.
+- `0009_email_notifications.sql` : preferences email par utilisateur + journal d'envoi (`notification_log`).
+- `0010_match_group.sql` : colonne `match_group` (poule `GROUP_A`..., `NULL` en phase finale, remplie a la prochaine synchro).
 
 Commandes :
 
@@ -284,6 +311,8 @@ Suites importantes :
 - `worker/src/auth.test.ts` : PIN, hashing, locks, cookies, bearer, purge sessions, hash factice.
 - `worker/src/football-data.test.ts` : normalisation API externe.
 - `worker/src/badges.test.ts` : badges profil.
+- `worker/src/email.test.ts` : envoi Brevo, no-op sans cle/expediteur.
+- `worker/src/notifications.test.ts` : rappels pronos, fenetre 24h, anti-doublon.
 - `worker/src/http.test.ts` : allowlist CORS, requireUser, errorResponse.
 - `worker/src/invites.test.ts` : codes d'invitation et throttle de synchro.
 
