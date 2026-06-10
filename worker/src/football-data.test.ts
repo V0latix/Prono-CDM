@@ -10,6 +10,7 @@ describe("football-data normalization", () => {
       utcDate: "2026-06-11T19:00:00Z",
       status: "SCHEDULED",
       stage: "GROUP_STAGE",
+      group: "GROUP_A",
       homeTeam: { name: "Mexico", shortName: "Mexico", tla: "MEX" },
       awayTeam: { name: "South Africa", shortName: "South Africa", tla: "RSA" },
       score: {
@@ -26,6 +27,7 @@ describe("football-data normalization", () => {
       awayTeam: "South Africa",
       kickoffAt: "2026-06-11T19:00:00Z",
       stage: "GROUP_STAGE",
+      group: "GROUP_A",
       status: "SCHEDULED",
       homeScore: null,
       awayScore: null,
@@ -52,6 +54,7 @@ describe("football-data normalization", () => {
 
     expect(normalized).toMatchObject({
       stage: "FINAL",
+      group: null,
       status: "FINISHED",
       homeScore: 1,
       awayScore: 1,
@@ -60,7 +63,7 @@ describe("football-data normalization", () => {
     });
   });
 
-  it("falls back to group and placeholder team names when teams are not known yet", () => {
+  it("keeps the group stage and the group letter separate for group matches", () => {
     const normalized = normalizeFootballDataMatch({
       id: 391050,
       utcDate: "2026-06-30T19:00:00Z",
@@ -74,7 +77,8 @@ describe("football-data normalization", () => {
     expect(normalized).toMatchObject({
       homeTeam: "Équipe à définir",
       awayTeam: "Équipe à définir",
-      stage: "GROUP_B"
+      stage: "GROUP_STAGE",
+      group: "GROUP_B"
     });
   });
 });

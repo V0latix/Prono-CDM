@@ -235,6 +235,7 @@ function publicMatch(match: MatchRow, prediction?: PredictionRow | null) {
     kickoffAt: match.kickoff_at,
     stage: match.stage,
     stageKind: getStageKind(match.stage),
+    group: match.match_group ?? null,
     status: match.status,
     homeScore: match.home_score,
     awayScore: match.away_score,

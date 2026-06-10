@@ -23,6 +23,7 @@ function match(overrides: Partial<Match> = {}): Match {
     kickoffAt: "2026-06-15T19:00:00.000Z",
     stage: "GROUP_STAGE",
     stageKind: "GROUP",
+    group: "GROUP_A",
     status: "SCHEDULED",
     homeScore: null,
     awayScore: null,
@@ -658,6 +659,8 @@ describe("App components", () => {
     // Par défaut (FR) les noms anglais de football-data sont traduits.
     expect(await screen.findAllByText("Allemagne - Brésil")).not.toHaveLength(0);
     expect(screen.queryByText("Germany - Brazil")).not.toBeInTheDocument();
+    // Chaque match de poule indique son groupe.
+    expect(screen.getAllByText(/Groupe A/).length).toBeGreaterThan(0);
 
     await browserUser.click(screen.getByRole("button", { name: /romain/i }));
     await screen.findByRole("heading", { level: 1, name: "Profil" });
@@ -815,6 +818,8 @@ describe("App components", () => {
 
     const saveButton = await screen.findByRole("button", { name: /enregistrer/i });
     expect(saveButton).toBeDisabled();
+    // Le libellé du tour de phase finale remplace le générique "Élimination directe".
+    expect(screen.getByText(/Finale/)).toBeInTheDocument();
 
     await browserUser.selectOptions(screen.getByRole("combobox", { name: "Équipe qualifiée" }), "France");
     expect(saveButton).not.toBeDisabled();

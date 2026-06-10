@@ -180,7 +180,7 @@ const releaseNotes = [
   {
     title: "Rappels par email",
     description: "Active les notifications dans ton profil et reçois un email avant chaque match dont le prono n'est pas encore posé, avec le lien direct pour le compléter.",
-    date: "2026-06-09"
+    date: "2026-06-10"
   },
   {
     title: "Choisis la langue des équipes",
@@ -401,9 +401,29 @@ function matchDayKey(match: Match): string {
   }).format(new Date(match.kickoffAt));
 }
 
+// Libellé court du tour à élimination directe à partir du code football-data.
+function knockoutRoundLabel(stage: string): string {
+  const normalized = stage.toUpperCase();
+  if (normalized.includes("LAST_32") || normalized.includes("ROUND_OF_32")) return "16e de finale";
+  if (normalized.includes("LAST_16") || normalized.includes("ROUND_OF_16")) return "8e de finale";
+  if (normalized.includes("QUARTER")) return "1/4 de finale";
+  if (normalized.includes("SEMI")) return "1/2 finale";
+  if (normalized.includes("THIRD_PLACE")) return "Petite finale";
+  if (normalized.includes("FINAL")) return "Finale";
+  return "Élimination directe";
+}
+
+// Extrait la lettre de poule d'un code football-data ("GROUP_A" -> "A").
+function groupLetter(group: string | null): string {
+  if (!group) return "";
+  const match = group.toUpperCase().match(/([A-Z0-9]+)$/);
+  return match ? match[1] : "";
+}
+
 function stageLabel(match: Match): string {
-  if (match.stageKind === "KNOCKOUT") return "Élimination directe";
-  return "Groupes";
+  if (match.stageKind === "KNOCKOUT") return knockoutRoundLabel(match.stage);
+  const letter = groupLetter(match.group);
+  return letter ? `Groupe ${letter}` : "Groupes";
 }
 
 function scoreLabel(match: Match): string {
