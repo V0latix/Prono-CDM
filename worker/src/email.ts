@@ -69,7 +69,7 @@ export async function sendEmail(
 }
 
 function appUrl(env: Env): string {
-  return (env.APP_URL?.trim() || "https://prono-cdm.vercel.app").replace(/\/+$/, "");
+  return (env.APP_URL?.trim() || "https://prono-cdm-entre-pote.vercel.app").replace(/\/+$/, "");
 }
 
 function apiUrl(env: Env): string {

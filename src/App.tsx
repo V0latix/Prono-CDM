@@ -53,7 +53,10 @@ type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | 
 const themeOptions = [
   { id: "classic", label: "Classique" },
   { id: "dark", label: "Dark mode" },
+  { id: "minuit", label: "Minuit" },
+  { id: "ardoise", label: "Ardoise" },
   { id: "grass", label: "Mode gazon" },
+  { id: "neon", label: "Néon stade" },
   { id: "france", label: "Bleu blanc rouge" }
 ] as const;
 type ThemeMode = (typeof themeOptions)[number]["id"];
@@ -178,8 +181,23 @@ const viewTitles: Record<View, string> = {
 
 const releaseNotes = [
   {
+    title: "Trois nouveaux thèmes",
+    description: "Habille l'app à ton goût depuis ton profil : Minuit (bleu nuit chic), Ardoise (clair et net) et Néon stade (vert fluo qui claque).",
+    date: "2026-06-10"
+  },
+  {
+    title: "Chaque match affiche sa poule et son tour",
+    description: "Tu vois d'un coup d'œil le groupe (Groupe A, B…) en phase de poules, puis le tour en phase finale : 8e de finale, quart, demie, finale.",
+    date: "2026-06-10"
+  },
+  {
     title: "Rappels par email",
-    description: "Active les notifications dans ton profil et reçois un email avant chaque match dont le prono n'est pas encore posé, avec le lien direct pour le compléter.",
+    description: "Active les rappels dans ton profil pour recevoir un email avant chaque match que tu n'as pas encore pronostiqué, avec le lien direct vers l'app.",
+    date: "2026-06-10"
+  },
+  {
+    title: "Les nouveautés à l'ouverture",
+    description: "À chaque nouvelle version, un récap des nouveautés s'affiche au lancement. Tu le fermes en un clic et il ne revient qu'à la prochaine mise à jour.",
     date: "2026-06-10"
   },
   {
