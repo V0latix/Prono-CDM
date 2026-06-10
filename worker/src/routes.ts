@@ -615,7 +615,7 @@ function publicNotifications(row: UserNotificationRow | null) {
 }
 
 function htmlResponse(ctx: RequestContext, title: string, message: string, status = 200): Response {
-  const appUrl = (ctx.env.APP_URL?.trim() || "https://prono-cdm.vercel.app").replace(/\/+$/, "");
+  const appUrl = (ctx.env.APP_URL?.trim() || "https://prono-cdm-entre-pote.vercel.app").replace(/\/+$/, "");
   const body = `<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title></head>

@@ -11,7 +11,7 @@ FOOTBALL_DATA_SEASON = "2026"
 COOKIE_SAMESITE = "None"
 COOKIE_SECURE = "true"
 # Notifications email (Brevo). BREVO_API_KEY est un secret : `wrangler secret put BREVO_API_KEY`.
-APP_URL = "https://prono-cdm.vercel.app"
+APP_URL = "https://prono-cdm-entre-pote.vercel.app"
 API_URL = "https://prono-cdm-api.volatix-prono-cdm.workers.dev"
 EMAIL_FROM = "romaind.67@outlook.fr"
 EMAIL_FROM_NAME = "Prono CDM"
