@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
-import { App } from "./App";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { App, NEWS_STORAGE_KEY, NEWS_VERSION } from "./App";
 import type { Group, LeaderboardRow, Match, ProfileBadge } from "./api";
 import { installFetchMock } from "./test/fetchMock";
 
@@ -107,6 +107,12 @@ function profileBadges(overrides: Partial<ProfileBadge>[] = []): ProfileBadge[] 
 }
 
 describe("App components", () => {
+  // Par défaut on marque les nouveautés comme déjà vues pour éviter que le
+  // pop-up de nouveautés ne s'ouvre dans les parcours non liés.
+  beforeEach(() => {
+    window.localStorage.setItem(NEWS_STORAGE_KEY, NEWS_VERSION);
+  });
+
   it("shows registration without invitation code and submits only pseudo and PIN", async () => {
     const { calls } = installFetchMock([
       { path: "/api/me", body: { user: null } },
@@ -169,6 +175,63 @@ describe("App components", () => {
       favoriteTeam: "France"
     });
     expect(window.localStorage.getItem("prono-cdm-theme")).toBe("france");
+  });
+
+  it("enables email notifications from the profile setup screen", async () => {
+    const { calls } = installFetchMock([
+      { path: "/api/me", body: { user: null } },
+      { method: "POST", path: "/api/auth/register", body: { user } },
+      {
+        method: "PUT",
+        path: "/api/profile",
+        body: {
+          profile: { photoUrl: "", tagline: "", favoriteTeam: "", updatedAt: null },
+          badges: []
+        }
+      },
+      {
+        method: "PUT",
+        path: "/api/notifications",
+        body: { notifications: { email: "joueur@example.com", enabled: true, verified: false } }
+      },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByText("Inscription");
+    await browserUser.type(screen.getByLabelText("Pseudo"), "Romain");
+    await browserUser.type(screen.getByLabelText(/Code PIN/), "1234");
+    await browserUser.click(screen.getByRole("button", { name: /créer mon compte/i }));
+
+    await screen.findByText("Création du profil");
+    await browserUser.click(screen.getByRole("checkbox", { name: /rappels par email/i }));
+    await browserUser.type(
+      screen.getByRole("textbox", { name: /adresse email pour les rappels/i }),
+      "joueur@example.com"
+    );
+    await browserUser.click(screen.getByRole("button", { name: /créer mon profil/i }));
+
+    await screen.findByRole("heading", { name: "Dashboard" });
+    const notifCall = calls.find(
+      (call) => call.url === "/api/notifications" && call.init?.method === "PUT"
+    );
+    expect(notifCall).toBeDefined();
+    expect(JSON.parse(String(notifCall?.init?.body))).toEqual({
+      email: "joueur@example.com",
+      enabled: true
+    });
   });
 
   it("switches to login and displays server authentication errors", async () => {
@@ -587,6 +650,7 @@ describe("App components", () => {
 
   it("selects and persists a requested app theme", async () => {
     window.localStorage.clear();
+    window.localStorage.setItem(NEWS_STORAGE_KEY, NEWS_VERSION);
     installFetchMock([
       { path: "/api/me", body: { user } },
       {
@@ -619,6 +683,7 @@ describe("App components", () => {
 
   it("translates team names to French by default and switches language from the profile", async () => {
     window.localStorage.clear();
+    window.localStorage.setItem(NEWS_STORAGE_KEY, NEWS_VERSION);
     installFetchMock([
       { path: "/api/me", body: { user } },
       {
@@ -775,6 +840,35 @@ describe("App components", () => {
 
     await browserUser.click(within(panel).getByRole("button", { name: "Fermer les nouveautés" }));
     expect(screen.queryByRole("region", { name: "Nouveautés de l'application" })).not.toBeInTheDocument();
+  });
+
+  it("shows the what's new pop-up on reopen and remembers it was dismissed", async () => {
+    window.localStorage.removeItem(NEWS_STORAGE_KEY);
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    const dialog = await screen.findByRole("dialog", { name: /nouveautés/i });
+    expect(within(dialog).getByText("Rappels par email")).toBeInTheDocument();
+
+    await browserUser.click(within(dialog).getByRole("button", { name: /c'est noté/i }));
+
+    expect(screen.queryByRole("dialog", { name: /nouveautés/i })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(NEWS_STORAGE_KEY)).toBe(NEWS_VERSION);
   });
 
   it("requires a qualified team for tied knockout predictions before saving", async () => {

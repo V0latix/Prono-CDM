@@ -224,6 +224,11 @@ const releaseNotes = [
   }
 ];
 
+// Clé de version des nouveautés : change dès qu'on ajoute une release note en
+// tête de liste, ce qui ré-affiche automatiquement le pop-up à la réouverture.
+export const NEWS_STORAGE_KEY = "prono-cdm-news-seen";
+export const NEWS_VERSION = `${releaseNotes[0]?.date ?? ""}:${releaseNotes[0]?.title ?? ""}`;
+
 const defaultProfile: UserProfile = {
   photoUrl: "",
   tagline: "Prêt à viser le score exact.",
@@ -828,6 +833,7 @@ export function App() {
             </button>
           </div>
         </header>
+        <WhatsNewModal />
         {view === "dashboard" && <Dashboard onOpenPredictions={() => setView("predictions")} />}
         {view === "predictions" && <Predictions />}
         {view === "leaderboard" && (
@@ -892,6 +898,67 @@ function WhatsNewBubble() {
           </ul>
         </section>
       ) : null}
+    </div>
+  );
+}
+
+// Pop-up affiché à la réouverture de l'app tant que les dernières nouveautés
+// n'ont pas été vues. On retient la version vue dans le localStorage.
+function WhatsNewModal() {
+  const [isOpen, setIsOpen] = useState(() => {
+    try {
+      return window.localStorage.getItem(NEWS_STORAGE_KEY) !== NEWS_VERSION;
+    } catch {
+      return false;
+    }
+  });
+
+  function dismiss() {
+    try {
+      window.localStorage.setItem(NEWS_STORAGE_KEY, NEWS_VERSION);
+    } catch {
+      // localStorage indisponible : on ferme quand même pour cette session.
+    }
+    setIsOpen(false);
+  }
+
+  if (!isOpen) return null;
+
+  const highlights = releaseNotes.slice(0, 4);
+
+  return (
+    <div className="news-modal-overlay" role="presentation" onClick={dismiss}>
+      <div
+        className="news-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="news-modal-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="news-modal-header">
+          <div>
+            <span className="news-modal-eyebrow">Quoi de neuf</span>
+            <strong id="news-modal-title">Les dernières nouveautés</strong>
+          </div>
+          <button type="button" aria-label="Fermer les nouveautés" onClick={dismiss}>
+            <X size={18} />
+          </button>
+        </div>
+        <ul className="news-modal-list">
+          {highlights.map((note) => (
+            <li key={note.title}>
+              <div className="news-modal-item-head">
+                <strong>{note.title}</strong>
+                {note.date ? <span className="news-date">{formatDay(note.date)}</span> : null}
+              </div>
+              <p>{note.description}</p>
+            </li>
+          ))}
+        </ul>
+        <button className="primary-button" type="button" onClick={dismiss}>
+          C'est noté !
+        </button>
+      </div>
     </div>
   );
 }
@@ -1016,6 +1083,8 @@ function ProfileSetup({
   const [error, setError] = useState("");
   const [photoError, setPhotoError] = useState("");
   const [draggingPhoto, setDraggingPhoto] = useState(false);
+  const [notifEnabled, setNotifEnabled] = useState(false);
+  const [notifEmail, setNotifEmail] = useState("");
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   function updateProfile(update: Partial<UserProfile>) {
@@ -1046,6 +1115,14 @@ function ProfileSetup({
           favoriteTeam: profile.favoriteTeam
         })
       });
+      // Activation best-effort des notifications : un échec ici ne doit pas
+      // bloquer la création du profil (réglable ensuite depuis le profil).
+      if (notifEnabled && notifEmail.trim()) {
+        await api("/api/notifications", {
+          method: "PUT",
+          body: JSON.stringify({ email: notifEmail.trim(), enabled: true })
+        }).catch(() => undefined);
+      }
       onComplete();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Impossible d'enregistrer le profil.");
@@ -1162,6 +1239,32 @@ function ProfileSetup({
               </label>
             ))}
           </fieldset>
+          <div className="profile-form-field">
+            <label className="preference-row">
+              <span>
+                <Bell size={16} />
+                Rappels par email
+              </span>
+              <input
+                type="checkbox"
+                checked={notifEnabled}
+                onChange={(event) => setNotifEnabled(event.target.checked)}
+              />
+            </label>
+            {notifEnabled && (
+              <input
+                type="email"
+                value={notifEmail}
+                onChange={(event) => setNotifEmail(event.target.value)}
+                maxLength={254}
+                placeholder="ton.email@exemple.com"
+                aria-label="Adresse email pour les rappels"
+              />
+            )}
+            <p className="section-subtitle">
+              Reçois un email avant chaque match dont le prono n'est pas encore posé. Tu confirmeras ton adresse via un lien, et tu pourras tout régler plus tard dans ton profil.
+            </p>
+          </div>
           {error && <p className="form-error">{error}</p>}
           <button className="primary-button" type="submit" disabled={saving}>
             <Save size={18} />
