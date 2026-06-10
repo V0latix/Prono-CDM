@@ -22,6 +22,7 @@ Le frontend ne doit jamais appeler football-data.org directement. Il lit uniquem
 - `src/App.tsx` : application React principale, vues, profils, groupes, pronos, dashboard.
 - `src/api.ts` : client API frontend, base URL, fallback de session preview.
 - `src/shared/scoring.ts` : calcul pur des points, partageable frontend/Worker.
+- `src/shared/week.ts` : bornes de la semaine pour le classement hebdomadaire.
 - `src/styles.css` : design system global, themes, responsive.
 - `worker/src/index.ts` : entree Worker, CORS, session, cron.
 - `worker/src/routes.ts` : routes API, auth, profils, groupes, pronos, classements.
@@ -29,6 +30,9 @@ Le frontend ne doit jamais appeler football-data.org directement. Il lit uniquem
 - `worker/src/football-data.ts` : synchronisation football-data.org vers D1.
 - `worker/src/scoring-db.ts` : recalcul des points et feed d'activite apres synchro.
 - `worker/src/badges.ts` : calcul des badges de profil.
+- `worker/src/invites.ts` : codes d'invitation de groupe et throttle de synchro.
+- `worker/src/leaderboard-window.ts` : normalisation de la fenetre de dates du classement hebdo.
+- `worker/src/prediction-session.ts` : selection de la "session" de matchs a pronostiquer (regroupe soiree + nuit).
 - `worker/src/email.ts` : envoi email transactionnel via Brevo.
 - `worker/src/notifications.ts` : rappels "fais tes pronos" 24h avant kickoff.
 - `worker/src/types.ts` : type `Env` (bindings, secrets).
@@ -60,6 +64,10 @@ Points d'attention :
 - Les release notes doivent rester orientees utilisateur. Ne pas y mettre de details techniques de deploy, Worker, preview, migration ou API.
 - Les themes disponibles sont `classic`, `dark`, `grass`, `france`.
 - Les themes `grass` et `france` utilisent `Inter` pour une meilleure lisibilite.
+- La carte "Predictions a faire maintenant" du dashboard n'affiche PAS un jour
+  calendaire : elle regroupe une "session" de matchs consecutifs (coups d'envoi
+  espaces de moins de 9h, voir `worker/src/prediction-session.ts`). Sinon les
+  matchs de nuit (apres minuit UTC) d'une meme soiree CDM seraient exclus.
 
 ## Client API et sessions
 
@@ -119,7 +127,7 @@ Routes principales dans `worker/src/routes.ts` :
 - `GET /api/dashboard`
 - `GET /api/matches`
 - `PUT /api/predictions/:matchId`
-- `GET /api/leaderboard`
+- `GET /api/leaderboard` (accepte `from`/`to` pour le classement hebdomadaire)
 - `GET /api/results`
 - `POST /api/admin/sync`
 - `GET /api/sync/status`
@@ -315,6 +323,9 @@ Suites importantes :
 - `worker/src/notifications.test.ts` : rappels pronos, fenetre 24h, anti-doublon.
 - `worker/src/http.test.ts` : allowlist CORS, requireUser, errorResponse.
 - `worker/src/invites.test.ts` : codes d'invitation et throttle de synchro.
+- `worker/src/leaderboard-window.test.ts` : normalisation fenetre de dates classement.
+- `worker/src/prediction-session.test.ts` : session de matchs a pronostiquer, matchs de nuit.
+- `src/shared/week.test.ts` : bornes de la semaine.
 
 Avant commit ou preview :
 
