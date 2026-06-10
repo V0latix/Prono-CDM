@@ -50,6 +50,7 @@ export type NormalizedFootballDataMatch = {
   awayTeam: string;
   kickoffAt: string;
   stage: string;
+  group: string | null;
   status: string;
   homeScore: number | null;
   awayScore: number | null;
@@ -160,7 +161,8 @@ export function normalizeFootballDataMatch(
     homeTeam,
     awayTeam,
     kickoffAt: match.utcDate,
-    stage: match.stage || match.group || "GROUP_STAGE",
+    stage: match.stage || "GROUP_STAGE",
+    group: match.group ?? null,
     status: match.status,
     homeScore: match.score?.fullTime?.home ?? null,
     awayScore: match.score?.fullTime?.away ?? null,
@@ -232,15 +234,16 @@ export async function syncFootballData(env: Env): Promise<{
 
     await env.DB.prepare(
       `INSERT INTO matches (
-         id, external_id, home_team, away_team, kickoff_at, stage, status,
+         id, external_id, home_team, away_team, kickoff_at, stage, match_group, status,
          home_score, away_score, winner_team, winner_code, last_synced_at
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(external_id) DO UPDATE SET
          home_team = excluded.home_team,
          away_team = excluded.away_team,
          kickoff_at = excluded.kickoff_at,
          stage = excluded.stage,
+         match_group = excluded.match_group,
          status = excluded.status,
          home_score = excluded.home_score,
          away_score = excluded.away_score,
@@ -255,6 +258,7 @@ export async function syncFootballData(env: Env): Promise<{
         normalized.awayTeam,
         normalized.kickoffAt,
         normalized.stage,
+        normalized.group,
         normalized.status,
         normalized.homeScore,
         normalized.awayScore,

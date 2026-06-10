@@ -23,6 +23,8 @@ export type ScoreBreakdown = {
 };
 
 const KNOCKOUT_STAGE_HINTS = [
+  "LAST_32",
+  "ROUND_OF_32",
   "LAST_16",
   "ROUND_OF_16",
   "QUARTER",

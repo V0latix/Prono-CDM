@@ -80,6 +80,7 @@ export type Match = {
   kickoffAt: string;
   stage: string;
   stageKind: "GROUP" | "KNOCKOUT";
+  group: string | null;
   status: string;
   homeScore: number | null;
   awayScore: number | null;

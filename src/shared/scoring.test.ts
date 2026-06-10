@@ -47,6 +47,15 @@ describe("scorePrediction", () => {
     ).toMatchObject({ points: 10, exactScore: true });
   });
 
+  it("treats the 48-team round of 32 (LAST_32) as a knockout stage", () => {
+    expect(
+      scorePrediction(
+        { stage: "LAST_32", homeScore: 2, awayScore: 1, winner: "HOME_TEAM" },
+        { predictedHomeScore: 2, predictedAwayScore: 1, predictedWinner: null }
+      )
+    ).toMatchObject({ points: 10, exactScore: true, stageKind: "KNOCKOUT" });
+  });
+
   it("uses the qualified team for knockout result when API winner is available", () => {
     expect(
       scorePrediction(
