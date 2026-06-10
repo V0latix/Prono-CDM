@@ -183,6 +183,11 @@ const viewTitles: Record<View, string> = {
 
 const releaseNotes = [
   {
+    title: "Change ton code PIN quand tu veux",
+    description: "Depuis ton profil, section « Sécurité », tu peux maintenant définir un nouveau code PIN de connexion. Pratique si tu veux le renouveler ou après avoir reçu un code provisoire.",
+    date: "2026-06-10"
+  },
+  {
     title: "Les matchs de la nuit aussi à pronostiquer",
     description: "La carte « Prédictions à faire maintenant » regroupe désormais toute la soirée de matchs, y compris ceux qui se jouent après minuit. Plus aucun match de nuit oublié.",
     date: "2026-06-10"
@@ -2192,6 +2197,12 @@ function Profile({
   const [notifMessage, setNotifMessage] = useState("");
   const [notifError, setNotifError] = useState("");
   const [notifSaving, setNotifSaving] = useState(false);
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [pinMessage, setPinMessage] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [pinSaving, setPinSaving] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const predictionStats = buildProfileStats(matchesResource.data?.matches ?? []);
 
@@ -2246,6 +2257,31 @@ function Profile({
     setProfile((current) => ({ ...current, ...update }));
     setSaved(false);
     setSaveError("");
+  }
+
+  async function changePin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPinMessage("");
+    setPinError("");
+    if (newPin !== confirmPin) {
+      setPinError("Le nouveau PIN et sa confirmation ne correspondent pas.");
+      return;
+    }
+    setPinSaving(true);
+    try {
+      await api("/api/profile/pin", {
+        method: "POST",
+        body: JSON.stringify({ currentPin, newPin })
+      });
+      setCurrentPin("");
+      setNewPin("");
+      setConfirmPin("");
+      setPinMessage("PIN mis à jour. Utilise-le à ta prochaine connexion.");
+    } catch (error) {
+      setPinError(error instanceof Error ? error.message : "Impossible de changer le PIN.");
+    } finally {
+      setPinSaving(false);
+    }
   }
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
@@ -2516,6 +2552,75 @@ function Profile({
             {notifSaving ? "Enregistrement..." : "Enregistrer les notifications"}
           </button>
           {notifMessage && <p className="inline-message">{notifMessage}</p>}
+        </form>
+      </section>
+
+      <section className="content-section security-section">
+        <SectionTitle title="Sécurité" />
+        <p className="section-subtitle">
+          Change ton code PIN de connexion. Il te faudra ton PIN actuel pour le modifier.
+        </p>
+        <form className="profile-form" onSubmit={changePin}>
+          <label>
+            <span>
+              <Lock size={16} />
+              PIN actuel
+            </span>
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="current-password"
+              value={currentPin}
+              onChange={(event) => setCurrentPin(event.target.value)}
+              minLength={4}
+              maxLength={8}
+              pattern="\d{4,8}"
+              placeholder="••••"
+              required
+            />
+          </label>
+          <label>
+            <span>
+              <ShieldCheck size={16} />
+              Nouveau PIN (4 à 8 chiffres)
+            </span>
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              value={newPin}
+              onChange={(event) => setNewPin(event.target.value)}
+              minLength={4}
+              maxLength={8}
+              pattern="\d{4,8}"
+              placeholder="••••"
+              required
+            />
+          </label>
+          <label>
+            <span>
+              <ShieldCheck size={16} />
+              Confirme le nouveau PIN
+            </span>
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              value={confirmPin}
+              onChange={(event) => setConfirmPin(event.target.value)}
+              minLength={4}
+              maxLength={8}
+              pattern="\d{4,8}"
+              placeholder="••••"
+              required
+            />
+          </label>
+          {pinError && <p className="form-error">{pinError}</p>}
+          <button className="primary-button" type="submit" disabled={pinSaving}>
+            <Save size={18} />
+            {pinSaving ? "Enregistrement..." : "Changer le PIN"}
+          </button>
+          {pinMessage && <p className="inline-message">{pinMessage}</p>}
         </form>
       </section>
 
