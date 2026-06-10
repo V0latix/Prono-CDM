@@ -183,6 +183,11 @@ const viewTitles: Record<View, string> = {
 
 const releaseNotes = [
   {
+    title: "Les matchs de la nuit aussi à pronostiquer",
+    description: "La carte « Prédictions à faire maintenant » regroupe désormais toute la soirée de matchs, y compris ceux qui se jouent après minuit. Plus aucun match de nuit oublié.",
+    date: "2026-06-10"
+  },
+  {
     title: "Ton dernier résultat sur le dashboard",
     description: "Une nouvelle carte affiche le dernier match terminé avec ton prono et les points que tu viens de gagner, dès l'ouverture de l'app.",
     date: "2026-06-10"

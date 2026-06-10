@@ -28,6 +28,7 @@ import {
 } from "./invites";
 import { confirmationEmail, sendEmail } from "./email";
 import { parseDateWindow, type DateWindow } from "./leaderboard-window";
+import { selectPredictionSession } from "./prediction-session";
 import { HttpError, json, parseJson, requireUser, type RequestContext } from "./http";
 import type {
   GroupMemberRow,
@@ -1308,7 +1309,11 @@ async function dashboard(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "GET");
   const user = requireUser(ctx);
   const now = new Date().toISOString();
-  const matchesResponse = await ctx.env.DB.prepare(
+  // On récupère une fenêtre de matchs à venir, suffisante pour couvrir la
+  // prochaine « session » (soirée + matchs de nuit) et les prochains matchs
+  // affichés. La session est ensuite découpée en JS pour englober les matchs de
+  // nuit qui franchissent minuit (voir prediction-session.ts).
+  const upcomingResponse = await ctx.env.DB.prepare(
     `SELECT matches.*, predictions.id AS prediction_id,
             predictions.predicted_home_score, predictions.predicted_away_score,
             predictions.predicted_winner_team, predictions.predicted_winner_code,
@@ -1320,37 +1325,18 @@ async function dashboard(ctx: RequestContext): Promise<Response> {
        ON predictions.match_id = matches.id AND predictions.user_id = ?
      WHERE matches.kickoff_at >= ?
      ORDER BY matches.kickoff_at ASC
-     LIMIT 6`
+     LIMIT 20`
   )
     .bind(user.id, now)
     .all<Record<string, unknown>>();
-  const nextCompetitionDay = await ctx.env.DB.prepare(
-    `SELECT substr(kickoff_at, 1, 10) AS competition_day
-     FROM matches
-     WHERE kickoff_at >= ?
-     ORDER BY kickoff_at ASC
-     LIMIT 1`
-  )
-    .bind(now)
-    .first<{ competition_day: string }>();
-  const predictionDayResponse = nextCompetitionDay
-    ? await ctx.env.DB.prepare(
-        `SELECT matches.*, predictions.id AS prediction_id,
-                predictions.predicted_home_score, predictions.predicted_away_score,
-                predictions.predicted_winner_team, predictions.predicted_winner_code,
-                predictions.points, predictions.exact_score, predictions.correct_result,
-                predictions.correct_goal_diff, predictions.created_at AS prediction_created_at,
-                predictions.updated_at AS prediction_updated_at
-         FROM matches
-         LEFT JOIN predictions
-           ON predictions.match_id = matches.id AND predictions.user_id = ?
-         WHERE substr(matches.kickoff_at, 1, 10) = ?
-           AND matches.kickoff_at >= ?
-         ORDER BY matches.kickoff_at ASC`
-      )
-        .bind(user.id, nextCompetitionDay.competition_day, now)
-        .all<Record<string, unknown>>()
-    : { results: [] };
+  const upcomingRows = (upcomingResponse.results ?? []) as Array<
+    Record<string, unknown> & { kickoff_at: string }
+  >;
+  const nextMatchesRows = upcomingRows.slice(0, 6);
+  const predictionSessionRows = selectPredictionSession(upcomingRows);
+  const predictionDay = predictionSessionRows.length
+    ? String(predictionSessionRows[0].kickoff_at).slice(0, 10)
+    : null;
   const lastResultRow = await ctx.env.DB.prepare(
     `SELECT matches.*, predictions.id AS prediction_id,
             predictions.predicted_home_score, predictions.predicted_away_score,
@@ -1378,11 +1364,11 @@ async function dashboard(ctx: RequestContext): Promise<Response> {
   const rank = leaderboardData.find((row) => row.userId === user.id);
 
   return json(ctx.request, ctx.env, {
-    nextMatches: (matchesResponse.results ?? []).map((row) =>
+    nextMatches: nextMatchesRows.map((row) =>
       publicMatchFromJoinedRow(row, user.id)
     ),
-    predictionDay: nextCompetitionDay?.competition_day ?? null,
-    predictionDayMatches: (predictionDayResponse.results ?? []).map((row) =>
+    predictionDay,
+    predictionDayMatches: predictionSessionRows.map((row) =>
       publicMatchFromJoinedRow(row, user.id)
     ),
     lastResult: lastResultRow ? publicMatchFromJoinedRow(lastResultRow, user.id) : null,
