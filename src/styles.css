@@ -15,7 +15,8 @@
   --on-accent: #ffffff;
 
   --font-display: "Syne", sans-serif;
-  --font-body: "Space Mono", monospace;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "Space Mono", monospace;
 
   color-scheme: light;
   font-family: var(--font-body);
@@ -353,9 +354,9 @@ button {
   margin: 0 0 0.35rem;
   color: var(--muted);
   font-family: var(--font-body);
-  font-size: 0.68rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -541,9 +542,9 @@ button {
 .sync-stat span {
   display: block;
   color: var(--accent);
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
@@ -729,9 +730,73 @@ button {
   border-color: var(--success);
 }
 
+.status-chip.warn {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* Hiérarchie d'état des matchs (dashboard, résultats), alignée sur les cartes
+   de pronostic : rouge = à faire, vert = prono posé, gris = verrouillé. */
+.match-line:not(.compact) {
+  border-left-width: 6px;
+}
+
+.match-line.todo {
+  border-left-color: var(--danger);
+}
+
+.match-line.saved {
+  border-left-color: var(--success);
+}
+
+.match-line.locked {
+  border-left-color: var(--muted);
+  background: var(--surface);
+}
+
+.match-line.soon {
+  border-left-color: var(--danger);
+  background: var(--danger-soft);
+}
+
 .score-badge {
   background: var(--fg);
   color: var(--bg);
+  font-family: var(--font-mono);
+}
+
+.last-result {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.last-result .match-line {
+  flex: 1;
+  min-width: 0;
+}
+
+.points-badge {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.85rem;
+  border: 2px solid var(--success);
+  border-radius: 0.6rem;
+  background: var(--success-soft);
+  color: var(--success);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+.points-badge.zero {
+  border-color: var(--muted);
+  background: var(--surface);
+  color: var(--muted);
 }
 
 .prediction-row {
@@ -853,6 +918,7 @@ button {
 .score-editor input {
   width: 3.4rem;
   text-align: center;
+  font-family: var(--font-mono);
 }
 
 .score-stepper {
@@ -974,8 +1040,35 @@ button {
 
 .leaderboard-filter {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.75rem;
   margin-bottom: 0.85rem;
+}
+
+.period-toggle {
+  display: inline-flex;
+  border: 2px solid var(--fg);
+}
+
+.period-toggle button {
+  min-height: 2.45rem;
+  padding: 0 0.85rem;
+  border: none;
+  background: var(--panel);
+  color: var(--fg);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.period-toggle button + button {
+  border-left: 2px solid var(--fg);
+}
+
+.period-toggle button.active {
+  background: var(--fg);
+  color: var(--bg);
 }
 
 .leaderboard-filter label {
@@ -1525,9 +1618,9 @@ button {
 .profile-split-stats span {
   display: block;
   color: var(--accent);
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
@@ -2210,8 +2303,8 @@ button {
 
   .topbar p {
     margin-bottom: 0.2rem;
-    font-size: 0.58rem;
-    letter-spacing: 0.12em;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
   }
 
   .topbar h1 {
@@ -2324,8 +2417,8 @@ button {
   .sync-stat span,
   .profile-stat-card span,
   .profile-split-stats span {
-    font-size: 0.56rem;
-    letter-spacing: 0.1em;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
   }
 
   .metric strong {
@@ -2335,10 +2428,39 @@ button {
 
   .content-section {
     padding: 0.85rem;
+    border-radius: 14px;
+    overflow: hidden;
   }
 
   .content-section::before {
     margin: -0.85rem -0.85rem 0.85rem;
+  }
+
+  /* Confort mobile : on adoucit les angles des cartes et des ombres dures. */
+  .match-line:not(.compact),
+  .prediction-card,
+  .prediction-row,
+  .leaderboard-row,
+  .activity-item,
+  .metric,
+  .profile-stat-card,
+  .sync-stat,
+  .empty-state {
+    border-radius: 12px;
+  }
+
+  .status-chip,
+  .score-badge {
+    border-radius: 8px;
+  }
+
+  .news-panel {
+    box-shadow: 4px 4px 0 var(--nav-shadow);
+  }
+
+  .news-modal {
+    border-radius: 14px;
+    box-shadow: 6px 6px 0 var(--nav-shadow);
   }
 
   .section-title {

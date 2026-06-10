@@ -4,7 +4,7 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 
 ## Priorité haute
 
-- Ajouté des indications sur tous les matchs de la phase de groupe relatif au groupe dans lequel se joue le match. Et par la suite indiqué 1/8 de final, 1/4 final, etc
+- [x] Ajouté des indications sur tous les matchs de la phase de groupe relatif au groupe dans lequel se joue le match. Et par la suite indiqué 1/8 de final, 1/4 final, etc
 
 ### Pronostics
 
@@ -12,12 +12,12 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 
 ### Dashboard
 
-- Ajouter une carte "dernier résultat calculé" avec points gagnés.
-- Ajouter un cron automatique pour mettre a jour les résultats des matchs. 
+- [x] Ajouter une carte "dernier résultat calculé" avec points gagnés.
+- [x] Ajouter un cron automatique pour mettre a jour les résultats des matchs. (cron toutes les 10 min : sync + recalcul des points)
 
 ### Classement
 
-- Ajouter un classement hebdomadaire.
+- [x] Ajouter un classement hebdomadaire.
 
 ### Résultat
 

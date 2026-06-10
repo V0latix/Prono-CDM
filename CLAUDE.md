@@ -180,7 +180,7 @@ Cron :
 
 ```toml
 [triggers]
-crons = ["*/30 * * * *"]
+crons = ["*/10 * * * *"]
 ```
 
 Le `scheduled()` du Worker lance `syncFootballData(env)` puis `sendPredictionReminders(env)` (rappels email).

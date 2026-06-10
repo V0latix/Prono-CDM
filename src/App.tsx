@@ -48,6 +48,7 @@ import {
   type SyncStatus,
   type User
 } from "./api";
+import { currentWeekRange } from "./shared/week";
 
 type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "profile" | "publicProfile";
 const themeOptions = [
@@ -156,6 +157,7 @@ type DashboardData = {
   nextMatches: Match[];
   predictionDay: string | null;
   predictionDayMatches: Match[];
+  lastResult?: Match | null;
   rank?: LeaderboardRow;
   activity: ActivityItem[];
   syncStatus: SyncStatus;
@@ -180,6 +182,26 @@ const viewTitles: Record<View, string> = {
 };
 
 const releaseNotes = [
+  {
+    title: "Ton dernier résultat sur le dashboard",
+    description: "Une nouvelle carte affiche le dernier match terminé avec ton prono et les points que tu viens de gagner, dès l'ouverture de l'app.",
+    date: "2026-06-10"
+  },
+  {
+    title: "Classement de la semaine",
+    description: "Sur la page Classement, bascule entre le général et « Cette semaine » pour voir qui marque le plus de points sur les matchs de la semaine en cours.",
+    date: "2026-06-10"
+  },
+  {
+    title: "Résultats mis à jour plus souvent",
+    description: "Les scores et les points se rafraîchissent plus rapidement après les matchs, pour suivre le classement quasiment en direct.",
+    date: "2026-06-10"
+  },
+  {
+    title: "Interface plus lisible et confortable",
+    description: "Police plus nette, libellés agrandis, matchs « bientôt verrouillés » mis en avant et angles adoucis sur mobile. Le choix du thème est désormais dans ton profil.",
+    date: "2026-06-10"
+  },
   {
     title: "Trois nouveaux thèmes",
     description: "Habille l'app à ton goût depuis ton profil : Minuit (bleu nuit chic), Ardoise (clair et net) et Néon stade (vert fluo qui claque).",
@@ -639,6 +661,14 @@ function predictionStateClass(match: Match): string {
   return "todo";
 }
 
+// Un match est "bientôt verrouillé" s'il n'est pas encore verrouillé et débute
+// dans moins de 3h. Sert à mettre en avant les pronos urgents.
+function isMatchSoon(match: Match): boolean {
+  if (match.locked) return false;
+  const diff = Date.parse(match.kickoffAt) - Date.now();
+  return diff > 0 && diff < 3 * 60 * 60 * 1000;
+}
+
 function buildProfileStats(matches: Match[] = []): ProfileStats {
   const predictedMatches = matches.filter((match) => match.prediction);
   const finishedPredictedMatches = predictedMatches.filter(
@@ -822,7 +852,6 @@ export function App() {
           })}
         </nav>
         <div className="sidebar-actions">
-          <ThemeSelector theme={theme} onChange={changeTheme} />
           <button
             className="logout-button"
             type="button"
@@ -866,7 +895,13 @@ export function App() {
         {view === "results" && <Results />}
         {view === "rules" && <Rules />}
         {view === "profile" && (
-          <Profile user={user} language={language} onLanguageChange={changeLanguage} />
+          <Profile
+            user={user}
+            language={language}
+            onLanguageChange={changeLanguage}
+            theme={theme}
+            onThemeChange={changeTheme}
+          />
         )}
         {view === "publicProfile" && publicProfileUserId && (
           <PublicProfile userId={publicProfileUserId} onBack={() => setView("leaderboard")} />
@@ -1396,6 +1431,21 @@ function Dashboard({ onOpenPredictions }: { onOpenPredictions: () => void }) {
         <Metric label="Points" value={String(data.rank?.points ?? 0)} />
         <Metric label="Scores exacts" value={String(data.rank?.exactScores ?? 0)} />
       </section>
+      {data.lastResult ? (
+        <section className="content-section">
+          <SectionTitle title="Dernier résultat" />
+          <div className="last-result">
+            <MatchLine match={data.lastResult} showResult />
+            <span
+              className={`points-badge ${
+                (data.lastResult.prediction?.points ?? 0) > 0 ? "win" : "zero"
+              }`}
+            >
+              +{data.lastResult.prediction?.points ?? 0} pts
+            </span>
+          </div>
+        </section>
+      ) : null}
       <section className="content-section dashboard-block-attention">
         <SectionTitle
           title="Prédictions à faire maintenant"
@@ -1759,11 +1809,19 @@ function Leaderboard({
   onOpenProfile: (userId: string) => void;
 }) {
   const [selectedGroupId, setSelectedGroupId] = useState("global");
+  const [period, setPeriod] = useState<"all" | "week">("all");
   const groupsResource = useResource<{ groups: Group[] }>("/api/groups");
-  const leaderboardPath =
-    selectedGroupId === "global"
-      ? "/api/leaderboard"
-      : `/api/leaderboard?groupId=${encodeURIComponent(selectedGroupId)}`;
+  const leaderboardPath = (() => {
+    const params = new URLSearchParams();
+    if (selectedGroupId !== "global") params.set("groupId", selectedGroupId);
+    if (period === "week") {
+      const { from, to } = currentWeekRange();
+      params.set("from", from);
+      params.set("to", to);
+    }
+    const query = params.toString();
+    return query ? `/api/leaderboard?${query}` : "/api/leaderboard";
+  })();
   const { data, error, reload, loading } = useResource<{ leaderboard: LeaderboardRow[] }>(
     leaderboardPath,
     [leaderboardPath]
@@ -1781,7 +1839,15 @@ function Leaderboard({
   return (
     <section className="content-section">
       <SectionTitle
-        title={selectedGroup ? `Classement · ${selectedGroup.name}` : "Classement général"}
+        title={
+          period === "week"
+            ? selectedGroup
+              ? `Semaine · ${selectedGroup.name}`
+              : "Classement de la semaine"
+            : selectedGroup
+              ? `Classement · ${selectedGroup.name}`
+              : "Classement général"
+        }
         action={<RefreshButton onClick={reload} />}
       />
       <div className="leaderboard-filter">
@@ -1799,6 +1865,24 @@ function Leaderboard({
             ))}
           </select>
         </label>
+        <div className="period-toggle" role="group" aria-label="Période du classement">
+          <button
+            type="button"
+            className={period === "all" ? "active" : ""}
+            aria-pressed={period === "all"}
+            onClick={() => setPeriod("all")}
+          >
+            Général
+          </button>
+          <button
+            type="button"
+            className={period === "week" ? "active" : ""}
+            aria-pressed={period === "week"}
+            onClick={() => setPeriod("week")}
+          >
+            Cette semaine
+          </button>
+        </div>
       </div>
       {data?.leaderboard.length ? (
         <div className="leaderboard-table">
@@ -1844,7 +1928,13 @@ function Leaderboard({
           ))}
         </div>
       ) : (
-        <EmptyState text="Aucun membre dans ce groupe pour le moment." />
+        <EmptyState
+          text={
+            period === "week"
+              ? "Aucun point marqué cette semaine pour le moment."
+              : "Aucun membre dans ce groupe pour le moment."
+          }
+        />
       )}
     </section>
   );
@@ -2062,11 +2152,15 @@ type NotificationSettings = {
 function Profile({
   user,
   language,
-  onLanguageChange
+  onLanguageChange,
+  theme,
+  onThemeChange
 }: {
   user: User;
   language: Language;
   onLanguageChange: (language: Language) => void;
+  theme: ThemeMode;
+  onThemeChange: (theme: ThemeMode) => void;
 }) {
   const matchesResource = useResource<{ matches: Match[] }>("/api/matches");
   const profileResource = useResource<{ profile: UserProfile; badges: ProfileBadge[]; groups: Group[] }>(
@@ -2424,6 +2518,25 @@ function Profile({
         <SectionTitle title="Préférences" />
         <label className="preference-row">
           <span>
+            <Palette size={16} />
+            Thème de l'app
+          </span>
+          <select
+            aria-label="Choisir le thème"
+            value={theme}
+            onChange={(event) => {
+              if (isThemeMode(event.target.value)) onThemeChange(event.target.value);
+            }}
+          >
+            {themeOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="preference-row">
+          <span>
             <Languages size={16} />
             Langue des noms d'équipes
           </span>
@@ -2442,7 +2555,7 @@ function Profile({
           </select>
         </label>
         <p className="section-subtitle">
-          Choisis la langue d'affichage des équipes (ex : « Allemagne » ou « Germany »). Le réglage s'applique à toute l'app.
+          Personnalise l'apparence et la langue d'affichage des équipes (ex : « Allemagne » ou « Germany »). Les réglages s'appliquent à toute l'app.
         </p>
       </section>
 
@@ -2721,8 +2834,10 @@ function MatchLine({
   const teamLabel = useTeamLabel();
   const homeTeam = teamLabel(match.homeTeam);
   const awayTeam = teamLabel(match.awayTeam);
+  const soon = !compact && isMatchSoon(match);
+  const stateClass = compact ? "" : ` ${predictionStateClass(match)}${soon ? " soon" : ""}`;
   return (
-    <article className={compact ? "match-line compact" : "match-line"}>
+    <article className={`match-line${compact ? " compact" : ""}${stateClass}`}>
       <div>
         <span className="eyebrow">{stageLabel(match)} · {formatDate(match.kickoffAt)}</span>
         <strong className="match-teams" aria-hidden="true">
@@ -2739,6 +2854,7 @@ function MatchLine({
         <span className="visually-hidden">{homeTeam} - {awayTeam}</span>
       </div>
       <div className="match-meta">
+        {soon && <span className="status-chip warn">Bientôt</span>}
         {showResult && <span className="score-badge">{scoreLabel(match)}</span>}
         {match.prediction ? (
           <span className="status-chip success">

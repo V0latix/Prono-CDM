@@ -27,6 +27,7 @@ import {
   shouldThrottleSync
 } from "./invites";
 import { confirmationEmail, sendEmail } from "./email";
+import { parseDateWindow, type DateWindow } from "./leaderboard-window";
 import { HttpError, json, parseJson, requireUser, type RequestContext } from "./http";
 import type {
   GroupMemberRow,
@@ -1220,7 +1221,11 @@ function createLeaderboardRows(
   return ranking;
 }
 
-async function buildLeaderboard(ctx: RequestContext, groupId?: string): Promise<LeaderboardRow[]> {
+async function buildLeaderboard(
+  ctx: RequestContext,
+  groupId?: string,
+  window?: DateWindow
+): Promise<LeaderboardRow[]> {
   const userQuery = groupId
     ? `SELECT users.id, users.pseudo, users.created_at,
               user_profiles.photo_url, user_profiles.tagline, user_profiles.favorite_team
@@ -1246,7 +1251,13 @@ async function buildLeaderboard(ctx: RequestContext, groupId?: string): Promise<
      JOIN matches ON matches.id = predictions.match_id`
   ).all<LeaderboardPredictionRow>();
   const userRows = users.results ?? [];
-  const predictionRows = rows.results ?? [];
+  const allPredictionRows = rows.results ?? [];
+  // Classement hebdomadaire : on ne garde que les matchs de la fenêtre demandée.
+  const predictionRows = window
+    ? allPredictionRows.filter(
+        (row) => row.kickoff_at >= window.from && row.kickoff_at < window.to
+      )
+    : allPredictionRows;
   const latestFinishedKickoff = predictionRows
     .filter((row) => isFinished(row.status))
     .map((row) => row.kickoff_at)
@@ -1281,7 +1292,15 @@ async function leaderboard(ctx: RequestContext): Promise<Response> {
       .first<{ id: string }>();
     if (!group) throw new HttpError(404, "Groupe introuvable.");
   }
-  const ranking = await buildLeaderboard(ctx, groupId);
+  let window: DateWindow | undefined;
+  try {
+    window =
+      parseDateWindow(ctx.url.searchParams.get("from"), ctx.url.searchParams.get("to")) ??
+      undefined;
+  } catch {
+    throw new HttpError(400, "Fenêtre de dates invalide.");
+  }
+  const ranking = await buildLeaderboard(ctx, groupId, window);
   return json(ctx.request, ctx.env, { leaderboard: ranking });
 }
 
@@ -1332,6 +1351,22 @@ async function dashboard(ctx: RequestContext): Promise<Response> {
         .bind(user.id, nextCompetitionDay.competition_day, now)
         .all<Record<string, unknown>>()
     : { results: [] };
+  const lastResultRow = await ctx.env.DB.prepare(
+    `SELECT matches.*, predictions.id AS prediction_id,
+            predictions.predicted_home_score, predictions.predicted_away_score,
+            predictions.predicted_winner_team, predictions.predicted_winner_code,
+            predictions.points, predictions.exact_score, predictions.correct_result,
+            predictions.correct_goal_diff, predictions.created_at AS prediction_created_at,
+            predictions.updated_at AS prediction_updated_at
+     FROM matches
+     LEFT JOIN predictions
+       ON predictions.match_id = matches.id AND predictions.user_id = ?
+     WHERE matches.status IN ('FINISHED', 'AWARDED')
+     ORDER BY matches.kickoff_at DESC
+     LIMIT 1`
+  )
+    .bind(user.id)
+    .first<Record<string, unknown>>();
   const leaderboardData = await buildLeaderboard(ctx);
   const activity = await ctx.env.DB.prepare(
     `SELECT activity_feed.*, users.pseudo
@@ -1350,6 +1385,7 @@ async function dashboard(ctx: RequestContext): Promise<Response> {
     predictionDayMatches: (predictionDayResponse.results ?? []).map((row) =>
       publicMatchFromJoinedRow(row, user.id)
     ),
+    lastResult: lastResultRow ? publicMatchFromJoinedRow(lastResultRow, user.id) : null,
     rank,
     activity: activity.results ?? [],
     syncStatus: await getFootballDataSyncStatus(ctx.env)

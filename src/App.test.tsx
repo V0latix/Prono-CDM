@@ -417,6 +417,118 @@ describe("App components", () => {
     expect(screen.queryByText(/Worker/i)).not.toBeInTheDocument();
   });
 
+  it("shows the last calculated result card with earned points on the dashboard", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          lastResult: match({
+            id: "match-done",
+            homeTeam: "France",
+            awayTeam: "Argentine",
+            status: "FINISHED",
+            homeScore: 2,
+            awayScore: 1,
+            locked: true,
+            prediction: {
+              predictedHomeScore: 2,
+              predictedAwayScore: 1,
+              predictedWinnerTeam: "France",
+              points: 5,
+              exactScore: true,
+              correctResult: true,
+              correctGoalDiff: true,
+              updatedAt: "2026-06-04T10:00:00.000Z"
+            }
+          }),
+          rank: leaderboardRow(),
+          activity: [],
+          syncStatus
+        }
+      }
+    ]);
+
+    render(<App />);
+
+    expect(await screen.findByText("Dernier résultat")).toBeInTheDocument();
+    expect(screen.getByText("+5 pts")).toBeInTheDocument();
+  });
+
+  it("shows the latest finished match in the dashboard card even without a prediction", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          // Match terminé sans prono du joueur : la carte doit l'afficher quand
+          // même avec 0 point (et non retomber sur un match plus ancien).
+          lastResult: match({
+            id: "match-missed",
+            homeTeam: "Maroc",
+            awayTeam: "Japon",
+            status: "FINISHED",
+            homeScore: 1,
+            awayScore: 0,
+            locked: true,
+            prediction: null
+          }),
+          rank: leaderboardRow(),
+          activity: [],
+          syncStatus
+        }
+      }
+    ]);
+
+    render(<App />);
+
+    expect(await screen.findByText("Dernier résultat")).toBeInTheDocument();
+    expect(screen.getByText("Maroc - Japon")).toBeInTheDocument();
+    expect(screen.getByText("Sans prono")).toBeInTheDocument();
+    expect(screen.getByText("+0 pts")).toBeInTheDocument();
+  });
+
+  it("switches the leaderboard to the weekly window", async () => {
+    const { calls } = installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          lastResult: null,
+          rank: leaderboardRow(),
+          activity: [],
+          syncStatus
+        }
+      },
+      { path: "/api/leaderboard", body: { leaderboard: [leaderboardRow()] } },
+      { path: "/api/groups", body: { groups: [] } }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await browserUser.click(await screen.findByRole("button", { name: /classement/i }));
+    expect(await screen.findByText("Classement général")).toBeInTheDocument();
+
+    await browserUser.click(screen.getByRole("button", { name: /cette semaine/i }));
+
+    expect(await screen.findByText("Classement de la semaine")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        calls.some((call) => call.url.includes("/api/leaderboard?") && call.url.includes("from="))
+      ).toBe(true);
+    });
+  });
+
   it("shows locked predictions as non-editable", async () => {
     installFetchMock([
       { path: "/api/me", body: { user } },
@@ -648,7 +760,7 @@ describe("App components", () => {
     expect(await screen.findByText(/Aucun match terminé/)).toBeInTheDocument();
   });
 
-  it("selects and persists a requested app theme", async () => {
+  it("selects and persists a requested app theme from the profile", async () => {
     window.localStorage.clear();
     window.localStorage.setItem(NEWS_STORAGE_KEY, NEWS_VERSION);
     installFetchMock([
@@ -663,6 +775,20 @@ describe("App components", () => {
           activity: [],
           syncStatus
         }
+      },
+      {
+        path: "/api/profile",
+        body: {
+          profile: { photoUrl: "", tagline: "", favoriteTeam: "", updatedAt: null },
+          badges: profileBadges(),
+          groups: []
+        }
+      },
+      { path: "/api/groups", body: { groups: [] } },
+      { path: "/api/matches", body: { matches: [] } },
+      {
+        path: "/api/notifications",
+        body: { notifications: { email: "", enabled: false, verified: false } }
       }
     ]);
     const browserUser = userEvent.setup();
@@ -671,6 +797,9 @@ describe("App components", () => {
 
     await screen.findByRole("heading", { name: "Dashboard" });
     expect(document.documentElement.dataset.theme).toBe("classic");
+
+    await browserUser.click(await screen.findByRole("button", { name: /romain/i }));
+    await screen.findByRole("heading", { level: 1, name: "Profil" });
 
     const selector = screen.getByRole("combobox", { name: "Choisir le thème" });
     expect(screen.getByRole("option", { name: "Mode gazon" })).toBeInTheDocument();
@@ -863,7 +992,7 @@ describe("App components", () => {
     render(<App />);
 
     const dialog = await screen.findByRole("dialog", { name: /nouveautés/i });
-    expect(within(dialog).getByText("Rappels par email")).toBeInTheDocument();
+    expect(within(dialog).getByText("Ton dernier résultat sur le dashboard")).toBeInTheDocument();
 
     await browserUser.click(within(dialog).getByRole("button", { name: /c'est noté/i }));
 
