@@ -10,6 +10,11 @@ export type Env = {
   ADMIN_TOKEN?: string;
   COOKIE_SAMESITE?: "Lax" | "Strict" | "None";
   COOKIE_SECURE?: "true" | "false" | "auto";
+  BREVO_API_KEY?: string;
+  EMAIL_FROM?: string;
+  EMAIL_FROM_NAME?: string;
+  APP_URL?: string;
+  API_URL?: string;
 };
 
 export type User = {
@@ -54,6 +59,16 @@ export type UserProfileRow = {
   photo_url: string;
   tagline: string;
   favorite_team: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UserNotificationRow = {
+  user_id: string;
+  email: string;
+  enabled: number;
+  verified: number;
+  token: string;
   created_at: string;
   updated_at: string;
 };

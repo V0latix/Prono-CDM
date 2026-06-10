@@ -26,8 +26,17 @@ import {
   normalizeInviteCode,
   shouldThrottleSync
 } from "./invites";
+import { confirmationEmail, sendEmail } from "./email";
 import { HttpError, json, parseJson, requireUser, type RequestContext } from "./http";
-import type { GroupMemberRow, GroupRow, MatchRow, PredictionRow, User, UserProfileRow } from "./types";
+import type {
+  GroupMemberRow,
+  GroupRow,
+  MatchRow,
+  PredictionRow,
+  User,
+  UserNotificationRow,
+  UserProfileRow
+} from "./types";
 
 type AuthPayload = {
   pseudo?: string;
@@ -577,6 +586,160 @@ async function getProfile(ctx: RequestContext): Promise<Response> {
     badges: await getUserBadges(ctx.env, user.id),
     groups: await getPublicGroups(ctx, user.id, { userId: user.id, includeMembers: true })
   });
+}
+
+type NotificationPayload = {
+  email?: string;
+  enabled?: boolean;
+};
+
+function asEmail(value: unknown): string {
+  const email = asLimitedString(value, "L'email", 254).toLowerCase();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new HttpError(400, "L'email n'est pas valide.");
+  }
+  return email;
+}
+
+function generateNotificationToken(): string {
+  return (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "");
+}
+
+function publicNotifications(row: UserNotificationRow | null) {
+  return {
+    email: row?.email ?? "",
+    enabled: Boolean(row?.enabled),
+    verified: Boolean(row?.verified)
+  };
+}
+
+function htmlResponse(ctx: RequestContext, title: string, message: string, status = 200): Response {
+  const appUrl = (ctx.env.APP_URL?.trim() || "https://prono-cdm.vercel.app").replace(/\/+$/, "");
+  const body = `<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title}</title></head>
+<body style="margin:0;background:#0f172a;font-family:Helvetica,Arial,sans-serif;color:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px">
+  <div style="max-width:420px;background:#fff;border-radius:16px;padding:28px;text-align:center">
+    <div style="font-size:24px;margin-bottom:8px">⚽ Prono CDM</div>
+    <h1 style="font-size:20px;margin:0 0 12px">${title}</h1>
+    <p style="font-size:15px;line-height:1.6;color:#334155;margin:0 0 20px">${message}</p>
+    <a href="${appUrl}/" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Ouvrir l'app</a>
+  </div>
+</body></html>`;
+  return new Response(body, {
+    status,
+    headers: { "content-type": "text/html; charset=utf-8" }
+  });
+}
+
+async function getNotifications(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "GET");
+  const user = requireUser(ctx);
+  const row = await ctx.env.DB.prepare(
+    "SELECT * FROM user_notifications WHERE user_id = ? LIMIT 1"
+  )
+    .bind(user.id)
+    .first<UserNotificationRow>();
+  return json(ctx.request, ctx.env, { notifications: publicNotifications(row) });
+}
+
+async function saveNotifications(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "PUT");
+  const user = requireUser(ctx);
+  const body = await parseJson<NotificationPayload>(ctx.request);
+  const email = asEmail(body.email ?? "");
+  const enabled = body.enabled === true;
+
+  if (enabled && !email) {
+    throw new HttpError(400, "Renseigne un email pour activer les notifications.");
+  }
+
+  const existing = await ctx.env.DB.prepare(
+    "SELECT * FROM user_notifications WHERE user_id = ? LIMIT 1"
+  )
+    .bind(user.id)
+    .first<UserNotificationRow>();
+
+  const emailChanged = !existing || existing.email !== email;
+  const token = existing?.token || generateNotificationToken();
+  const verified = emailChanged ? 0 : existing?.verified ?? 0;
+
+  await ctx.env.DB.prepare(
+    `INSERT INTO user_notifications (user_id, email, enabled, verified, token, updated_at)
+     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(user_id) DO UPDATE SET
+       email = excluded.email,
+       enabled = excluded.enabled,
+       verified = excluded.verified,
+       token = excluded.token,
+       updated_at = CURRENT_TIMESTAMP`
+  )
+    .bind(user.id, email, enabled ? 1 : 0, verified, token)
+    .run();
+
+  // Envoi de confirmation seulement quand il faut encore valider l'adresse.
+  if (enabled && email && !verified) {
+    await sendEmail(ctx.env, confirmationEmail(ctx.env, email, token)).catch((error) =>
+      console.error(error)
+    );
+  }
+
+  const row = await ctx.env.DB.prepare(
+    "SELECT * FROM user_notifications WHERE user_id = ? LIMIT 1"
+  )
+    .bind(user.id)
+    .first<UserNotificationRow>();
+  return json(ctx.request, ctx.env, { notifications: publicNotifications(row) });
+}
+
+async function verifyNotifications(ctx: RequestContext): Promise<Response> {
+  const token = ctx.url.searchParams.get("token") ?? "";
+  if (!token) {
+    return htmlResponse(ctx, "Lien invalide", "Ce lien de confirmation est incomplet.", 400);
+  }
+  const row = await ctx.env.DB.prepare(
+    "SELECT user_id FROM user_notifications WHERE token = ? LIMIT 1"
+  )
+    .bind(token)
+    .first<{ user_id: string }>();
+  if (!row) {
+    return htmlResponse(ctx, "Lien expiré", "Ce lien de confirmation n'est plus valide.", 404);
+  }
+  await ctx.env.DB.prepare(
+    "UPDATE user_notifications SET verified = 1, updated_at = CURRENT_TIMESTAMP WHERE token = ?"
+  )
+    .bind(token)
+    .run();
+  return htmlResponse(
+    ctx,
+    "Email confirmé ✅",
+    "C'est bon ! Tu recevras désormais un rappel avant chaque match à pronostiquer."
+  );
+}
+
+async function unsubscribeNotifications(ctx: RequestContext): Promise<Response> {
+  const token = ctx.url.searchParams.get("token") ?? "";
+  if (!token) {
+    return htmlResponse(ctx, "Lien invalide", "Ce lien de désinscription est incomplet.", 400);
+  }
+  const row = await ctx.env.DB.prepare(
+    "SELECT user_id FROM user_notifications WHERE token = ? LIMIT 1"
+  )
+    .bind(token)
+    .first<{ user_id: string }>();
+  if (!row) {
+    return htmlResponse(ctx, "Lien expiré", "Ce lien de désinscription n'est plus valide.", 404);
+  }
+  await ctx.env.DB.prepare(
+    "UPDATE user_notifications SET enabled = 0, updated_at = CURRENT_TIMESTAMP WHERE token = ?"
+  )
+    .bind(token)
+    .run();
+  return htmlResponse(
+    ctx,
+    "Désinscription confirmée",
+    "Tu ne recevras plus de rappels par email. Tu peux les réactiver à tout moment depuis ton profil."
+  );
 }
 
 async function getPublicUserProfile(ctx: RequestContext): Promise<Response> {
@@ -1284,6 +1447,11 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname === "/api/profile") {
     return ctx.request.method === "GET" ? getProfile(ctx) : saveProfile(ctx);
   }
+  if (pathname === "/api/notifications") {
+    return ctx.request.method === "GET" ? getNotifications(ctx) : saveNotifications(ctx);
+  }
+  if (pathname === "/api/notifications/verify") return verifyNotifications(ctx);
+  if (pathname === "/api/notifications/unsubscribe") return unsubscribeNotifications(ctx);
   if (/^\/api\/users\/[^/]+\/profile$/.test(pathname)) return getPublicUserProfile(ctx);
   if (pathname === "/api/groups") {
     return ctx.request.method === "GET" ? listGroups(ctx) : createGroup(ctx);
