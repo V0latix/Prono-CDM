@@ -645,7 +645,11 @@ describe("App components", () => {
         }
       },
       { path: "/api/groups", body: { groups: [] } },
-      { path: "/api/matches", body: { matches: [] } }
+      { path: "/api/matches", body: { matches: [] } },
+      {
+        path: "/api/notifications",
+        body: { notifications: { email: "", enabled: false, verified: false } }
+      }
     ]);
     const browserUser = userEvent.setup();
 
@@ -667,6 +671,73 @@ describe("App components", () => {
     expect(screen.getByText(/Favori : Germany/)).toBeInTheDocument();
     expect(screen.queryByText(/Favori : Allemagne/)).not.toBeInTheDocument();
     expect(window.localStorage.getItem("prono-cdm-language")).toBe("en");
+  });
+
+  it("enables email notifications from the profile and confirms the address is pending", async () => {
+    window.localStorage.clear();
+    const { calls } = installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/profile",
+        body: {
+          profile: { photoUrl: "", tagline: "", favoriteTeam: "", updatedAt: null },
+          badges: profileBadges(),
+          groups: []
+        }
+      },
+      { path: "/api/groups", body: { groups: [] } },
+      { path: "/api/matches", body: { matches: [] } },
+      {
+        path: "/api/notifications",
+        body: { notifications: { email: "", enabled: false, verified: false } }
+      },
+      {
+        method: "PUT",
+        path: "/api/notifications",
+        body: { notifications: { email: "joueur@example.com", enabled: true, verified: false } }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await browserUser.click(await screen.findByRole("button", { name: /romain/i }));
+    await screen.findByRole("heading", { level: 1, name: "Profil" });
+
+    await browserUser.click(
+      screen.getByRole("checkbox", { name: /Recevoir les rappels par email/i })
+    );
+    await browserUser.type(
+      screen.getByRole("textbox", { name: /Adresse email/i }),
+      "joueur@example.com"
+    );
+    await browserUser.click(
+      screen.getByRole("button", { name: /Enregistrer les notifications/i })
+    );
+
+    const putCall = await waitFor(() => {
+      const call = calls.find(
+        (entry) => entry.url === "/api/notifications" && entry.init?.method === "PUT"
+      );
+      expect(call).toBeTruthy();
+      return call!;
+    });
+    expect(JSON.parse(String(putCall.init?.body))).toEqual({
+      email: "joueur@example.com",
+      enabled: true
+    });
+    expect(await screen.findByText(/clique le lien de confirmation/i)).toBeInTheDocument();
   });
 
   it("opens a small info bubble with recent app updates", async () => {

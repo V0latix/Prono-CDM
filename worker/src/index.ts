@@ -1,6 +1,7 @@
 import { getUserFromSession, purgeExpiredSessions } from "./auth";
 import { syncFootballData } from "./football-data";
 import { corsHeaders, errorResponse, notFound, type RequestContext } from "./http";
+import { sendPredictionReminders } from "./notifications";
 import { route } from "./routes";
 import type { Env } from "./types";
 
@@ -34,5 +35,6 @@ export default {
     if (result.error) {
       console.error(result.error);
     }
+    await sendPredictionReminders(env).catch((error) => console.error(error));
   }
 };

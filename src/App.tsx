@@ -1,4 +1,5 @@
 import {
+  Bell,
   CalendarClock,
   Camera,
   Check,
@@ -176,6 +177,11 @@ const viewTitles: Record<View, string> = {
 };
 
 const releaseNotes = [
+  {
+    title: "Rappels par email",
+    description: "Active les notifications dans ton profil et reçois un email avant chaque match dont le prono n'est pas encore posé, avec le lien direct pour le compléter.",
+    date: "2026-06-09"
+  },
   {
     title: "Choisis la langue des équipes",
     description: "Affiche les noms d'équipes en français ou en anglais. Le réglage est dans ton profil et s'applique partout dans l'app.",
@@ -1906,6 +1912,12 @@ function Results() {
   );
 }
 
+type NotificationSettings = {
+  email: string;
+  enabled: boolean;
+  verified: boolean;
+};
+
 function Profile({
   user,
   language,
@@ -1921,6 +1933,10 @@ function Profile({
     [user.id]
   );
   const groupsResource = useResource<{ groups: Group[] }>("/api/groups");
+  const notificationsResource = useResource<{ notifications: NotificationSettings }>(
+    "/api/notifications",
+    [user.id]
+  );
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -1930,6 +1946,12 @@ function Profile({
   const [groupMessage, setGroupMessage] = useState("");
   const [groupAction, setGroupAction] = useState("");
   const [joinCode, setJoinCode] = useState("");
+  const [notifEnabled, setNotifEnabled] = useState(false);
+  const [notifEmail, setNotifEmail] = useState("");
+  const [notifVerified, setNotifVerified] = useState(false);
+  const [notifMessage, setNotifMessage] = useState("");
+  const [notifError, setNotifError] = useState("");
+  const [notifSaving, setNotifSaving] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const predictionStats = buildProfileStats(matchesResource.data?.matches ?? []);
 
@@ -1941,6 +1963,44 @@ function Profile({
     setSaveError("");
     setPhotoError("");
   }, [profileResource.data]);
+
+  useEffect(() => {
+    const settings = notificationsResource.data?.notifications;
+    if (settings) {
+      setNotifEnabled(settings.enabled);
+      setNotifEmail(settings.email);
+      setNotifVerified(settings.verified);
+    }
+    setNotifMessage("");
+    setNotifError("");
+  }, [notificationsResource.data]);
+
+  async function saveNotifications(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setNotifMessage("");
+    setNotifError("");
+    setNotifSaving(true);
+    try {
+      const response = await api<{ notifications: NotificationSettings }>("/api/notifications", {
+        method: "PUT",
+        body: JSON.stringify({ email: notifEmail, enabled: notifEnabled })
+      });
+      setNotifEnabled(response.notifications.enabled);
+      setNotifEmail(response.notifications.email);
+      setNotifVerified(response.notifications.verified);
+      if (response.notifications.enabled && !response.notifications.verified) {
+        setNotifMessage("Email envoyé : clique le lien de confirmation dans ta boîte mail.");
+      } else if (response.notifications.enabled) {
+        setNotifMessage("Notifications actives.");
+      } else {
+        setNotifMessage("Notifications désactivées.");
+      }
+    } catch (error) {
+      setNotifError(error instanceof Error ? error.message : "Impossible d'enregistrer les notifications.");
+    } finally {
+      setNotifSaving(false);
+    }
+  }
 
   function updateProfile(update: Partial<UserProfile>) {
     setProfile((current) => ({ ...current, ...update }));
@@ -2169,6 +2229,53 @@ function Profile({
             Enregistrer mon profil
           </button>
           {saved && <p className="inline-message">Profil enregistré.</p>}
+        </form>
+      </section>
+
+      <section className="content-section notifications-section">
+        <SectionTitle title="Notifications" />
+        <p className="section-subtitle">
+          Active les rappels par email pour recevoir un message avant chaque match dont le prono n'est pas encore posé, avec le lien direct vers l'app.
+        </p>
+        <form className="profile-form" onSubmit={saveNotifications}>
+          <label className="preference-row">
+            <span>
+              <Bell size={16} />
+              Recevoir les rappels par email
+            </span>
+            <input
+              type="checkbox"
+              checked={notifEnabled}
+              onChange={(event) => setNotifEnabled(event.target.checked)}
+            />
+          </label>
+          <label>
+            <span>
+              <Sparkles size={16} />
+              Adresse email
+            </span>
+            <input
+              type="email"
+              value={notifEmail}
+              onChange={(event) => setNotifEmail(event.target.value)}
+              maxLength={254}
+              placeholder="ton.email@exemple.com"
+              required={notifEnabled}
+            />
+          </label>
+          {notifEnabled && notifEmail && (
+            <p className="section-subtitle">
+              {notifVerified
+                ? "Email confirmé : tu recevras tes rappels."
+                : "Email à confirmer : vérifie ta boîte mail et clique le lien."}
+            </p>
+          )}
+          {notifError && <p className="form-error">{notifError}</p>}
+          <button className="primary-button" type="submit" disabled={notifSaving}>
+            <Save size={18} />
+            {notifSaving ? "Enregistrement..." : "Enregistrer les notifications"}
+          </button>
+          {notifMessage && <p className="inline-message">{notifMessage}</p>}
         </form>
       </section>
 
