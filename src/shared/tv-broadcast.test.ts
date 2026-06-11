@@ -34,6 +34,21 @@ describe("resolveBroadcasters", () => {
     }
   });
 
+  it("resout les matchs M6 reels de la grille (France - Senegal sur M6 + beIN)", () => {
+    // 537391 = France - Senegal (CDM 2026), diffuse en clair sur M6.
+    expect(resolveBroadcasters("537391").map((c) => c.key)).toEqual(["M6", "BEIN"]);
+  });
+
+  it("a une grille M6 non vide et coherente (toujours beIN inclus)", () => {
+    const entries = Object.entries(BROADCAST_OVERRIDES);
+    expect(entries.length).toBeGreaterThan(0);
+    for (const [id, keys] of entries) {
+      expect(keys, `override ${id} doit inclure BEIN`).toContain("BEIN");
+      // Les cles listees sont toutes resolues (pas de chaine inconnue).
+      expect(resolveBroadcasters(id).length, `override ${id} doit resoudre au moins une chaine`).toBeGreaterThan(0);
+    }
+  });
+
   it("ne duplique pas une chaine listee deux fois", () => {
     BROADCAST_OVERRIDES["dup"] = ["BEIN", "BEIN", "M6"];
     try {

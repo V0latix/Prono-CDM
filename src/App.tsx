@@ -194,7 +194,7 @@ const viewTitles: Record<View, string> = {
 export const releaseNotes = [
   {
     title: "Stade et chaîne TV sur chaque match",
-    description: "Chaque match affiche désormais le stade où il se joue et la chaîne qui le diffuse (beIN SPORTS), pour ne plus chercher où le regarder. Les matchs diffusés en clair (TF1, M6) seront signalés au fil de l'annonce de la grille.",
+    description: "Chaque match affiche désormais le stade où il se joue et la chaîne qui le diffuse : beIN SPORTS pour tous, et le badge M6 sur les matchs de poule diffusés en clair. Les affiches TF1 seront ajoutées au fil de l'annonce de la grille.",
     date: "2026-06-11"
   },
   {
