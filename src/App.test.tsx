@@ -1114,6 +1114,26 @@ describe("App components", () => {
     expect(screen.queryByRole("button", { name: /non lues/i })).not.toBeInTheDocument();
   });
 
+  it("returns to the login screen when an authed request expires the session", async () => {
+    window.localStorage.setItem("prono-cdm-session-token", "stale-token");
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      { path: "/api/dashboard", status: 401, body: { error: "Connexion requise." } }
+    ]);
+
+    render(<App />);
+
+    // Le 401 sur le dashboard doit ramener a l'ecran de connexion, pas a un
+    // "Reessayer" qui rejoue la meme requete en echec.
+    expect(
+      await screen.findByText("Ta session a expiré, reconnecte-toi.")
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^connexion$/i })).toHaveClass("active");
+    expect(screen.queryByRole("button", { name: /réessayer/i })).not.toBeInTheDocument();
+    // Le token de fallback est purge pour ne pas re-tenter avec une session morte.
+    expect(window.localStorage.getItem("prono-cdm-session-token")).toBeNull();
+  });
+
   it("requires a qualified team for tied knockout predictions before saving", async () => {
     const { calls } = installFetchMock([
       { path: "/api/me", body: { user } },

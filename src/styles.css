@@ -2171,6 +2171,12 @@ button {
   color: var(--success);
 }
 
+.form-notice {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .empty-state {
   display: flex;
   align-items: center;

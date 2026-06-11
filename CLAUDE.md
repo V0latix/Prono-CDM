@@ -83,9 +83,10 @@ Comportement :
 
 Important :
 
-- `setApiSessionToken()` ne doit etre appele qu'apres login/register/logout.
+- `setApiSessionToken()` ne doit etre appele qu'apres login/register/logout (et est purge automatiquement sur un 401 hors routes `/api/auth/*`).
 - Le cookie HTTP-only reste le mecanisme principal quand le navigateur l'accepte.
-- Le bearer token est un fallback de preview/cross-domain, stocke en `sessionStorage`.
+- Le bearer token est un fallback cross-domain (prod incluse), stocke en `localStorage` pour survivre a la fermeture du navigateur. Indispensable sur les navigateurs qui bloquent les cookies tiers (Safari/iOS, Firefox, Chrome recent), ou le cookie cross-site n'arrive jamais au Worker.
+- Sur un 401 d'une route authentifiee, `api()` purge le token et emet l'event `SESSION_EXPIRED_EVENT` ; `App` y reagit en renvoyant vers l'ecran de connexion (evite un "Reessayer" sans issue).
 - Si l'auth preview casse, verifier d'abord :
   - `src/api.ts`
   - `worker/src/auth.ts`

@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import { api, resolveApiBase, setApiSessionToken } from "./api";
+import { api, resolveApiBase, setApiSessionToken, SESSION_EXPIRED_EVENT } from "./api";
+
+const SESSION_TOKEN_KEY = "prono-cdm-session-token";
+
+function jsonResponse(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" }
+  });
+}
 
 describe("api client", () => {
   it("sends JSON requests with credentials included", async () => {
@@ -104,5 +113,45 @@ describe("api client", () => {
         })
       })
     );
+  });
+
+  it("persists the session token in localStorage so it survives a browser restart", () => {
+    setApiSessionToken("persisted-token", true);
+    expect(window.localStorage.getItem(SESSION_TOKEN_KEY)).toBe("persisted-token");
+    expect(window.sessionStorage.getItem(SESSION_TOKEN_KEY)).toBeNull();
+    setApiSessionToken(null);
+    expect(window.localStorage.getItem(SESSION_TOKEN_KEY)).toBeNull();
+  });
+
+  it("clears the token and signals expiry on a 401 from an authed route", async () => {
+    setApiSessionToken("stale-token", true);
+    const onExpired = vi.fn();
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ error: "Connexion requise." }, 401)));
+
+    await expect(api("/api/dashboard")).rejects.toThrow("Connexion requise.");
+
+    expect(onExpired).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(SESSION_TOKEN_KEY)).toBeNull();
+    window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  });
+
+  it("does not treat a 401 from the auth endpoints as a session expiry", async () => {
+    setApiSessionToken("keep-token", true);
+    const onExpired = vi.fn();
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({ error: "Pseudo ou PIN incorrect." }, 401))
+    );
+
+    await expect(
+      api("/api/auth/login", { method: "POST", body: "{}" })
+    ).rejects.toThrow("Pseudo ou PIN incorrect.");
+
+    expect(onExpired).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(SESSION_TOKEN_KEY)).toBe("keep-token");
+    window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    setApiSessionToken(null);
   });
 });

@@ -39,6 +39,7 @@ import {
 import {
   api,
   setApiSessionToken,
+  SESSION_EXPIRED_EVENT,
   type ActivityItem,
   type Group,
   type LeaderboardRow,
@@ -781,7 +782,22 @@ export function App() {
   const [publicProfileUserId, setPublicProfileUserId] = useState("");
   const [theme, setTheme] = useState<ThemeMode>(initialTheme);
   const [language, setLanguage] = useState<Language>(initialLanguage);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const news = useNewsSeen();
+
+  // Une requete authentifiee a recu un 401 : on revient proprement a l'ecran de
+  // connexion (au lieu d'un "Reessayer" qui rejoue la meme requete en echec).
+  useEffect(() => {
+    function onSessionExpired() {
+      setApiSessionToken(null);
+      setUser((current) => {
+        if (current) setSessionExpired(true);
+        return null;
+      });
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -849,11 +865,13 @@ export function App() {
     return (
       <AuthScreen
         onAuth={(authUser, needsProfileSetup) => {
+          setSessionExpired(false);
           setUser(authUser);
           setProfileSetupPending(needsProfileSetup);
         }}
         theme={theme}
         onThemeChange={changeTheme}
+        sessionExpired={sessionExpired}
       />
     );
   }
@@ -1065,13 +1083,15 @@ function WhatsNewModal({ unseen, onDismiss }: { unseen: boolean; onDismiss: () =
 function AuthScreen({
   onAuth,
   theme,
-  onThemeChange
+  onThemeChange,
+  sessionExpired = false
 }: {
   onAuth: (user: User, needsProfileSetup: boolean) => void;
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
+  sessionExpired?: boolean;
 }) {
-  const [mode, setMode] = useState<"login" | "register">("register");
+  const [mode, setMode] = useState<"login" | "register">(sessionExpired ? "login" : "register");
   const [pseudo, setPseudo] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
@@ -1128,6 +1148,9 @@ function AuthScreen({
               Connexion
             </button>
           </div>
+          {sessionExpired && !error ? (
+            <p className="form-notice">Ta session a expiré, reconnecte-toi.</p>
+          ) : null}
           <label>
             Pseudo
             <input
