@@ -1049,7 +1049,7 @@ describe("App components", () => {
     render(<App />);
 
     const dialog = await screen.findByRole("dialog", { name: /nouveautés/i });
-    expect(within(dialog).getByText("Ton dernier résultat sur le dashboard")).toBeInTheDocument();
+    expect(within(dialog).getByText("Saisie des scores plus simple sur mobile")).toBeInTheDocument();
 
     await browserUser.click(within(dialog).getByRole("button", { name: /c'est noté/i }));
 

@@ -184,6 +184,11 @@ const viewTitles: Record<View, string> = {
 
 const releaseNotes = [
   {
+    title: "Saisie des scores plus simple sur mobile",
+    description: "Quand tu touches une case de score, le chiffre se sélectionne tout seul : tu tapes ton score directement, sans avoir à effacer le 0 qui restait coincé. Tu peux aussi vider la case pour repartir de zéro.",
+    date: "2026-06-11"
+  },
+  {
     title: "Le classement des poules dans Résultats",
     description: "Dans l'onglet Résultats, bascule sur « Poules » pour voir le classement de chaque groupe (Groupe A, B…) avec points, victoires et différence de buts. Les deux premiers de chaque poule sont mis en avant.",
     date: "2026-06-10"
@@ -1664,6 +1669,12 @@ function ScoreInput({
   disabled: boolean;
   onChange: (next: number) => void;
 }) {
+  const [text, setText] = useState(String(value));
+
+  useEffect(() => {
+    setText(String(value));
+  }, [value]);
+
   return (
     <div className="score-control">
       <span>{team}</span>
@@ -1679,13 +1690,27 @@ function ScoreInput({
         </button>
         <input
           aria-label={`Score ${team}`}
-          type="number"
+          type="text"
           inputMode="numeric"
-          min={0}
-          max={30}
-          value={value}
+          pattern="[0-9]*"
+          maxLength={2}
+          value={text}
           disabled={disabled}
-          onChange={(event) => onChange(clampScore(Number(event.target.value)))}
+          onFocus={(event) => event.target.select()}
+          onChange={(event) => {
+            const raw = event.target.value.replace(/[^0-9]/g, "").slice(0, 2);
+            setText(raw);
+            if (raw !== "") onChange(clampScore(Number(raw)));
+          }}
+          onBlur={() => {
+            if (text === "") {
+              setText(String(value));
+            } else {
+              const next = clampScore(Number(text));
+              setText(String(next));
+              onChange(next);
+            }
+          }}
         />
         <button
           type="button"
