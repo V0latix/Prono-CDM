@@ -13,7 +13,15 @@ export type ProfileBadge = {
     | "ruthless"
     | "wild_optimist"
     | "rivalry_started"
-    | "locker_room_vibe";
+    | "locker_room_vibe"
+    | "points_100"
+    | "exact_10"
+    | "exact_20"
+    | "exact_30"
+    | "last_place"
+    | "final_exact"
+    | "group_stage_first"
+    | "perfect_streak_2_days";
   label: string;
   description: string;
   earned: boolean;
@@ -22,8 +30,20 @@ export type ProfileBadge = {
 type BadgePredictionRow = PredictionRow & {
   status: string;
   kickoff_at: string;
+  stage: string;
   home_team: string;
   away_team: string;
+};
+
+type StandingRow = {
+  user_id: string;
+  total_points: number;
+  group_points: number;
+};
+
+type GroupStageRow = {
+  group_total: number;
+  group_finished: number;
 };
 
 type DayMatchRow = {
@@ -154,7 +174,7 @@ async function hasGoodStudentDay(env: Env, userId: string): Promise<boolean> {
   return false;
 }
 
-async function hasPerfectDay(env: Env, userId: string): Promise<boolean> {
+async function getPerfectDays(env: Env, userId: string): Promise<string[]> {
   const days = await env.DB.prepare(
     `SELECT substr(kickoff_at, 1, 10) AS day, COUNT(*) AS match_count
      FROM matches
@@ -163,6 +183,7 @@ async function hasPerfectDay(env: Env, userId: string): Promise<boolean> {
      HAVING COUNT(*) >= 2`
   ).all<PerfectDayRow>();
 
+  const perfectDays: string[] = [];
   for (const day of days.results ?? []) {
     const predictions = await env.DB.prepare(
       `SELECT predictions.*
@@ -179,11 +200,75 @@ async function hasPerfectDay(env: Env, userId: string): Promise<boolean> {
       rows.length === day.match_count &&
       rows.every((row) => row.id && isSuccessful(row))
     ) {
-      return true;
+      perfectDays.push(day.day);
     }
   }
 
+  return perfectDays;
+}
+
+// Deux journees calendaires "sans faute" qui se suivent (ecart d'exactement 1 jour).
+function hasConsecutivePerfectDays(days: string[]): boolean {
+  const sorted = [...days].sort();
+  for (let index = 1; index < sorted.length; index += 1) {
+    const previous = Date.parse(`${sorted[index - 1]}T00:00:00.000Z`);
+    const current = Date.parse(`${sorted[index]}T00:00:00.000Z`);
+    if (
+      Number.isFinite(previous) &&
+      Number.isFinite(current) &&
+      current - previous === 86_400_000
+    ) {
+      return true;
+    }
+  }
   return false;
+}
+
+// La phase de poules est terminee quand tous ses matchs sont joues (et qu'il y en a).
+async function isGroupStageComplete(env: Env): Promise<boolean> {
+  const row = await env.DB.prepare(
+    `SELECT
+       SUM(CASE WHEN stage = 'GROUP_STAGE' THEN 1 ELSE 0 END) AS group_total,
+       SUM(CASE WHEN stage = 'GROUP_STAGE' AND status IN ('FINISHED', 'AWARDED') THEN 1 ELSE 0 END) AS group_finished
+     FROM matches`
+  ).first<GroupStageRow>();
+  const total = Number(row?.group_total ?? 0);
+  const finished = Number(row?.group_finished ?? 0);
+  return total > 0 && total === finished;
+}
+
+// Classement global (dernier) et classement des poules (premier) calcules en une requete.
+async function getStandingBadges(
+  env: Env,
+  userId: string,
+  groupStageComplete: boolean
+): Promise<{ lastPlace: boolean; groupFirst: boolean }> {
+  const standings = await env.DB.prepare(
+    `SELECT predictions.user_id AS user_id,
+            SUM(predictions.points) AS total_points,
+            SUM(CASE WHEN matches.stage = 'GROUP_STAGE' THEN predictions.points ELSE 0 END) AS group_points
+     FROM predictions
+     JOIN matches ON matches.id = predictions.match_id
+     WHERE matches.status IN ('FINISHED', 'AWARDED')
+     GROUP BY predictions.user_id`
+  ).all<StandingRow>();
+  const rows = standings.results ?? [];
+  const me = rows.find((row) => row.user_id === userId);
+  if (!me) return { lastPlace: false, groupFirst: false };
+
+  const totals = rows.map((row) => Number(row.total_points));
+  const minTotal = Math.min(...totals);
+  const maxTotal = Math.max(...totals);
+  // Dernier seulement s'il y a au moins deux joueurs et un vrai ecart (pas tous a egalite).
+  const lastPlace =
+    rows.length >= 2 && Number(me.total_points) === minTotal && maxTotal > minTotal;
+
+  const groupTotals = rows.map((row) => Number(row.group_points));
+  const maxGroup = Math.max(...groupTotals);
+  const groupFirst =
+    groupStageComplete && maxGroup > 0 && Number(me.group_points) === maxGroup;
+
+  return { lastPlace, groupFirst };
 }
 
 async function hasViewedAnotherProfile(env: Env, userId: string): Promise<boolean> {
@@ -197,7 +282,7 @@ async function hasViewedAnotherProfile(env: Env, userId: string): Promise<boolea
 
 export async function getUserBadges(env: Env, userId: string): Promise<ProfileBadge[]> {
   const predictions = await env.DB.prepare(
-    `SELECT predictions.*, matches.status, matches.kickoff_at, matches.home_team, matches.away_team
+    `SELECT predictions.*, matches.status, matches.kickoff_at, matches.stage, matches.home_team, matches.away_team
      FROM predictions
      JOIN matches ON matches.id = predictions.match_id
      WHERE predictions.user_id = ?
@@ -215,8 +300,26 @@ export async function getUserBadges(env: Env, userId: string): Promise<ProfileBa
   const wildOptimist = hasWildOptimist(rows);
   const ruthless = await hasRuthlessPrediction(env, userId, rows);
   const goodStudent = await hasGoodStudentDay(env, userId);
-  const perfectDay = await hasPerfectDay(env, userId);
+  const perfectDays = await getPerfectDays(env, userId);
+  const perfectDay = perfectDays.length >= 1;
+  const perfectStreak2 = hasConsecutivePerfectDays(perfectDays);
   const rivalryStarted = await hasViewedAnotherProfile(env, userId);
+
+  const totalPoints = rows
+    .filter((row) => isFinished(row.status))
+    .reduce((sum, row) => sum + row.points, 0);
+  const exactCount = rows.filter(
+    (row) => isFinished(row.status) && row.exact_score
+  ).length;
+  const finalExact = rows.some(
+    (row) => isFinished(row.status) && row.stage === "FINAL" && row.exact_score
+  );
+  const groupStageComplete = await isGroupStageComplete(env);
+  const { lastPlace, groupFirst } = await getStandingBadges(
+    env,
+    userId,
+    groupStageComplete
+  );
 
   const badges: ProfileBadge[] = [
     {
@@ -284,6 +387,54 @@ export async function getUserBadges(env: Env, userId: string): Promise<ProfileBa
       label: "Rivalité lancée",
       description: "A consulté le profil d'un autre joueur depuis le classement.",
       earned: rivalryStarted
+    },
+    {
+      id: "points_100",
+      label: "Centenaire",
+      description: "A dépassé la barre des 100 points.",
+      earned: totalPoints >= 100
+    },
+    {
+      id: "exact_10",
+      label: "10 scores exacts",
+      description: "A trouvé dix scores exacts.",
+      earned: exactCount >= 10
+    },
+    {
+      id: "exact_20",
+      label: "20 scores exacts",
+      description: "A trouvé vingt scores exacts.",
+      earned: exactCount >= 20
+    },
+    {
+      id: "exact_30",
+      label: "30 scores exacts",
+      description: "A trouvé trente scores exacts.",
+      earned: exactCount >= 30
+    },
+    {
+      id: "final_exact",
+      label: "Prophète de la finale",
+      description: "A trouvé le score exact de la finale.",
+      earned: finalExact
+    },
+    {
+      id: "group_stage_first",
+      label: "Roi des poules",
+      description: "A terminé la phase de poules en tête du classement.",
+      earned: groupFirst
+    },
+    {
+      id: "perfect_streak_2_days",
+      label: "Sans faute deux jours de suite",
+      description: "A réussi tous ses pronos deux journées d'affilée.",
+      earned: perfectStreak2
+    },
+    {
+      id: "last_place",
+      label: "Lanterne rouge",
+      description: "A occupé la dernière place du classement.",
+      earned: lastPlace
     }
   ];
 

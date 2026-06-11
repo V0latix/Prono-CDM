@@ -186,6 +186,11 @@ const viewTitles: Record<View, string> = {
 
 const releaseNotes = [
   {
+    title: "Une pluie de nouveaux badges",
+    description: "Décroche le Centenaire (100 points), les paliers de 10, 20 et 30 scores exacts, le Prophète de la finale, le Roi des poules, le sans-faute sur deux jours d'affilée… et même la Lanterne rouge si tu fermes le classement.",
+    date: "2026-06-11"
+  },
+  {
     title: "Saisie des scores plus simple sur mobile",
     description: "Quand tu touches une case de score, le chiffre se sélectionne tout seul : tu tapes ton score directement, sans avoir à effacer le 0 qui restait coincé. Tu peux aussi vider la case pour repartir de zéro.",
     date: "2026-06-11"

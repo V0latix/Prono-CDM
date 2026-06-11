@@ -23,7 +23,15 @@ export type ProfileBadge = {
     | "ruthless"
     | "wild_optimist"
     | "rivalry_started"
-    | "locker_room_vibe";
+    | "locker_room_vibe"
+    | "points_100"
+    | "exact_10"
+    | "exact_20"
+    | "exact_30"
+    | "last_place"
+    | "final_exact"
+    | "group_stage_first"
+    | "perfect_streak_2_days";
   label: string;
   description: string;
   earned: boolean;

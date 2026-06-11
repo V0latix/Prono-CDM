@@ -5,6 +5,7 @@ import type { Env, PredictionRow } from "./types";
 type BadgeRow = PredictionRow & {
   status: string;
   kickoff_at: string;
+  stage: string;
   home_team: string;
   away_team: string;
 };
@@ -22,6 +23,8 @@ type FakeBadgeDbOptions = {
   }>;
   favoriteTeam?: string;
   viewedProfile?: boolean;
+  standings?: Array<{ user_id: string; total_points: number; group_points: number }>;
+  groupStage?: { group_total: number; group_finished: number };
 };
 
 function predictionRow(overrides: Partial<BadgeRow> = {}): BadgeRow {
@@ -41,6 +44,7 @@ function predictionRow(overrides: Partial<BadgeRow> = {}): BadgeRow {
     updated_at: overrides.updated_at ?? "2026-06-15T17:30:00.000Z",
     status: overrides.status ?? "FINISHED",
     kickoff_at: overrides.kickoff_at ?? "2026-06-15T18:00:00.000Z",
+    stage: overrides.stage ?? "GROUP_STAGE",
     home_team: overrides.home_team ?? "France",
     away_team: overrides.away_team ?? "Argentine"
   };
@@ -68,6 +72,10 @@ function fakeEnv(options: FakeBadgeDbOptions): Env {
             return { results: (options.perfectDays ?? []) as T[] };
           }
 
+          if (sql.includes("SUM(predictions.points) AS total_points")) {
+            return { results: (options.standings ?? []) as T[] };
+          }
+
           if (sql.includes("LEFT JOIN predictions")) {
             return { results: (options.perfectDayRows?.[boundDay] ?? []) as T[] };
           }
@@ -81,6 +89,10 @@ function fakeEnv(options: FakeBadgeDbOptions): Env {
 
           if (sql.includes("SELECT viewed_user_id FROM profile_views")) {
             return options.viewedProfile ? ({ viewed_user_id: "user-2" } as T) : null;
+          }
+
+          if (sql.includes("AS group_total")) {
+            return (options.groupStage ?? { group_total: 0, group_finished: 0 }) as T;
           }
 
           throw new Error(`Unexpected query: ${sql}`);
@@ -244,6 +256,162 @@ describe("profile badges", () => {
       correct_streak_3: false,
       good_student: false,
       perfect_day: false
+    });
+  });
+
+  it("awards points and exact-score milestones plus the final badge", async () => {
+    // Dix scores exacts a 10 points chacun => 100 points et palier exact_10.
+    const rows = Array.from({ length: 10 }, (_, index) =>
+      predictionRow({
+        id: `p${index + 1}`,
+        match_id: `m${index + 1}`,
+        points: 10,
+        exact_score: 1,
+        correct_result: 1,
+        correct_goal_diff: 1,
+        stage: index === 9 ? "FINAL" : "GROUP_STAGE",
+        kickoff_at: `2026-06-${15 + index}T18:00:00.000Z`
+      })
+    );
+
+    const badges = await getUserBadges(
+      fakeEnv({ predictionRows: rows, favoriteTeam: "France" }),
+      "user-1"
+    );
+
+    expect(Object.fromEntries(badges.map((badge) => [badge.id, badge.earned]))).toMatchObject({
+      points_100: true,
+      exact_10: true,
+      exact_20: false,
+      exact_30: false,
+      final_exact: true
+    });
+  });
+
+  it("awards last place when the player trails the standings", async () => {
+    const badges = await getUserBadges(
+      fakeEnv({
+        predictionRows: [],
+        standings: [
+          { user_id: "user-1", total_points: 5, group_points: 5 },
+          { user_id: "user-2", total_points: 40, group_points: 40 }
+        ],
+        groupStage: { group_total: 48, group_finished: 12 }
+      }),
+      "user-1"
+    );
+
+    expect(Object.fromEntries(badges.map((badge) => [badge.id, badge.earned]))).toMatchObject({
+      last_place: true,
+      group_stage_first: false
+    });
+  });
+
+  it("does not award last place when every player is tied", async () => {
+    const badges = await getUserBadges(
+      fakeEnv({
+        predictionRows: [],
+        standings: [
+          { user_id: "user-1", total_points: 0, group_points: 0 },
+          { user_id: "user-2", total_points: 0, group_points: 0 }
+        ]
+      }),
+      "user-1"
+    );
+
+    expect(badges.find((badge) => badge.id === "last_place")?.earned).toBe(false);
+  });
+
+  it("crowns the group-stage king once the group stage is complete", async () => {
+    const badges = await getUserBadges(
+      fakeEnv({
+        predictionRows: [],
+        standings: [
+          { user_id: "user-1", total_points: 30, group_points: 30 },
+          { user_id: "user-2", total_points: 20, group_points: 20 }
+        ],
+        groupStage: { group_total: 48, group_finished: 48 }
+      }),
+      "user-1"
+    );
+
+    expect(Object.fromEntries(badges.map((badge) => [badge.id, badge.earned]))).toMatchObject({
+      group_stage_first: true,
+      last_place: false
+    });
+  });
+
+  it("does not crown the group-stage king before the group stage ends", async () => {
+    const badges = await getUserBadges(
+      fakeEnv({
+        predictionRows: [],
+        standings: [
+          { user_id: "user-1", total_points: 30, group_points: 30 },
+          { user_id: "user-2", total_points: 20, group_points: 20 }
+        ],
+        groupStage: { group_total: 48, group_finished: 20 }
+      }),
+      "user-1"
+    );
+
+    expect(badges.find((badge) => badge.id === "group_stage_first")?.earned).toBe(false);
+  });
+
+  it("awards the two-perfect-days-in-a-row badge for consecutive flawless days", async () => {
+    const success = predictionRow({ exact_score: 0, correct_result: 1 });
+    const badges = await getUserBadges(
+      fakeEnv({
+        predictionRows: [],
+        perfectDays: [
+          { day: "2026-06-15", match_count: 2 },
+          { day: "2026-06-16", match_count: 2 }
+        ],
+        perfectDayRows: {
+          "2026-06-15": [
+            predictionRow({ ...success, id: "a1" }),
+            predictionRow({ ...success, id: "a2" })
+          ],
+          "2026-06-16": [
+            predictionRow({ ...success, id: "b1" }),
+            predictionRow({ ...success, id: "b2" })
+          ]
+        }
+      }),
+      "user-1"
+    );
+
+    expect(Object.fromEntries(badges.map((badge) => [badge.id, badge.earned]))).toMatchObject({
+      perfect_day: true,
+      perfect_streak_2_days: true
+    });
+  });
+
+  it("does not award the streak badge for non-consecutive perfect days", async () => {
+    const success = predictionRow({ exact_score: 0, correct_result: 1 });
+    const badges = await getUserBadges(
+      fakeEnv({
+        predictionRows: [],
+        perfectDays: [
+          { day: "2026-06-15", match_count: 2 },
+          { day: "2026-06-18", match_count: 2 }
+        ],
+        perfectDayRows: {
+          "2026-06-15": [
+            predictionRow({ ...success, id: "a1" }),
+            predictionRow({ ...success, id: "a2" })
+          ],
+          "2026-06-18": [
+            predictionRow({ ...success, id: "b1" }),
+            predictionRow({ ...success, id: "b2" })
+          ]
+        }
+      }),
+      "user-1"
+    );
+
+    expect(Object.fromEntries(badges.map((badge) => [badge.id, badge.earned]))).toMatchObject({
+      perfect_day: true,
+      perfect_streak_2_days: false
     });
   });
 });
