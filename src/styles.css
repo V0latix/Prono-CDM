@@ -349,7 +349,6 @@ button {
   margin-bottom: 1.25rem;
 }
 
-.topbar p,
 .eyebrow {
   margin: 0 0 0.35rem;
   color: var(--muted);
@@ -411,6 +410,7 @@ button {
 }
 
 .news-button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -431,6 +431,64 @@ button {
   color: var(--bg);
 }
 
+.news-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid var(--panel);
+  border-radius: 999px;
+  background: var(--accent);
+  animation: news-dot-pulse 1.8s ease-in-out infinite;
+}
+
+.news-button:hover .news-dot,
+.news-button:focus-visible .news-dot {
+  border-color: var(--fg);
+}
+
+@keyframes news-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes news-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes news-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.75;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .news-panel,
+  .news-modal-overlay,
+  .news-modal,
+  .news-dot {
+    animation: none;
+  }
+}
+
 .news-panel {
   position: absolute;
   top: calc(100% + 0.6rem);
@@ -442,6 +500,8 @@ button {
   background: var(--panel);
   color: var(--fg);
   box-shadow: 8px 8px 0 var(--nav-shadow);
+  transform-origin: top right;
+  animation: news-pop 0.16s ease;
 }
 
 .news-panel-header {
@@ -1914,6 +1974,7 @@ button {
   padding: 1rem;
   background: rgba(8, 12, 24, 0.62);
   overflow-y: auto;
+  animation: news-fade 0.18s ease;
 }
 
 .news-modal {
@@ -1927,6 +1988,7 @@ button {
   background: var(--panel);
   color: var(--fg);
   box-shadow: 10px 10px 0 var(--nav-shadow);
+  animation: news-pop 0.22s ease;
 }
 
 .news-modal-header {

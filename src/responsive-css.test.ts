@@ -45,6 +45,22 @@ describe("responsive CSS", () => {
     expect(css).toContain('--font-body: "Inter", sans-serif');
   });
 
+  it("does not force uppercase on every paragraph inside the topbar", () => {
+    // Le libellé .eyebrow reste en capitales, mais la règle ne doit pas viser
+    // tous les .topbar p : sinon les descriptions du panneau Nouveautés (rendu
+    // dans le topbar) repassent en majuscules et deviennent illisibles.
+    expect(css).not.toMatch(/\.topbar p\s*,/);
+    expect(css).toMatch(/\.eyebrow\s*\{[^}]*text-transform:\s*uppercase/);
+  });
+
+  it("animates the news surfaces but respects reduced motion", () => {
+    expect(css).toContain("@keyframes news-pop");
+    expect(css).toContain("@media (prefers-reduced-motion: reduce)");
+    const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reduced).toContain(".news-modal");
+    expect(reduced).toContain("animation: none");
+  });
+
   it("puts profile editing before badges on mobile", () => {
     const mobile = mediaBlock(640);
 

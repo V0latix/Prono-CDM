@@ -29,6 +29,7 @@ import {
   type DragEvent,
   type FormEvent,
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -289,6 +290,29 @@ const releaseNotes = [
 // tête de liste, ce qui ré-affiche automatiquement le pop-up à la réouverture.
 export const NEWS_STORAGE_KEY = "prono-cdm-news-seen";
 export const NEWS_VERSION = `${releaseNotes[0]?.date ?? ""}:${releaseNotes[0]?.title ?? ""}`;
+
+// État partagé "dernières nouveautés vues" : pilote à la fois la pastille du
+// bouton et l'ouverture du pop-up, pour qu'ils restent synchronisés.
+function useNewsSeen() {
+  const [seenVersion, setSeenVersion] = useState<string | null>(() => {
+    try {
+      return window.localStorage.getItem(NEWS_STORAGE_KEY);
+    } catch {
+      return NEWS_VERSION;
+    }
+  });
+
+  const markSeen = useCallback(() => {
+    try {
+      window.localStorage.setItem(NEWS_STORAGE_KEY, NEWS_VERSION);
+    } catch {
+      // localStorage indisponible : on garde l'état en mémoire pour la session.
+    }
+    setSeenVersion(NEWS_VERSION);
+  }, []);
+
+  return { unseen: seenVersion !== NEWS_VERSION, markSeen };
+}
 
 const defaultProfile: UserProfile = {
   photoUrl: "",
@@ -757,6 +781,7 @@ export function App() {
   const [publicProfileUserId, setPublicProfileUserId] = useState("");
   const [theme, setTheme] = useState<ThemeMode>(initialTheme);
   const [language, setLanguage] = useState<Language>(initialLanguage);
+  const news = useNewsSeen();
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -890,18 +915,18 @@ export function App() {
       <main className="main-area">
         <header className="topbar">
           <div>
-            <p>Coupe du monde 2026</p>
+            <p className="eyebrow">Coupe du monde 2026</p>
             <h1>{viewTitles[view]}</h1>
           </div>
           <div className="topbar-actions">
-            <WhatsNewBubble />
+            <WhatsNewBubble unseen={news.unseen} onSeen={news.markSeen} />
             <button className="user-pill" type="button" onClick={() => setView("profile")}>
               <UserRound size={18} />
               {user.pseudo}
             </button>
           </div>
         </header>
-        <WhatsNewModal />
+        <WhatsNewModal unseen={news.unseen} onDismiss={news.markSeen} />
         {view === "dashboard" && <Dashboard onOpenPredictions={() => setView("predictions")} />}
         {view === "predictions" && <Predictions />}
         {view === "leaderboard" && (
@@ -933,8 +958,16 @@ export function App() {
   );
 }
 
-function WhatsNewBubble() {
+function WhatsNewBubble({ unseen, onSeen }: { unseen: boolean; onSeen: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
+
+  function toggle() {
+    setIsOpen((open) => {
+      const next = !open;
+      if (next && unseen) onSeen();
+      return next;
+    });
+  }
 
   return (
     <div className="whats-new">
@@ -943,10 +976,12 @@ function WhatsNewBubble() {
         type="button"
         aria-expanded={isOpen}
         aria-controls="whats-new-panel"
-        onClick={() => setIsOpen((open) => !open)}
+        aria-label={unseen ? "Nouveautés (non lues)" : "Nouveautés"}
+        onClick={toggle}
       >
         <Info size={18} />
         <span>Nouveautés</span>
+        {unseen ? <span className="news-dot" aria-hidden="true" /> : null}
       </button>
       {isOpen ? (
         <section className="news-panel" id="whats-new-panel" aria-label="Nouveautés de l'application">
@@ -978,21 +1013,11 @@ function WhatsNewBubble() {
 
 // Pop-up affiché à la réouverture de l'app tant que les dernières nouveautés
 // n'ont pas été vues. On retient la version vue dans le localStorage.
-function WhatsNewModal() {
-  const [isOpen, setIsOpen] = useState(() => {
-    try {
-      return window.localStorage.getItem(NEWS_STORAGE_KEY) !== NEWS_VERSION;
-    } catch {
-      return false;
-    }
-  });
+function WhatsNewModal({ unseen, onDismiss }: { unseen: boolean; onDismiss: () => void }) {
+  const [isOpen, setIsOpen] = useState(unseen);
 
   function dismiss() {
-    try {
-      window.localStorage.setItem(NEWS_STORAGE_KEY, NEWS_VERSION);
-    } catch {
-      // localStorage indisponible : on ferme quand même pour cette session.
-    }
+    onDismiss();
     setIsOpen(false);
   }
 

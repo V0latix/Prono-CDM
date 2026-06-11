@@ -1057,6 +1057,63 @@ describe("App components", () => {
     expect(window.localStorage.getItem(NEWS_STORAGE_KEY)).toBe(NEWS_VERSION);
   });
 
+  it("marks the news button as unread until the pop-up is dismissed", async () => {
+    window.localStorage.removeItem(NEWS_STORAGE_KEY);
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    const dialog = await screen.findByRole("dialog", { name: /nouveautés/i });
+    expect(screen.getByRole("button", { name: /nouveautés \(non lues\)/i })).toBeInTheDocument();
+
+    await browserUser.click(within(dialog).getByRole("button", { name: /c'est noté/i }));
+
+    expect(screen.queryByRole("button", { name: /non lues/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^nouveautés$/i })).toBeInTheDocument();
+  });
+
+  it("clears the unread mark when the news panel is opened from the bubble", async () => {
+    window.localStorage.removeItem(NEWS_STORAGE_KEY);
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    // Ouvrir le panneau via la bulle non lue doit marquer les nouveautés comme vues.
+    const bubble = await screen.findByRole("button", { name: /nouveautés \(non lues\)/i });
+    await browserUser.click(bubble);
+
+    expect(window.localStorage.getItem(NEWS_STORAGE_KEY)).toBe(NEWS_VERSION);
+    expect(screen.queryByRole("button", { name: /non lues/i })).not.toBeInTheDocument();
+  });
+
   it("requires a qualified team for tied knockout predictions before saving", async () => {
     const { calls } = installFetchMock([
       { path: "/api/me", body: { user } },
