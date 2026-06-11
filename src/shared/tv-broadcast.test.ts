@@ -16,15 +16,6 @@ describe("resolveBroadcasters", () => {
     }
   });
 
-  it("applique une surcharge clair (TF1 + beIN) pour un match liste", () => {
-    BROADCAST_OVERRIDES["tf1-match"] = ["TF1", "BEIN"];
-    try {
-      expect(resolveBroadcasters("tf1-match").map((c) => c.key)).toEqual(["TF1", "BEIN"]);
-    } finally {
-      delete BROADCAST_OVERRIDES["tf1-match"];
-    }
-  });
-
   it("ignore les cles inconnues d'une surcharge et retombe sur beIN", () => {
     BROADCAST_OVERRIDES["bad"] = ["INCONNU"];
     try {

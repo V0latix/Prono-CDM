@@ -833,12 +833,6 @@ button {
   border: 1px solid var(--fg);
 }
 
-.channel-logo--tf1 {
-  background: #102a6b;
-  color: #ffffff;
-  border-color: #102a6b;
-}
-
 .channel-logo--m6 {
   background: #d6006e;
   color: #ffffff;

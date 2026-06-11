@@ -194,7 +194,7 @@ const viewTitles: Record<View, string> = {
 export const releaseNotes = [
   {
     title: "Stade et chaîne TV sur chaque match",
-    description: "Chaque match affiche désormais le stade où il se joue et la chaîne qui le diffuse : beIN SPORTS pour tous, et le badge M6 sur les matchs de poule diffusés en clair. Les affiches TF1 seront ajoutées au fil de l'annonce de la grille.",
+    description: "Chaque match affiche désormais le stade où il se joue et la chaîne qui le diffuse : beIN SPORTS pour tous, et le badge M6 sur les matchs de poule diffusés en clair.",
     date: "2026-06-11"
   },
   {
@@ -3257,7 +3257,7 @@ function Rules() {
   );
 }
 
-// Petit badge "logo" de chaine : texte de marque colore via CSS (.channel-logo--tf1
+// Petit badge "logo" de chaine : texte de marque colore via CSS (.channel-logo--m6
 // / --bein). Pas d'asset reseau externe ; un vrai SVG/PNG pourra le remplacer.
 function ChannelLogo({ channel }: { channel: { key: string; label: string } }) {
   return (

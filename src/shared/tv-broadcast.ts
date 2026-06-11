@@ -2,12 +2,11 @@
 // donnee : on la derive donc d'un mapping cure en code. Calcul pur et testable.
 //
 // Droits CDM 2026 en France : beIN SPORTS diffuse l'integralite des 104 matchs.
-// Le clair est partage entre TF1 et M6 (~28 matchs chacun), avec une repartition
-// EDITORIALE par match qu'on ne peut pas deduire automatiquement (et qui ne suit
-// pas une regle simple : les poules ne sont pas systematiquement sur TF1).
+// Le clair est sur M6 (il n'y a aucun match sur TF1). La repartition du clair est
+// EDITORIALE par match et ne suit pas de regle simple.
 //
-// Choix : defaut = beIN SPORTS partout (certain) ; on ajoute TF1 ou M6 UNIQUEMENT
-// pour les matchs explicitement listes dans `BROADCAST_OVERRIDES` (par id
+// Choix : defaut = beIN SPORTS partout (certain) ; on ajoute M6 UNIQUEMENT pour
+// les matchs explicitement listes dans `BROADCAST_OVERRIDES` (par id
 // football-data, stable meme quand les equipes sont "a definir"). On n'affiche
 // donc jamais une chaine en clair par devinette.
 
@@ -16,12 +15,10 @@ export type Broadcaster = {
   label: string;
 };
 
-const TF1: Broadcaster = { key: "TF1", label: "TF1" };
 const M6: Broadcaster = { key: "M6", label: "M6" };
 const BEIN: Broadcaster = { key: "BEIN", label: "beIN SPORTS" };
 
 const CHANNELS: Record<string, Broadcaster> = {
-  TF1,
   M6,
   BEIN
 };
@@ -31,8 +28,8 @@ const CHANNELS: Record<string, Broadcaster> = {
 // matchs.
 //
 // Matchs de poule diffuses en clair sur M6 (source : footmercato.net, grille M6
-// de la CDM 2026). Les affiches TF1 et les matchs clair de la phase finale (dont
-// les equipes sont encore "a definir") seront ajoutes au fil de l'annonce.
+// de la CDM 2026). Le clair de la phase finale (equipes encore "a definir") sera
+// ajoute au fil de l'annonce.
 export const BROADCAST_OVERRIDES: Record<string, string[]> = {
   "537327": ["M6", "BEIN"],
   "537329": ["M6", "BEIN"],
