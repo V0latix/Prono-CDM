@@ -683,6 +683,115 @@ describe("App components", () => {
     });
   });
 
+  it("clears the score field on focus so typing replaces the leading zero", async () => {
+    // Regression: sur mobile (iOS Safari/WebKit) `select()` au focus n'etait pas
+    // honore, le 0 restait colle et saisir 3 donnait "30". Le champ se vide
+    // desormais au focus : la saisie repart de zero sur tous les navigateurs.
+    const { calls } = installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/matches",
+        body: {
+          matches: [
+            match({
+              id: "match-1",
+              homeTeam: "Bresil",
+              awayTeam: "Croatie",
+              kickoffAt: "2026-06-15T19:00:00.000Z"
+            })
+          ]
+        }
+      },
+      { method: "PUT", path: "/api/predictions/match-1", body: { ok: true } }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getAllByRole("button", { name: /mes pronos/i })[0]);
+
+    const bresilScore = await screen.findByLabelText("Score Bresil");
+    expect(bresilScore).toHaveValue("0");
+    // Un simple focus + saisie d'un chiffre, sans clear() prealable.
+    await browserUser.click(bresilScore);
+    await browserUser.type(bresilScore, "3");
+    expect(bresilScore).toHaveValue("3");
+
+    await browserUser.click(screen.getByRole("button", { name: /enregistrer/i }));
+    await waitFor(() =>
+      expect(calls.some((call) => call.url === "/api/predictions/match-1")).toBe(true)
+    );
+    const saveCall = calls.find((call) => call.url === "/api/predictions/match-1");
+    expect(JSON.parse(String(saveCall?.init?.body))).toEqual({
+      predictedHomeScore: 3,
+      predictedAwayScore: 0,
+      predictedWinnerTeam: null
+    });
+  });
+
+  it("restores the previous score when the field is focused then left empty", async () => {
+    // Le champ se vide au focus ; si l'utilisateur n'ecrit rien et quitte le
+    // champ, le score d'origine doit revenir (et ne pas etre ecrase par "0"/"").
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/matches",
+        body: {
+          matches: [
+            match({
+              id: "match-1",
+              kickoffAt: "2026-06-15T19:00:00.000Z",
+              prediction: {
+                predictedHomeScore: 3,
+                predictedAwayScore: 1,
+                predictedWinnerTeam: null,
+                points: 0,
+                exactScore: false,
+                correctResult: false,
+                correctGoalDiff: false,
+                updatedAt: "2026-06-04T10:00:00.000Z"
+              }
+            })
+          ]
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getAllByRole("button", { name: /mes pronos/i })[0]);
+
+    const franceScore = await screen.findByLabelText("Score France");
+    expect(franceScore).toHaveValue("3");
+    await browserUser.click(franceScore); // focus => le champ se vide
+    expect(franceScore).toHaveValue("");
+    await browserUser.tab(); // blur sans rien taper => restauration
+    expect(franceScore).toHaveValue("3");
+  });
+
   it("lists finished matches with the user prediction and earned points", async () => {
     const { calls } = installFetchMock([
       { path: "/api/me", body: { user } },

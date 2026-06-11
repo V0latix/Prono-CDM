@@ -1744,7 +1744,13 @@ function ScoreInput({
           maxLength={2}
           value={text}
           disabled={disabled}
-          onFocus={(event) => event.target.select()}
+          onFocus={() => {
+            // On vide le champ au focus plutot que de selectionner le contenu :
+            // iOS Safari/WebKit n'honore pas `select()` au focus (le 0 restait
+            // colle, ex. saisir 3 donnait "30"). Champ vide => la saisie repart
+            // de zero sur tous les navigateurs. onBlur restaure si on n'a rien tape.
+            setText("");
+          }}
           onChange={(event) => {
             const raw = event.target.value.replace(/[^0-9]/g, "").slice(0, 2);
             setText(raw);
