@@ -24,6 +24,9 @@ Le frontend ne doit jamais appeler football-data.org directement. Il lit uniquem
 - `src/shared/scoring.ts` : calcul pur des points, partageable frontend/Worker.
 - `src/shared/week.ts` : bornes de la semaine pour le classement hebdomadaire.
 - `src/shared/standings.ts` : calcul pur du classement des poules (onglet Resultats), a partir des matchs termines.
+- `src/shared/bracket.ts` : regroupement pur des matchs de phase finale par tour (vue Resultats > phase finale), utilise par `src/App.tsx`. Voir la limite assumee plus bas (pas de filiation entre matchs).
+- `src/shared/tv-broadcast.ts` : diffuseur(s) TV francais d'un match, mapping cure en code par id football-data (defaut beIN SPORTS, M6 pour le clair). Consomme cote Worker (`routes.ts`).
+- `src/shared/venues.ts` : stade de chaque match, mapping cure en code par id football-data. Consomme cote Worker (`routes.ts`).
 - `src/styles.css` : design system global, themes, responsive.
 - `worker/src/index.ts` : entree Worker, CORS, session, cron.
 - `worker/src/routes.ts` : routes API, auth, profils, groupes, pronos, classements.
@@ -294,6 +297,7 @@ Migrations existantes :
 - `0008_group_invite_codes.sql` : code d'invitation par groupe (colonne `invite_code` + index unique). Les groupes existants recoivent un code en lazy backfill.
 - `0009_email_notifications.sql` : preferences email par utilisateur + journal d'envoi (`notification_log`).
 - `0010_match_group.sql` : colonne `match_group` (poule `GROUP_A`..., `NULL` en phase finale, remplie a la prochaine synchro).
+- `0011_match_venue.sql` : colonne `venue` (stade du match, `NULL` si la source ne le fournit pas, remplie a la prochaine synchro).
 
 Commandes :
 
@@ -320,6 +324,9 @@ Suites importantes :
 - `src/responsive-css.test.ts` : contraintes CSS responsive/themes.
 - `src/shared/scoring.test.ts` : calcul des points.
 - `src/shared/standings.test.ts` : classement des poules (points 3/1/0, tie-break diff/buts).
+- `src/shared/bracket.test.ts` : regroupement des matchs de phase finale par tour.
+- `src/shared/tv-broadcast.test.ts` : resolution des diffuseurs TV (defaut beIN, overrides M6).
+- `src/shared/venues.test.ts` : resolution du stade d'un match (override cure vs venue API).
 - `worker/src/auth.test.ts` : PIN, hashing, locks, cookies, bearer, purge sessions, hash factice.
 - `worker/src/routes.test.ts` : routage API, validation des entrees, codes d'erreur.
 - `worker/src/scoring-db.test.ts` : recalcul des points et breakdown apres synchro.
@@ -397,6 +404,8 @@ Contraintes :
 - Ne jamais appeler football-data.org depuis le frontend.
 - Ne jamais stocker le PIN en clair.
 - Ne jamais autoriser un prono apres coup d'envoi uniquement cote UI : la validation serveur est obligatoire.
+- La chaine TV et le stade ne viennent PAS de l'API (plan gratuit football-data muet sur ces champs) : ils sont cures en code par id football-data dans `src/shared/tv-broadcast.ts` et `src/shared/venues.ts`. Ajouter un match = ajouter une entree dans ces mappings, par id stable (fiable meme quand les equipes sont "a definir").
+- La vue phase finale (`src/shared/bracket.ts`) presente les matchs tour par tour, sans filiation (la source ne dit pas quel match alimente quel match suivant) : l'UI ne doit pas laisser croire qu'une colonne alimente un match precis de la suivante.
 
 ## Workflow conseille pour Claude Code
 
