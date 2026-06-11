@@ -114,6 +114,7 @@ Routes principales dans `worker/src/routes.ts` :
 - `GET /api/me`
 - `GET /api/profile`
 - `PUT /api/profile`
+- `POST /api/profile/pin` (changement de PIN, exige le PIN actuel)
 - `GET /api/notifications`
 - `PUT /api/notifications`
 - `POST /api/notifications/verify`
@@ -320,6 +321,8 @@ Suites importantes :
 - `src/shared/scoring.test.ts` : calcul des points.
 - `src/shared/standings.test.ts` : classement des poules (points 3/1/0, tie-break diff/buts).
 - `worker/src/auth.test.ts` : PIN, hashing, locks, cookies, bearer, purge sessions, hash factice.
+- `worker/src/routes.test.ts` : routage API, validation des entrees, codes d'erreur.
+- `worker/src/scoring-db.test.ts` : recalcul des points et breakdown apres synchro.
 - `worker/src/football-data.test.ts` : normalisation API externe.
 - `worker/src/badges.test.ts` : badges profil.
 - `worker/src/email.test.ts` : envoi Brevo, no-op sans cle/expediteur.
