@@ -8,7 +8,6 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 
 ### Pronostics
 
-- Ajouter un état visuel plus fort pour les matchs bientôt verrouillés.
 
 ### Dashboard
 
