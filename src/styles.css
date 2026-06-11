@@ -11,6 +11,8 @@
   --success: #1a7a4a;
   --success-soft: rgba(26, 122, 74, 0.08);
   --danger-soft: rgba(204, 34, 34, 0.06);
+  --qualified-third: #b67700;
+  --qualified-third-soft: rgba(217, 164, 6, 0.13);
   --nav-shadow: rgba(10, 10, 10, 0.16);
   --on-accent: #ffffff;
 
@@ -38,6 +40,8 @@ html[data-theme="dark"] {
   --success: #63d69a;
   --success-soft: rgba(99, 214, 154, 0.12);
   --danger-soft: rgba(255, 119, 119, 0.12);
+  --qualified-third: #f4b740;
+  --qualified-third-soft: rgba(244, 183, 64, 0.16);
   --nav-shadow: rgba(0, 0, 0, 0.36);
   --on-accent: #07101f;
 
@@ -59,6 +63,8 @@ html[data-theme="grass"] {
   --success: #7dff93;
   --success-soft: rgba(125, 255, 147, 0.16);
   --danger-soft: rgba(255, 107, 107, 0.14);
+  --qualified-third: #ffd54a;
+  --qualified-third-soft: rgba(255, 213, 74, 0.18);
   --nav-shadow: rgba(156, 255, 74, 0.24);
   --on-accent: #06160c;
   --font-display: "Inter", sans-serif;
@@ -78,6 +84,8 @@ html[data-theme="france"] {
   --success: #ffffff;
   --success-soft: rgba(255, 255, 255, 0.14);
   --danger-soft: rgba(227, 6, 19, 0.18);
+  --qualified-third: #f5c451;
+  --qualified-third-soft: rgba(245, 196, 81, 0.2);
   --nav-shadow: rgba(227, 6, 19, 0.34);
   --on-accent: #ffffff;
   --font-display: "Inter", sans-serif;
@@ -98,6 +106,8 @@ html[data-theme="minuit"] {
   --success: #5fd0a0;
   --success-soft: rgba(95, 208, 160, 0.12);
   --danger-soft: rgba(255, 107, 129, 0.12);
+  --qualified-third: #f0b429;
+  --qualified-third-soft: rgba(240, 180, 41, 0.15);
   --nav-shadow: rgba(0, 0, 0, 0.45);
   --on-accent: #07101f;
 
@@ -116,6 +126,8 @@ html[data-theme="ardoise"] {
   --success: #15803d;
   --success-soft: rgba(21, 128, 61, 0.1);
   --danger-soft: rgba(214, 59, 59, 0.08);
+  --qualified-third: #b45309;
+  --qualified-third-soft: rgba(217, 119, 6, 0.12);
   --nav-shadow: rgba(31, 41, 51, 0.16);
   --on-accent: #ffffff;
   --font-display: "Inter", sans-serif;
@@ -136,6 +148,8 @@ html[data-theme="neon"] {
   --success: #5dff7a;
   --success-soft: rgba(57, 255, 20, 0.16);
   --danger-soft: rgba(255, 45, 149, 0.16);
+  --qualified-third: #ffd60a;
+  --qualified-third-soft: rgba(255, 214, 10, 0.16);
   --nav-shadow: rgba(57, 255, 20, 0.22);
   --on-accent: #06160a;
   --font-display: "Inter", sans-serif;
@@ -2787,6 +2801,49 @@ button {
   margin: 0 0 0.55rem;
 }
 
+.standings-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.standings-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.standings-legend-swatch {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 0.2rem;
+  border: 1px solid var(--fg);
+}
+
+.standings-legend-swatch--qualified {
+  background: var(--success-soft);
+  border-color: var(--success);
+}
+
+.standings-legend-swatch--third {
+  background: var(--qualified-third-soft);
+  border-color: var(--qualified-third);
+}
+
+.standings-legend-swatch--contested {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--qualified-third),
+    var(--qualified-third) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  border-color: var(--qualified-third);
+}
+
 .standings-scroll {
   overflow-x: auto;
 }
@@ -2840,4 +2897,26 @@ button {
 .standings-table tr.qualified .standings-rank {
   color: var(--success);
   font-weight: 800;
+}
+
+/* Repechage : les 8 meilleurs 3es qualifies pour les 16es, en ambre. */
+.standings-table tr.best-third td {
+  background: var(--qualified-third-soft);
+}
+
+.standings-table tr.best-third .standings-rank {
+  color: var(--qualified-third);
+  font-weight: 800;
+}
+
+/* 3es a egalite parfaite sur la 8e place : ambre hachure = "a departager",
+   ni qualifie ferme ni elimine. */
+.standings-table tr.best-third--contested td {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--qualified-third-soft),
+    var(--qualified-third-soft) 5px,
+    transparent 5px,
+    transparent 10px
+  );
 }

@@ -51,7 +51,12 @@ import {
   type User
 } from "./api";
 import { currentWeekRange } from "./shared/week";
-import { computeGroupStandings, type GroupStanding } from "./shared/standings";
+import {
+  computeBestThirds,
+  computeGroupStandings,
+  isGroupStageComplete,
+  type GroupStanding
+} from "./shared/standings";
 
 type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "profile" | "publicProfile";
 const themeOptions = [
@@ -185,6 +190,11 @@ const viewTitles: Record<View, string> = {
 };
 
 const releaseNotes = [
+  {
+    title: "Les meilleurs 3es mis en avant",
+    description: "Dans le classement des poules (onglet Résultats), les 8 meilleurs 3es qui filent en 16es de finale sont surlignés en ambre, en plus des deux premiers de chaque groupe en vert.",
+    date: "2026-06-11"
+  },
   {
     title: "Une pluie de nouveaux badges",
     description: "Décroche le Centenaire (100 points), les paliers de 10, 20 et 30 scores exacts, le Prophète de la finale, le Roi des poules, le sans-faute sur deux jours d'affilée… et même la Lanterne rouge si tu fermes le classement.",
@@ -2278,6 +2288,12 @@ function formatGoalDiff(diff: number): string {
 
 function GroupStandingsView({ standings }: { standings: GroupStanding[] }) {
   const teamLabel = useTeamLabel();
+  // Les 8 meilleurs 3es (toutes poules confondues) qui se qualifient pour les 16es :
+  // `qualified` = garantis, `contested` = a egalite parfaite sur la ligne de qualif.
+  const bestThirds = useMemo(() => computeBestThirds(standings), [standings]);
+  // Tant que les 12 poules ne sont pas finies, ce classement reste provisoire.
+  const thirdsConfirmed = useMemo(() => isGroupStageComplete(standings), [standings]);
+  const hasContestedThirds = bestThirds.contested.size > 0;
 
   if (standings.length === 0) {
     return (
@@ -2287,6 +2303,22 @@ function GroupStandingsView({ standings }: { standings: GroupStanding[] }) {
 
   return (
     <div className="standings-list">
+      <p className="standings-legend" aria-label="Légende des couleurs du classement">
+        <span className="standings-legend-item">
+          <span className="standings-legend-swatch standings-legend-swatch--qualified" aria-hidden="true" />
+          Qualifié (1er-2e)
+        </span>
+        <span className="standings-legend-item">
+          <span className="standings-legend-swatch standings-legend-swatch--third" aria-hidden="true" />
+          {thirdsConfirmed ? "Meilleur 3e (8 repêchés)" : "Meilleurs 3es (provisoire)"}
+        </span>
+        {hasContestedThirds && (
+          <span className="standings-legend-item">
+            <span className="standings-legend-swatch standings-legend-swatch--contested" aria-hidden="true" />
+            3e à départager
+          </span>
+        )}
+      </p>
       {standings.map((standing) => (
         <section className="standings-group" key={standing.group}>
           <h2 className="standings-group-title">Groupe {groupLetter(standing.group)}</h2>
@@ -2305,21 +2337,32 @@ function GroupStandingsView({ standings }: { standings: GroupStanding[] }) {
                 </tr>
               </thead>
               <tbody>
-                {standing.rows.map((row, index) => (
-                  <tr key={row.team} className={index < 2 ? "qualified" : ""}>
-                    <td className="standings-rank">{index + 1}</td>
-                    <td className="standings-team">
-                      {teamFlag(row.team) && <span className="team-flag">{teamFlag(row.team)}</span>}
-                      <span>{teamLabel(row.team)}</span>
-                    </td>
-                    <td>{row.played}</td>
-                    <td>{row.won}</td>
-                    <td>{row.drawn}</td>
-                    <td>{row.lost}</td>
-                    <td>{formatGoalDiff(row.goalDiff)}</td>
-                    <td className="standings-points">{row.points}</td>
-                  </tr>
-                ))}
+                {standing.rows.map((row, index) => {
+                  const isThird = index === 2;
+                  const rowClass =
+                    index < 2
+                      ? "qualified"
+                      : isThird && bestThirds.qualified.has(row.team)
+                        ? "best-third"
+                        : isThird && bestThirds.contested.has(row.team)
+                          ? "best-third best-third--contested"
+                          : "";
+                  return (
+                    <tr key={row.team} className={rowClass}>
+                      <td className="standings-rank">{index + 1}</td>
+                      <td className="standings-team">
+                        {teamFlag(row.team) && <span className="team-flag">{teamFlag(row.team)}</span>}
+                        <span>{teamLabel(row.team)}</span>
+                      </td>
+                      <td>{row.played}</td>
+                      <td>{row.won}</td>
+                      <td>{row.drawn}</td>
+                      <td>{row.lost}</td>
+                      <td>{formatGoalDiff(row.goalDiff)}</td>
+                      <td className="standings-points">{row.points}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
