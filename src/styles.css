@@ -781,6 +781,76 @@ button {
   background: transparent;
 }
 
+/* Ligne meta "stade + chaine(s) TV" sous l'eyebrow d'un match. */
+.match-broadcast {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.6rem;
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.match-broadcast.compact {
+  font-size: 0.72rem;
+}
+
+.match-venue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.match-venue > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-channels,
+.bracket-match-channels {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+/* Badge "logo" de chaine : texte de marque sur fond colore. */
+.channel-logo {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.3rem;
+  border-radius: 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  white-space: nowrap;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--fg);
+}
+
+.channel-logo--tf1 {
+  background: #102a6b;
+  color: #ffffff;
+  border-color: #102a6b;
+}
+
+.channel-logo--m6 {
+  background: #d6006e;
+  color: #ffffff;
+  border-color: #d6006e;
+}
+
+.channel-logo--bein {
+  background: #6b2d8e;
+  color: #ffffff;
+  border-color: #6b2d8e;
+}
+
 .match-meta,
 .score-editor {
   display: flex;

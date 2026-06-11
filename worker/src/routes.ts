@@ -4,6 +4,7 @@ import {
   resultFromScore,
   type Winner
 } from "../../src/shared/scoring";
+import { resolveBroadcasters } from "../../src/shared/tv-broadcast";
 import {
   clearSessionCookie,
   createSession,
@@ -243,6 +244,8 @@ function publicMatch(match: MatchRow, prediction?: PredictionRow | null) {
     stage: match.stage,
     stageKind: getStageKind(match.stage),
     group: match.match_group ?? null,
+    venue: match.venue ?? null,
+    tvChannels: resolveBroadcasters(match.external_id),
     status: match.status,
     homeScore: match.home_score,
     awayScore: match.away_score,

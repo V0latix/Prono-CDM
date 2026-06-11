@@ -31,6 +31,7 @@ export type MatchRow = {
   kickoff_at: string;
   stage: string;
   match_group: string | null;
+  venue: string | null;
   status: string;
   home_score: number | null;
   away_score: number | null;

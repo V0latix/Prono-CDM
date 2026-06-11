@@ -89,6 +89,8 @@ export type Match = {
   stage: string;
   stageKind: "GROUP" | "KNOCKOUT";
   group: string | null;
+  venue: string | null;
+  tvChannels: Array<{ key: string; label: string }>;
   status: string;
   homeScore: number | null;
   awayScore: number | null;

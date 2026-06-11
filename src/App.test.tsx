@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { App, NEWS_STORAGE_KEY, NEWS_VERSION } from "./App";
+import { App, NEWS_STORAGE_KEY, NEWS_VERSION, releaseNotes } from "./App";
 import type { Group, LeaderboardRow, Match, ProfileBadge } from "./api";
 import { installFetchMock } from "./test/fetchMock";
 
@@ -24,6 +24,8 @@ function match(overrides: Partial<Match> = {}): Match {
     stage: "GROUP_STAGE",
     stageKind: "GROUP",
     group: "GROUP_A",
+    venue: null,
+    tvChannels: [],
     status: "SCHEDULED",
     homeScore: null,
     awayScore: null,
@@ -1158,7 +1160,9 @@ describe("App components", () => {
     render(<App />);
 
     const dialog = await screen.findByRole("dialog", { name: /nouveautés/i });
-    expect(within(dialog).getByText("Saisie des scores plus simple sur mobile")).toBeInTheDocument();
+    // La modale liste les nouveautes les plus recentes : on verifie la note en tete
+    // (robuste quand on ajoute de nouvelles release notes).
+    expect(within(dialog).getByText(releaseNotes[0].title)).toBeInTheDocument();
 
     await browserUser.click(within(dialog).getByRole("button", { name: /c'est noté/i }));
 

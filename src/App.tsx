@@ -9,6 +9,7 @@ import {
   Link2,
   Lock,
   LogOut,
+  MapPin,
   Medal,
   Minus,
   Palette,
@@ -190,7 +191,12 @@ const viewTitles: Record<View, string> = {
   publicProfile: "Profil joueur"
 };
 
-const releaseNotes = [
+export const releaseNotes = [
+  {
+    title: "Stade et chaîne TV sur chaque match",
+    description: "Chaque match affiche désormais le stade où il se joue et la chaîne qui le diffuse (beIN SPORTS), pour ne plus chercher où le regarder. Les matchs diffusés en clair (TF1, M6) seront signalés au fil de l'annonce de la grille.",
+    date: "2026-06-11"
+  },
   {
     title: "La phase finale tour par tour",
     description: "Nouvel onglet « Tableau final » dans Résultats : retrouve tous les matchs à élimination directe, des 16es à la finale, tour par tour, avec les scores et l'équipe qualifiée mise en avant.",
@@ -1461,6 +1467,7 @@ function NextMatchCountdown({
         <span className="next-match-countdown">
           Il te reste <strong>{formatCountdown(remaining)}</strong> · {formatDate(match.kickoffAt)}
         </span>
+        <MatchBroadcast match={match} />
       </div>
       <button className="primary-button" type="button" onClick={onOpenPredictions}>
         <ClipboardList size={16} />
@@ -1870,6 +1877,7 @@ function PredictionEditor({
             </span>
           </strong>
           <span className="visually-hidden">{teamLabel(match.homeTeam)} - {teamLabel(match.awayTeam)}</span>
+          <MatchBroadcast match={match} />
         </div>
         <span className={`prediction-state ${predictionStateClass(match)}`}>
           {predictionStateLabel(match)}
@@ -2448,6 +2456,13 @@ function BracketView() {
                     </div>
                     <div className="bracket-match-foot">
                       <span className="bracket-match-date">{formatDate(match.kickoffAt)}</span>
+                      {(match.tvChannels ?? []).length > 0 && (
+                        <span className="bracket-match-channels">
+                          {(match.tvChannels ?? []).map((channel) => (
+                            <ChannelLogo key={channel.key} channel={channel} />
+                          ))}
+                        </span>
+                      )}
                       {match.prediction && done && (
                         <span className="status-chip success">{match.prediction.points} pts</span>
                       )}
@@ -3242,6 +3257,44 @@ function Rules() {
   );
 }
 
+// Petit badge "logo" de chaine : texte de marque colore via CSS (.channel-logo--tf1
+// / --bein). Pas d'asset reseau externe ; un vrai SVG/PNG pourra le remplacer.
+function ChannelLogo({ channel }: { channel: { key: string; label: string } }) {
+  return (
+    <span
+      className={`channel-logo channel-logo--${channel.key.toLowerCase()}`}
+      title={`Diffusé sur ${channel.label}`}
+    >
+      {channel.label}
+    </span>
+  );
+}
+
+// Ligne meta "stade + chaine(s) TV" affichee sous l'eyebrow d'un match. Tolere les
+// anciens payloads (champs absents) et s'efface si aucune info n'est disponible.
+function MatchBroadcast({ match, compact = false }: { match: Match; compact?: boolean }) {
+  const channels = match.tvChannels ?? [];
+  const venue = match.venue ?? "";
+  if (!venue && channels.length === 0) return null;
+  return (
+    <span className={`match-broadcast${compact ? " compact" : ""}`}>
+      {venue && (
+        <span className="match-venue">
+          <MapPin size={12} aria-hidden="true" />
+          <span>{venue}</span>
+        </span>
+      )}
+      {channels.length > 0 && (
+        <span className="match-channels" aria-label={`Diffusion : ${channels.map((c) => c.label).join(", ")}`}>
+          {channels.map((channel) => (
+            <ChannelLogo key={channel.key} channel={channel} />
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function MatchLine({
   match,
   compact = false,
@@ -3272,6 +3325,7 @@ function MatchLine({
           </span>
         </strong>
         <span className="visually-hidden">{homeTeam} - {awayTeam}</span>
+        <MatchBroadcast match={match} compact={compact} />
       </div>
       <div className="match-meta">
         {soon && <span className="status-chip warn">Bientôt</span>}

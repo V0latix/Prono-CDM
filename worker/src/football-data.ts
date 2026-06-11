@@ -14,6 +14,7 @@ type FootballDataMatch = {
   status: string;
   stage?: string;
   group?: string | null;
+  venue?: string | null;
   homeTeam?: FootballDataTeam;
   awayTeam?: FootballDataTeam;
   score?: {
@@ -51,6 +52,7 @@ export type NormalizedFootballDataMatch = {
   kickoffAt: string;
   stage: string;
   group: string | null;
+  venue: string | null;
   status: string;
   homeScore: number | null;
   awayScore: number | null;
@@ -163,12 +165,57 @@ export function normalizeFootballDataMatch(
     kickoffAt: match.utcDate,
     stage: match.stage || "GROUP_STAGE",
     group: match.group ?? null,
+    venue: match.venue ?? null,
     status: match.status,
     homeScore: match.score?.fullTime?.home ?? null,
     awayScore: match.score?.fullTime?.away ?? null,
     winnerTeam: winnerTeam(winner, homeTeam, awayTeam),
     winnerCode: winner
   };
+}
+
+// Ordre des colonnes de l'upsert des matchs. `venue` est conditionnel pour rester
+// compatible avec une base qui n'a pas encore recu la migration 0011 (fenetre de
+// skew migration/deploy) : on n'ecrit la colonne que si elle existe vraiment.
+function matchUpsertColumns(hasVenue: boolean): string[] {
+  return [
+    "id",
+    "external_id",
+    "home_team",
+    "away_team",
+    "kickoff_at",
+    "stage",
+    "match_group",
+    ...(hasVenue ? ["venue"] : []),
+    "status",
+    "home_score",
+    "away_score",
+    "winner_team",
+    "winner_code",
+    "last_synced_at"
+  ];
+}
+
+// Construit l'upsert des matchs (pur, testable). Met a jour toutes les colonnes
+// sauf la cle de conflit `external_id` et l'`id`.
+export function buildMatchUpsertSql(hasVenue: boolean): string {
+  const columns = matchUpsertColumns(hasVenue);
+  const placeholders = columns.map(() => "?").join(", ");
+  const updates = columns
+    .filter((column) => column !== "id" && column !== "external_id")
+    .map((column) => `${column} = excluded.${column}`)
+    .join(", ");
+  return `INSERT INTO matches (${columns.join(", ")})
+     VALUES (${placeholders})
+     ON CONFLICT(external_id) DO UPDATE SET ${updates}`;
+}
+
+// Vrai si la colonne `venue` existe deja dans `matches`. Permet a la synchro de
+// fonctionner (et de continuer a recalculer les points) meme si le Worker tourne
+// avant l'application de la migration 0011.
+async function matchesHasVenueColumn(env: Env): Promise<boolean> {
+  const info = await env.DB.prepare("PRAGMA table_info(matches)").all<{ name: string }>();
+  return (info.results ?? []).some((column) => column.name === "venue");
 }
 
 export async function syncFootballData(env: Env): Promise<{
@@ -227,45 +274,34 @@ export async function syncFootballData(env: Env): Promise<{
 
   const payload = (await response.json()) as FootballDataResponse;
   const now = new Date().toISOString();
+  // Compatibilite migration/deploy : si la colonne `venue` n'existe pas encore,
+  // on la saute pour ne pas faire echouer toute la synchro (et le recalcul des
+  // points qui suit). Elle sera remplie a la synchro suivant la migration.
+  const hasVenue = await matchesHasVenueColumn(env);
+  const upsertSql = buildMatchUpsertSql(hasVenue);
   let synced = 0;
 
   for (const match of payload.matches ?? []) {
     const normalized = normalizeFootballDataMatch(match);
+    const values = [
+      normalized.id,
+      normalized.externalId,
+      normalized.homeTeam,
+      normalized.awayTeam,
+      normalized.kickoffAt,
+      normalized.stage,
+      normalized.group,
+      ...(hasVenue ? [normalized.venue] : []),
+      normalized.status,
+      normalized.homeScore,
+      normalized.awayScore,
+      normalized.winnerTeam,
+      normalized.winnerCode,
+      now
+    ];
 
-    await env.DB.prepare(
-      `INSERT INTO matches (
-         id, external_id, home_team, away_team, kickoff_at, stage, match_group, status,
-         home_score, away_score, winner_team, winner_code, last_synced_at
-       )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(external_id) DO UPDATE SET
-         home_team = excluded.home_team,
-         away_team = excluded.away_team,
-         kickoff_at = excluded.kickoff_at,
-         stage = excluded.stage,
-         match_group = excluded.match_group,
-         status = excluded.status,
-         home_score = excluded.home_score,
-         away_score = excluded.away_score,
-         winner_team = excluded.winner_team,
-         winner_code = excluded.winner_code,
-         last_synced_at = excluded.last_synced_at`
-    )
-      .bind(
-        normalized.id,
-        normalized.externalId,
-        normalized.homeTeam,
-        normalized.awayTeam,
-        normalized.kickoffAt,
-        normalized.stage,
-        normalized.group,
-        normalized.status,
-        normalized.homeScore,
-        normalized.awayScore,
-        normalized.winnerTeam,
-        normalized.winnerCode,
-        now
-      )
+    await env.DB.prepare(upsertSql)
+      .bind(...values)
       .run();
     synced += 1;
   }
