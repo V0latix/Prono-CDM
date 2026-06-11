@@ -142,3 +142,72 @@ describe("POST /api/profile/pin", () => {
     expect(updated.pinHash).toBeUndefined();
   });
 });
+
+function matchRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: "m1",
+    external_id: "1",
+    home_team: "France",
+    away_team: "Bresil",
+    kickoff_at: "2026-07-01T18:00:00.000Z",
+    stage: "ROUND_OF_16",
+    match_group: null,
+    status: "TIMED",
+    home_score: null,
+    away_score: null,
+    winner_team: null,
+    winner_code: null,
+    last_synced_at: "2026-06-30T00:00:00.000Z",
+    prediction_id: null,
+    ...overrides
+  };
+}
+
+function bracketContext(user: User | null, rows: Array<Record<string, unknown>>): RequestContext {
+  const db = {
+    prepare(sql: string) {
+      const statement = {
+        bind() {
+          return statement;
+        },
+        async all<T>() {
+          if (sql.includes("FROM matches") && sql.includes("LEFT JOIN predictions")) {
+            return { results: rows as T[] };
+          }
+          throw new Error(`Unexpected query: ${sql}`);
+        }
+      };
+      return statement;
+    }
+  };
+
+  const request = new Request("https://api.test/api/bracket", { method: "GET" });
+  return {
+    request,
+    env: { DB: db } as unknown as Env,
+    url: new URL(request.url),
+    user
+  };
+}
+
+describe("GET /api/bracket", () => {
+  it("ne renvoie que les matchs a elimination directe, statut inclus", async () => {
+    const ctx = bracketContext(fakeUser, [
+      matchRow({ id: "group", stage: "GROUP_STAGE", match_group: "GROUP_A", status: "FINISHED" }),
+      matchRow({ id: "r16", stage: "ROUND_OF_16", status: "TIMED" }),
+      matchRow({ id: "final", stage: "FINAL", status: "FINISHED", home_score: 2, away_score: 1 })
+    ]);
+
+    const response = await handle(ctx);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { matches: Array<{ id: string; stageKind: string }> };
+    expect(body.matches.map((m) => m.id)).toEqual(["r16", "final"]);
+    expect(body.matches.every((m) => m.stageKind === "KNOCKOUT")).toBe(true);
+  });
+
+  it("exige une session", async () => {
+    const ctx = bracketContext(null, []);
+    const response = await handle(ctx);
+    expect(response.status).toBe(401);
+  });
+});

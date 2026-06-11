@@ -1455,6 +1455,35 @@ async function results(ctx: RequestContext): Promise<Response> {
   });
 }
 
+// Arbre de la phase finale : tous les matchs a elimination directe, quel que
+// soit leur statut (a venir, en cours ou termines), pour afficher la structure
+// complete 16es -> finale. Contrairement a `results` (matchs termines), on ne
+// filtre pas sur le statut ; le tri par tour est fait cote client.
+async function bracket(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "GET");
+  const user = requireUser(ctx);
+  const rows = await ctx.env.DB.prepare(
+    `SELECT matches.*, predictions.id AS prediction_id,
+            predictions.predicted_home_score, predictions.predicted_away_score,
+            predictions.predicted_winner_team, predictions.predicted_winner_code,
+            predictions.points, predictions.exact_score, predictions.correct_result,
+            predictions.correct_goal_diff, predictions.created_at AS prediction_created_at,
+            predictions.updated_at AS prediction_updated_at
+     FROM matches
+     LEFT JOIN predictions
+       ON predictions.match_id = matches.id AND predictions.user_id = ?
+     ORDER BY matches.kickoff_at ASC`
+  )
+    .bind(user.id)
+    .all<Record<string, unknown>>();
+
+  const matches = (rows.results ?? [])
+    .filter((row) => getStageKind(String(row.stage)) === "KNOCKOUT")
+    .map((row) => publicMatchFromJoinedRow(row, user.id));
+
+  return json(ctx.request, ctx.env, { matches });
+}
+
 async function syncNow(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "POST");
   const auth = ctx.request.headers.get("authorization");
@@ -1527,6 +1556,7 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname.startsWith("/api/predictions/")) return savePrediction(ctx);
   if (pathname === "/api/leaderboard") return leaderboard(ctx);
   if (pathname === "/api/results") return results(ctx);
+  if (pathname === "/api/bracket") return bracket(ctx);
   if (pathname === "/api/admin/sync") return syncNow(ctx);
   if (pathname === "/api/sync/status") return syncStatus(ctx);
   throw new HttpError(404, "Route introuvable.");

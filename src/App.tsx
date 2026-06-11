@@ -57,6 +57,7 @@ import {
   isGroupStageComplete,
   type GroupStanding
 } from "./shared/standings";
+import { buildBracketRounds } from "./shared/bracket";
 
 type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "profile" | "publicProfile";
 const themeOptions = [
@@ -190,6 +191,11 @@ const viewTitles: Record<View, string> = {
 };
 
 const releaseNotes = [
+  {
+    title: "La phase finale tour par tour",
+    description: "Nouvel onglet « Tableau final » dans Résultats : retrouve tous les matchs à élimination directe, des 16es à la finale, tour par tour, avec les scores et l'équipe qualifiée mise en avant.",
+    date: "2026-06-11"
+  },
   {
     title: "Les meilleurs 3es mis en avant",
     description: "Dans le classement des poules (onglet Résultats), les 8 meilleurs 3es qui filent en 16es de finale sont surlignés en ambre, en plus des deux premiers de chaque groupe en vert.",
@@ -2196,7 +2202,7 @@ function GroupCard({
 
 function Results() {
   const { data, error, reload, loading } = useResource<{ results: Match[] }>("/api/results");
-  const [view, setView] = useState<"matches" | "poules">("matches");
+  const [view, setView] = useState<"matches" | "poules" | "bracket">("matches");
 
   const results = data?.results ?? EMPTY_MATCHES;
   const standings = useMemo(() => computeGroupStandings(results), [results]);
@@ -2241,8 +2247,18 @@ function Results() {
         >
           Poules
         </button>
+        <button
+          type="button"
+          className={view === "bracket" ? "active" : ""}
+          aria-pressed={view === "bracket"}
+          onClick={() => setView("bracket")}
+        >
+          Tableau final
+        </button>
       </div>
-      {view === "matches" ? (
+      {view === "bracket" ? (
+        <BracketView />
+      ) : view === "matches" ? (
         results.length ? (
           <>
             <div className="prediction-summary" aria-label="Résumé des résultats">
@@ -2368,6 +2384,81 @@ function GroupStandingsView({ standings }: { standings: GroupStanding[] }) {
           </div>
         </section>
       ))}
+    </div>
+  );
+}
+
+function isMatchFinished(match: Match): boolean {
+  return match.status === "FINISHED" || match.status === "AWARDED";
+}
+
+// Phase finale presentee tour par tour : une colonne par tour (16es -> finale),
+// avec scroll horizontal sur petit ecran. On n'affiche pas de chemins de
+// progression (la filiation entre matchs n'est pas fournie par la source).
+// Charge sa propre ressource a l'affichage de la vue.
+function BracketView() {
+  const { data, error, reload, loading } = useResource<{ matches: Match[] }>("/api/bracket");
+  const teamLabel = useTeamLabel();
+  const matches = data?.matches ?? EMPTY_MATCHES;
+  const rounds = useMemo(() => buildBracketRounds(matches), [matches]);
+
+  if (loading) return <ShellState label="Chargement de la phase finale..." />;
+  if (error) return <ErrorState error={error} onRetry={reload} />;
+  if (rounds.length === 0) {
+    return (
+      <EmptyState text="Les matchs de la phase finale apparaîtront dès qu'ils seront programmés." />
+    );
+  }
+
+  return (
+    <div className="bracket-scroll">
+      <p className="bracket-caption">Phase finale, tour par tour — des 16es à la finale.</p>
+      <div className="bracket">
+        {rounds.map((round) => (
+          <section
+            className="bracket-round"
+            key={round.order}
+            aria-label={knockoutRoundLabel(round.stage)}
+          >
+            <h2 className="bracket-round-title">{knockoutRoundLabel(round.stage)}</h2>
+            <div className="bracket-round-matches">
+              {round.matches.map((match) => {
+                const done = isMatchFinished(match);
+                const homeWon = done && match.winnerTeam === match.homeTeam;
+                const awayWon = done && match.winnerTeam === match.awayTeam;
+                return (
+                  <article className="bracket-match" key={match.id}>
+                    <div className={`bracket-team${homeWon ? " winner" : ""}`}>
+                      <span className="bracket-team-name">
+                        {teamFlag(match.homeTeam) && (
+                          <span className="team-flag">{teamFlag(match.homeTeam)}</span>
+                        )}
+                        <span>{teamLabel(match.homeTeam)}</span>
+                      </span>
+                      <span className="bracket-team-score">{done ? match.homeScore : ""}</span>
+                    </div>
+                    <div className={`bracket-team${awayWon ? " winner" : ""}`}>
+                      <span className="bracket-team-name">
+                        {teamFlag(match.awayTeam) && (
+                          <span className="team-flag">{teamFlag(match.awayTeam)}</span>
+                        )}
+                        <span>{teamLabel(match.awayTeam)}</span>
+                      </span>
+                      <span className="bracket-team-score">{done ? match.awayScore : ""}</span>
+                    </div>
+                    <div className="bracket-match-foot">
+                      <span className="bracket-match-date">{formatDate(match.kickoffAt)}</span>
+                      {match.prediction && done && (
+                        <span className="status-chip success">{match.prediction.points} pts</span>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }
