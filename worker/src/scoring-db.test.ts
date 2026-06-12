@@ -267,6 +267,36 @@ describe("recalculateAllPoints (intégration D1 réelle)", () => {
     expect((await readPrediction("p_live"))?.points).toBe(5);
   });
 
+  it("recalcule correctement au-delà d'un lot de batch (> 50 pronos)", async () => {
+    // Garde-fou contre la régression "synchro qui meurt avant la fin" : la boucle
+    // de recalcul est batchée (lots de 50). On vérifie qu'un volume franchissant la
+    // limite d'un lot est traité en entier.
+    await seedMatch({
+      id: "m_big",
+      stage: "GROUP_STAGE",
+      status: "FINISHED",
+      homeScore: 2,
+      awayScore: 1,
+      winnerCode: "HOME_TEAM"
+    });
+
+    const count = 60;
+    const userValues = Array.from({ length: count }, (_, i) => `('big${i}','Big${i}','x')`).join(",");
+    await env.DB.prepare(`INSERT INTO users (id, pseudo, pin_hash) VALUES ${userValues}`).run();
+    for (let i = 0; i < count; i += 1) {
+      // Score exact 2-1 pour tout le monde -> 5 points chacun.
+      await seedPrediction(`big${i}`, { id: `pb${i}`, matchId: "m_big", home: 2, away: 1, winnerCode: null });
+    }
+
+    await recalculateAllPoints(env);
+
+    const scored = await env.DB.prepare(
+      "SELECT COUNT(*) AS n, SUM(points) AS total FROM predictions WHERE match_id = 'm_big'"
+    ).first<{ n: number; total: number }>();
+    expect(scored?.n).toBe(count);
+    expect(scored?.total).toBe(count * 5);
+  });
+
   it("ne crée pas de doublon de feed quand le recalcul d'un match fini se répète", async () => {
     await seedMatch({
       id: "m_done",

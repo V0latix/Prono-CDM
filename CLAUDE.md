@@ -183,6 +183,15 @@ Flux :
 
 Le plan gratuit football-data.org peut avoir des scores differes. Ne jamais promettre du live score instantane.
 
+Important (budget d'execution / batch D1) : la synchro ecrit ~100 matchs puis
+recalcule ~200 pronos. Ces ecritures DOIVENT etre batchees via `runD1Batch`
+(`worker/src/d1-batch.ts`, `env.DB.batch()` par lots de 50) et jamais awaitees une
+par une dans une boucle : sinon l'invocation cron depasse son budget d'execution et
+meurt en cours de boucle d'upsert AVANT `recalculateAllPoints` (symptome :
+`last_synced_at` decale entre matchs, statut de synchro bloque sur `running`, points
+jamais recalcules). Toute nouvelle ecriture en masse cote synchro/recalcul doit
+passer par `runD1Batch`.
+
 Important (protection anti-effacement) : football-data peut renvoyer un match deja
 `FINISHED` avec un score `null` (statut publie avant le score, ou source qui "flappe").
 L'upsert NE DOIT JAMAIS ecraser un score reel par un null, sinon le resultat final est

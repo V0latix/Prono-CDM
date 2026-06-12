@@ -1,4 +1,5 @@
 import type { Winner } from "../../src/shared/scoring";
+import { runD1Batch } from "./d1-batch";
 import { recalculateAllPoints } from "./scoring-db";
 import type { Env } from "./types";
 
@@ -297,9 +298,12 @@ export async function syncFootballData(env: Env): Promise<{
   // points qui suit). Elle sera remplie a la synchro suivant la migration.
   const hasVenue = await matchesHasVenueColumn(env);
   const upsertSql = buildMatchUpsertSql(hasVenue);
-  let synced = 0;
 
-  for (const match of payload.matches ?? []) {
+  // On batche tous les upserts (un aller-retour par lot) au lieu d'awaiter chaque
+  // ecriture : ~100 upserts sequentiels depassaient le budget d'execution du cron
+  // et la boucle mourait avant `recalculateAllPoints` (les points ne se calculaient
+  // plus). Voir worker/src/d1-batch.ts.
+  const statements = (payload.matches ?? []).map((match) => {
     const normalized = normalizeFootballDataMatch(match);
     const values = [
       normalized.id,
@@ -317,12 +321,11 @@ export async function syncFootballData(env: Env): Promise<{
       normalized.winnerCode,
       now
     ];
+    return env.DB.prepare(upsertSql).bind(...values);
+  });
 
-    await env.DB.prepare(upsertSql)
-      .bind(...values)
-      .run();
-    synced += 1;
-  }
+  await runD1Batch(env, statements);
+  const synced = statements.length;
 
   await recalculateAllPoints(env);
   await setSyncStatus(env, "success", {

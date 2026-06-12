@@ -1,4 +1,5 @@
 import { scorePrediction, type Winner } from "../../src/shared/scoring";
+import { runD1Batch } from "./d1-batch";
 import type { Env, MatchRow, PredictionRow } from "./types";
 
 type JoinedPrediction = PredictionRow &
@@ -151,6 +152,13 @@ export async function recalculateAllPoints(env: Env): Promise<void> {
      JOIN users ON users.id = predictions.user_id`
   ).all<JoinedPrediction>();
 
+  // On accumule les ecritures puis on les batche (un aller-retour par lot) au lieu
+  // d'awaiter chaque UPDATE/INSERT. Une boucle de ~200 ecritures sequentielles
+  // depassait le budget d'execution du cron (la synchro mourait avant la fin et
+  // les points n'etaient jamais ecrits). Voir worker/src/d1-batch.ts.
+  const updates: D1PreparedStatement[] = [];
+  const activities: D1PreparedStatement[] = [];
+
   for (const row of rows.results ?? []) {
     const breakdown = scorePrediction(
       {
@@ -166,34 +174,41 @@ export async function recalculateAllPoints(env: Env): Promise<void> {
       }
     );
 
-    await env.DB.prepare(
-      `UPDATE predictions
-       SET points = ?, exact_score = ?, correct_result = ?, correct_goal_diff = ?,
-           updated_at = updated_at
-       WHERE id = ?`
-    )
-      .bind(
+    updates.push(
+      env.DB.prepare(
+        `UPDATE predictions
+         SET points = ?, exact_score = ?, correct_result = ?, correct_goal_diff = ?,
+             updated_at = updated_at
+         WHERE id = ?`
+      ).bind(
         breakdown.points,
         breakdown.exactScore ? 1 : 0,
         breakdown.correctResult ? 1 : 0,
         breakdown.correctGoalDiff ? 1 : 0,
         row.id
       )
-      .run();
+    );
 
     // On ne journalise un "score exact" que sur un match termine. L'unicite
     // (type, user_id, match_id) + INSERT OR IGNORE rend l'appel idempotent : pas
     // besoin de suivre l'etat precedent du flag, et aucun doublon possible.
     if (breakdown.exactScore && isMatchFinished(row.status)) {
-      await insertActivity(
-        env,
-        "exact_score",
-        row.user_id,
-        row.match_id,
-        `${row.pseudo} a trouvé le score exact de ${row.home_team} - ${row.away_team}`
+      activities.push(
+        env.DB.prepare(
+          `INSERT OR IGNORE INTO activity_feed (id, type, user_id, match_id, message)
+           VALUES (?, 'exact_score', ?, ?, ?)`
+        ).bind(
+          crypto.randomUUID(),
+          row.user_id,
+          row.match_id,
+          `${row.pseudo} a trouvé le score exact de ${row.home_team} - ${row.away_team}`
+        )
       );
     }
   }
+
+  await runD1Batch(env, updates);
+  await runD1Batch(env, activities);
 
   await recordLeaderActivity(env);
   await recordStreakActivity(env);
