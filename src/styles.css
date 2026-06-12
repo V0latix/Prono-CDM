@@ -3089,6 +3089,31 @@ button {
   color: var(--muted);
 }
 
+/* Stats avancées : bouton d'affichage de la courbe (Classement) */
+.progression-toggle-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 0.85rem;
+}
+
+.progression-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.45rem;
+  padding: 0 0.85rem;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+  color: var(--fg);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.progression-toggle[aria-pressed="true"] {
+  background: var(--fg);
+  color: var(--bg);
+}
+
 /* Stats avancées : courbe des points cumulés (Classement) */
 .progression-card {
   border: 2px solid var(--fg);

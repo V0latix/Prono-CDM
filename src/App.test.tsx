@@ -936,8 +936,20 @@ describe("App components", () => {
     await screen.findByRole("heading", { name: "Dashboard" });
     await browserUser.click(screen.getByRole("button", { name: /classement/i }));
 
+    // La courbe est masquée par défaut.
+    const toggle = await screen.findByRole("button", {
+      name: /afficher la courbe de progression/i
+    });
+    expect(screen.queryByText("Progression des points")).not.toBeInTheDocument();
+
+    // On l'affiche via le bouton dédié.
+    await browserUser.click(toggle);
     expect(await screen.findByText("Progression des points")).toBeInTheDocument();
     expect(screen.getByText("Cumul sur les matchs terminés")).toBeInTheDocument();
+
+    // Et on peut la masquer à nouveau.
+    await browserUser.click(screen.getByRole("button", { name: /masquer la courbe/i }));
+    expect(screen.queryByText("Progression des points")).not.toBeInTheDocument();
   });
 
   it("affiche un état vide de la courbe quand aucun match n'est terminé", async () => {
@@ -974,6 +986,9 @@ describe("App components", () => {
 
     await screen.findByRole("heading", { name: "Dashboard" });
     await browserUser.click(screen.getByRole("button", { name: /classement/i }));
+    await browserUser.click(
+      await screen.findByRole("button", { name: /afficher la courbe de progression/i })
+    );
 
     expect(
       await screen.findByText(/La courbe des points cumulés apparaîtra/)

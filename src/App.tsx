@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Info,
   Languages,
+  LineChart as LineChartIcon,
   Link2,
   Lock,
   LogOut,
@@ -1941,6 +1942,9 @@ function Leaderboard({
 }) {
   const [selectedGroupId, setSelectedGroupId] = useState("global");
   const [period, setPeriod] = useState<"all" | "week">("all");
+  // Courbe de progression masquée par défaut ; affichée via le bouton dédié (et
+  // recharts n'est chargé que lorsqu'on l'affiche).
+  const [showProgression, setShowProgression] = useState(false);
   const groupsResource = useResource<{ groups: Group[] }>("/api/groups");
   const leaderboardPath = (() => {
     const params = new URLSearchParams();
@@ -2016,6 +2020,19 @@ function Leaderboard({
         </div>
       </div>
       {period === "all" && (
+        <div className="progression-toggle-row">
+          <button
+            type="button"
+            className="progression-toggle"
+            aria-pressed={showProgression}
+            onClick={() => setShowProgression((value) => !value)}
+          >
+            <LineChartIcon size={16} />
+            {showProgression ? "Masquer la courbe" : "Afficher la courbe de progression"}
+          </button>
+        </div>
+      )}
+      {period === "all" && showProgression && (
         <ProgressionChart
           groupId={selectedGroupId === "global" ? undefined : selectedGroupId}
           currentUserId={currentUser.id}
