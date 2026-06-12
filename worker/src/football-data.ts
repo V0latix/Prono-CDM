@@ -196,14 +196,32 @@ function matchUpsertColumns(hasVenue: boolean): string[] {
   ];
 }
 
+// Colonnes de resultat protegees contre l'ecrasement par un null. football-data
+// (plan gratuit) peut renvoyer un match deja FINISHED avec un score `null` (statut
+// publie avant le score, ou source qui "flappe"). Sans cette protection, l'upsert
+// effacerait le score final reel et `recalculateAllPoints` remettrait tout le monde
+// a 0 point. COALESCE(excluded.x, x) garde la valeur stockee quand la source est
+// null, tout en laissant passer une correction non-null (ex: 2-0 -> 2-1).
+const PRESERVE_IF_NULL_COLUMNS = new Set([
+  "home_score",
+  "away_score",
+  "winner_team",
+  "winner_code"
+]);
+
 // Construit l'upsert des matchs (pur, testable). Met a jour toutes les colonnes
-// sauf la cle de conflit `external_id` et l'`id`.
+// sauf la cle de conflit `external_id` et l'`id`. Les colonnes de resultat ne sont
+// jamais remplacees par un null (voir PRESERVE_IF_NULL_COLUMNS).
 export function buildMatchUpsertSql(hasVenue: boolean): string {
   const columns = matchUpsertColumns(hasVenue);
   const placeholders = columns.map(() => "?").join(", ");
   const updates = columns
     .filter((column) => column !== "id" && column !== "external_id")
-    .map((column) => `${column} = excluded.${column}`)
+    .map((column) =>
+      PRESERVE_IF_NULL_COLUMNS.has(column)
+        ? `${column} = COALESCE(excluded.${column}, ${column})`
+        : `${column} = excluded.${column}`
+    )
     .join(", ");
   return `INSERT INTO matches (${columns.join(", ")})
      VALUES (${placeholders})

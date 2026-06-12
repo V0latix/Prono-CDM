@@ -4,10 +4,24 @@ import type { Env, MatchRow, PredictionRow } from "./types";
 type JoinedPrediction = PredictionRow &
   Pick<
     MatchRow,
-    "home_team" | "away_team" | "home_score" | "away_score" | "stage" | "winner_code"
+    | "home_team"
+    | "away_team"
+    | "home_score"
+    | "away_score"
+    | "stage"
+    | "winner_code"
+    | "status"
   > & {
     pseudo: string;
   };
+
+// Le feed (et les badges qui en derivent) ne doit refleter QUE des matchs
+// termines. Pendant un match en cours, le score "live" peut rendre un prono
+// momentanement exact (ex: 1-0 a la mi-temps) : sans ce garde-fou, on ecrivait
+// un "score exact" definitif qui devient faux au coup de sifflet final.
+function isMatchFinished(status: string | null): boolean {
+  return status === "FINISHED" || status === "AWARDED";
+}
 
 type LeaderRow = {
   user_id: string;
@@ -130,14 +144,14 @@ async function recordStreakActivity(env: Env): Promise<void> {
 export async function recalculateAllPoints(env: Env): Promise<void> {
   const rows = await env.DB.prepare(
     `SELECT predictions.*, users.pseudo, matches.home_team, matches.away_team,
-            matches.home_score, matches.away_score, matches.stage, matches.winner_code
+            matches.home_score, matches.away_score, matches.stage, matches.winner_code,
+            matches.status
      FROM predictions
      JOIN matches ON matches.id = predictions.match_id
      JOIN users ON users.id = predictions.user_id`
   ).all<JoinedPrediction>();
 
   for (const row of rows.results ?? []) {
-    const previousExact = Boolean(row.exact_score);
     const breakdown = scorePrediction(
       {
         stage: row.stage,
@@ -167,7 +181,10 @@ export async function recalculateAllPoints(env: Env): Promise<void> {
       )
       .run();
 
-    if (breakdown.exactScore && !previousExact) {
+    // On ne journalise un "score exact" que sur un match termine. L'unicite
+    // (type, user_id, match_id) + INSERT OR IGNORE rend l'appel idempotent : pas
+    // besoin de suivre l'etat precedent du flag, et aucun doublon possible.
+    if (breakdown.exactScore && isMatchFinished(row.status)) {
       await insertActivity(
         env,
         "exact_score",

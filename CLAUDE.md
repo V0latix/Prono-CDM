@@ -183,6 +183,14 @@ Flux :
 
 Le plan gratuit football-data.org peut avoir des scores differes. Ne jamais promettre du live score instantane.
 
+Important (protection anti-effacement) : football-data peut renvoyer un match deja
+`FINISHED` avec un score `null` (statut publie avant le score, ou source qui "flappe").
+L'upsert NE DOIT JAMAIS ecraser un score reel par un null, sinon le resultat final est
+perdu et `recalculateAllPoints` remet tout le monde a 0 point. `buildMatchUpsertSql`
+protege donc `home_score`, `away_score`, `winner_team`, `winner_code` via
+`COALESCE(excluded.col, col)` (une correction non-null passe toujours). Couvert par
+`worker/src/football-data.upsert.test.ts`.
+
 Variables :
 
 - `FOOTBALL_DATA_TOKEN` : secret requis pour la synchro.
@@ -237,6 +245,14 @@ Important phase finale :
 - Si football-data fournit `score.winner`, le bon resultat est base sur l'equipe qualifiee/gagnante.
 - Si cette donnee manque, l'app retombe sur le score final disponible.
 - Pour un nul pronostique en phase finale, l'UI demande l'equipe qualifiee.
+
+Feed et matchs en cours : `recalculateAllPoints` calcule les points sur le score
+disponible (y compris live), mais ne journalise un evenement de feed (ex: "score
+exact") QUE sur un match `FINISHED`/`AWARDED` (`isMatchFinished` dans
+`worker/src/scoring-db.ts`). Sinon un score live momentanement exact (ex: 1-0 a la
+mi-temps) ecrivait un "score exact" definitif devenu faux au coup de sifflet final.
+L'unicite `(type, user_id, match_id)` du feed + `INSERT OR IGNORE` rendent l'insertion
+idempotente.
 
 Tout changement de scoring doit mettre a jour :
 

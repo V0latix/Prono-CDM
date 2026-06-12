@@ -242,4 +242,48 @@ describe("recalculateAllPoints (intégration D1 réelle)", () => {
     ).first<{ n: number }>();
     expect(activity?.n).toBe(1);
   });
+
+  it("ne journalise PAS un score exact tant que le match n'est pas terminé", async () => {
+    // Match en cours (IN_PLAY) dont le score live coïncide avec le prono : pas de
+    // feed (le score peut encore changer). Régression du bug "score exact" figé à
+    // la mi-temps. Les points live restent calculés, seul le feed est différé.
+    await seedMatch({
+      id: "m_live",
+      stage: "GROUP_STAGE",
+      status: "IN_PLAY",
+      homeScore: 1,
+      awayScore: 0,
+      winnerCode: "HOME_TEAM"
+    });
+    await seedPrediction("u1", { id: "p_live", matchId: "m_live", home: 1, away: 0, winnerCode: null });
+
+    await recalculateAllPoints(env);
+
+    const activity = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM activity_feed WHERE type = 'exact_score' AND user_id = 'u1'"
+    ).first<{ n: number }>();
+    expect(activity?.n).toBe(0);
+    // Les points live sont tout de même attribués (score exact de poule = 5).
+    expect((await readPrediction("p_live"))?.points).toBe(5);
+  });
+
+  it("ne crée pas de doublon de feed quand le recalcul d'un match fini se répète", async () => {
+    await seedMatch({
+      id: "m_done",
+      stage: "GROUP_STAGE",
+      status: "FINISHED",
+      homeScore: 2,
+      awayScore: 0,
+      winnerCode: "HOME_TEAM"
+    });
+    await seedPrediction("u1", { id: "p_done", matchId: "m_done", home: 2, away: 0, winnerCode: null });
+
+    await recalculateAllPoints(env);
+    await recalculateAllPoints(env);
+
+    const activity = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM activity_feed WHERE type = 'exact_score' AND user_id = 'u1'"
+    ).first<{ n: number }>();
+    expect(activity?.n).toBe(1);
+  });
 });
