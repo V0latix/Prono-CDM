@@ -57,13 +57,7 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 
 - Ajouter une courbe des points cumulés par joueur.
 - Ajouter une comparaison avec la moyenne de la ligue.
-- Ajouter les scores les plus pronostiqués par l'ensemble de la ligue.
-- Ajouter le taux de risque :
-  - pronos avec gros écarts
-  - pronos de nuls
-  - pronos contre les favoris
-- Ajouter une stat "points laissés" après chaque match.
-- Ajouter les meilleurs pronostiqueurs par phase.
+- Ajouter les scores les plus pronostiqués par l'ensemble de la ligue dans la partie résultat.
 
 ### Résultats
 
