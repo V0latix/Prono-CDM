@@ -29,7 +29,9 @@ import {
   type ChangeEvent,
   type DragEvent,
   type FormEvent,
+  Suspense,
   createContext,
+  lazy,
   useCallback,
   useContext,
   useEffect,
@@ -48,6 +50,7 @@ import {
   type Profile as UserProfile,
   type ProfileBadge,
   type ProfileStats as PublicProfileStats,
+  type Progression,
   type SyncStatus,
   type User
 } from "./api";
@@ -59,6 +62,10 @@ import {
   type GroupStanding
 } from "./shared/standings";
 import { buildBracketRounds } from "./shared/bracket";
+
+// Le graphe (recharts, lourd) est chargé à la demande : il ne pèse sur le bundle
+// initial que lorsqu'on ouvre le Classement.
+const ProgressionChartView = lazy(() => import("./ProgressionChartView"));
 
 type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "profile" | "publicProfile";
 const themeOptions = [
@@ -2008,6 +2015,12 @@ function Leaderboard({
           </button>
         </div>
       </div>
+      {period === "all" && (
+        <ProgressionChart
+          groupId={selectedGroupId === "global" ? undefined : selectedGroupId}
+          currentUserId={currentUser.id}
+        />
+      )}
       {data?.leaderboard.length ? (
         <div className="leaderboard-table">
           {data.leaderboard.map((row) => (
@@ -2061,6 +2074,63 @@ function Leaderboard({
         />
       )}
     </section>
+  );
+}
+
+function ProgressionChart({
+  groupId,
+  currentUserId
+}: {
+  groupId?: string;
+  currentUserId: string;
+}) {
+  const path = groupId
+    ? `/api/stats/progression?groupId=${encodeURIComponent(groupId)}`
+    : "/api/stats/progression";
+  const { data, error, loading } = useResource<{ progression: Progression }>(path, [path]);
+
+  if (loading) {
+    return <div className="progression-card progression-card--state">Calcul de la courbe...</div>;
+  }
+  // En cas d'erreur, on masque la courbe : le tableau de classement reste l'essentiel.
+  if (error) return null;
+
+  const progression = data?.progression;
+  if (!progression || progression.points.length === 0) {
+    return (
+      <div className="progression-card progression-card--state">
+        La courbe des points cumulés apparaîtra après les premiers matchs terminés.
+      </div>
+    );
+  }
+
+  // On masque la ligne « leader » quand le leader, c'est moi (lignes superposées).
+  const showLeader =
+    progression.leaderUserId !== null && progression.leaderUserId !== currentUserId;
+  const chartData = progression.points.map((point, index) => ({
+    index: index + 1,
+    label: `${point.homeTeam} - ${point.awayTeam}`,
+    me: point.me,
+    leader: point.leader,
+    average: Number(point.average.toFixed(2))
+  }));
+
+  return (
+    <div className="progression-card">
+      <div className="progression-card-header">
+        <h3>Progression des points</h3>
+        <span>Cumul sur les matchs terminés</span>
+      </div>
+      <Suspense
+        fallback={<div className="progression-chart progression-chart--loading">Chargement du graphe...</div>}
+      >
+        <ProgressionChartView
+          data={chartData}
+          showLeader={showLeader}
+          leaderPseudo={progression.leaderPseudo}
+        />
+      </Suspense>
+    </div>
   );
 }
 
@@ -3340,6 +3410,17 @@ function MatchLine({
         )}
         {match.locked && <Lock size={16} />}
       </div>
+      {showResult && match.leaguePredictions && match.leaguePredictions.length > 0 && (
+        <p className="match-league-scores" aria-label="Scores les plus pronostiqués par la ligue">
+          <span className="match-league-scores-label">Pronos ligue</span>
+          {match.leaguePredictions.map((scoreline) => (
+            <span key={`${scoreline.home}-${scoreline.away}`} className="match-league-score">
+              {scoreline.home}-{scoreline.away}
+              <small>×{scoreline.count}</small>
+            </span>
+          ))}
+        </p>
+      )}
     </article>
   );
 }

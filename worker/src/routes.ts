@@ -4,6 +4,11 @@ import {
   resultFromScore,
   type Winner
 } from "../../src/shared/scoring";
+import {
+  topScorelinesByMatch,
+  type ScorelineAggregateRow
+} from "../../src/shared/league-predictions";
+import { buildProgressionSeries } from "../../src/shared/progression";
 import { resolveBroadcasters } from "../../src/shared/tv-broadcast";
 import { resolveVenue } from "../../src/shared/venues";
 import {
@@ -1434,6 +1439,24 @@ async function results(ctx: RequestContext): Promise<Response> {
     .bind(user.id)
     .all<Record<string, unknown>>();
 
+  // Scores les plus pronostiqués par TOUTE la ligue (global, pas par groupe),
+  // uniquement sur des matchs terminés : aucun risque de fuite de pronos en cours.
+  const scorelineRows = await ctx.env.DB.prepare(
+    `SELECT predictions.match_id AS match_id,
+            predictions.predicted_home_score AS home,
+            predictions.predicted_away_score AS away,
+            COUNT(*) AS count
+     FROM predictions
+     JOIN matches ON matches.id = predictions.match_id
+     WHERE matches.status IN ('FINISHED', 'AWARDED')
+     GROUP BY predictions.match_id, predictions.predicted_home_score,
+              predictions.predicted_away_score`
+  ).all<ScorelineAggregateRow>();
+  const leaguePredictionsByMatch = topScorelinesByMatch(
+    scorelineRows.results ?? [],
+    3
+  );
+
   return json(ctx.request, ctx.env, {
     results: (rows.results ?? []).map((row) => {
       const match = row as unknown as MatchRow;
@@ -1454,9 +1477,66 @@ async function results(ctx: RequestContext): Promise<Response> {
             updated_at: row.prediction_updated_at
           } as PredictionRow)
         : null;
-      return publicMatch(match, prediction);
+      return {
+        ...publicMatch(match, prediction),
+        leaguePredictions: leaguePredictionsByMatch.get(match.id) ?? []
+      };
     })
   });
+}
+
+// Courbe des points cumulés du Classement : moi vs le leader vs la moyenne de la
+// ligue, le long des matchs terminés. Respecte le filtre de groupe (mais pas la
+// fenêtre hebdo : la courbe couvre tout le tournoi).
+async function progression(ctx: RequestContext): Promise<Response> {
+  assertMethod(ctx, "GET");
+  const user = requireUser(ctx);
+  const groupId = ctx.url.searchParams.get("groupId") ?? undefined;
+  if (groupId) {
+    const group = await ctx.env.DB.prepare(
+      "SELECT id FROM prediction_groups WHERE id = ? LIMIT 1"
+    )
+      .bind(groupId)
+      .first<{ id: string }>();
+    if (!group) throw new HttpError(404, "Groupe introuvable.");
+  }
+
+  const members = groupId
+    ? await ctx.env.DB.prepare(
+        `SELECT users.id, users.pseudo
+         FROM users
+         JOIN group_members ON group_members.user_id = users.id
+         WHERE group_members.group_id = ?`
+      )
+        .bind(groupId)
+        .all<{ id: string; pseudo: string }>()
+    : await ctx.env.DB.prepare("SELECT users.id, users.pseudo FROM users").all<{
+        id: string;
+        pseudo: string;
+      }>();
+
+  const rows = await ctx.env.DB.prepare(
+    `SELECT predictions.user_id, predictions.match_id, predictions.points,
+            matches.status, matches.kickoff_at, matches.home_team, matches.away_team
+     FROM predictions
+     JOIN matches ON matches.id = predictions.match_id
+     WHERE matches.status IN ('FINISHED', 'AWARDED')`
+  ).all<{
+    user_id: string;
+    match_id: string;
+    points: number;
+    status: string;
+    kickoff_at: string;
+    home_team: string;
+    away_team: string;
+  }>();
+
+  const series = buildProgressionSeries(
+    members.results ?? [],
+    rows.results ?? [],
+    user.id
+  );
+  return json(ctx.request, ctx.env, { progression: series });
 }
 
 // Arbre de la phase finale : tous les matchs a elimination directe, quel que
@@ -1560,6 +1640,7 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname.startsWith("/api/predictions/")) return savePrediction(ctx);
   if (pathname === "/api/leaderboard") return leaderboard(ctx);
   if (pathname === "/api/results") return results(ctx);
+  if (pathname === "/api/stats/progression") return progression(ctx);
   if (pathname === "/api/bracket") return bracket(ctx);
   if (pathname === "/api/admin/sync") return syncNow(ctx);
   if (pathname === "/api/sync/status") return syncStatus(ctx);

@@ -8,6 +8,16 @@ let localStorageData: Record<string, string> = {};
 // au DOM que quand il existe réellement.
 const hasDom = typeof window !== "undefined";
 
+// recharts (ResponsiveContainer) utilise ResizeObserver, absent de jsdom : on le
+// stubbe pour que les vues contenant un graphe (Classement) rendent sans crash.
+if (hasDom && typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+}
+
 beforeEach(() => {
   if (!hasDom) return;
   localStorageData = {};

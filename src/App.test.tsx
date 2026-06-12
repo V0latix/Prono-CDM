@@ -845,6 +845,141 @@ describe("App components", () => {
     expect(calls.some((call) => call.url === "/api/results")).toBe(true);
   });
 
+  it("affiche les scores les plus pronostiqués par la ligue sous un match terminé", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/results",
+        body: {
+          results: [
+            match({
+              id: "match-done",
+              status: "FINISHED",
+              homeScore: 2,
+              awayScore: 0,
+              locked: true,
+              prediction: null,
+              leaguePredictions: [
+                { home: 2, away: 0, count: 8 },
+                { home: 2, away: 1, count: 6 }
+              ]
+            })
+          ]
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getByRole("button", { name: /résultats/i }));
+
+    expect(await screen.findByText("Pronos ligue")).toBeInTheDocument();
+    expect(screen.getByText("×8")).toBeInTheDocument();
+    expect(screen.getByText("×6")).toBeInTheDocument();
+  });
+
+  it("affiche la courbe de progression dans le classement", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: leaderboardRow(),
+          activity: [],
+          syncStatus
+        }
+      },
+      { path: "/api/leaderboard", body: { leaderboard: [leaderboardRow()] } },
+      { path: "/api/groups", body: { groups: [] } },
+      {
+        path: "/api/stats/progression",
+        body: {
+          progression: {
+            leaderUserId: "user-2",
+            leaderPseudo: "Marie",
+            playerCount: 3,
+            points: [
+              {
+                matchId: "m1",
+                kickoffAt: "2026-06-11T19:00:00.000Z",
+                homeTeam: "France",
+                awayTeam: "Japon",
+                me: 3,
+                leader: 5,
+                average: 4
+              }
+            ]
+          }
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getByRole("button", { name: /classement/i }));
+
+    expect(await screen.findByText("Progression des points")).toBeInTheDocument();
+    expect(screen.getByText("Cumul sur les matchs terminés")).toBeInTheDocument();
+  });
+
+  it("affiche un état vide de la courbe quand aucun match n'est terminé", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: leaderboardRow(),
+          activity: [],
+          syncStatus
+        }
+      },
+      { path: "/api/leaderboard", body: { leaderboard: [leaderboardRow()] } },
+      { path: "/api/groups", body: { groups: [] } },
+      {
+        path: "/api/stats/progression",
+        body: {
+          progression: {
+            leaderUserId: null,
+            leaderPseudo: null,
+            playerCount: 0,
+            points: []
+          }
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getByRole("button", { name: /classement/i }));
+
+    expect(
+      await screen.findByText(/La courbe des points cumulés apparaîtra/)
+    ).toBeInTheDocument();
+  });
+
   it("affiche le classement des poules dans l'onglet résultats", async () => {
     installFetchMock([
       { path: "/api/me", body: { user } },

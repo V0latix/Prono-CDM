@@ -98,6 +98,32 @@ export type Match = {
   lastSyncedAt: string;
   locked: boolean;
   prediction: Prediction | null;
+  // Scores les plus pronostiqués par la ligue (présent uniquement sur les matchs
+  // terminés renvoyés par /api/results).
+  leaguePredictions?: ScorelineCount[];
+};
+
+export type ScorelineCount = {
+  home: number;
+  away: number;
+  count: number;
+};
+
+export type ProgressionPoint = {
+  matchId: string;
+  kickoffAt: string;
+  homeTeam: string;
+  awayTeam: string;
+  me: number;
+  leader: number;
+  average: number;
+};
+
+export type Progression = {
+  leaderUserId: string | null;
+  leaderPseudo: string | null;
+  playerCount: number;
+  points: ProgressionPoint[];
 };
 
 export type LeaderboardRow = {

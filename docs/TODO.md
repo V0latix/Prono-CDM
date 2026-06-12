@@ -55,9 +55,9 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 
 ### Stats avancées
 
-- Ajouter une courbe des points cumulés par joueur.
-- Ajouter une comparaison avec la moyenne de la ligue.
-- Ajouter les scores les plus pronostiqués par l'ensemble de la ligue dans la partie résultat.
+- [x] Ajouter une courbe des points cumulés par joueur. (Classement : courbe moi / leader / moyenne, via `/api/stats/progression` + recharts)
+- [x] Ajouter une comparaison avec la moyenne de la ligue. (ligne "moyenne ligue" sur la même courbe)
+- [x] Ajouter les scores les plus pronostiqués par l'ensemble de la ligue dans la partie résultat. (sous chaque match terminé, via `/api/results`)
 
 ### Résultats
 
