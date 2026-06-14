@@ -207,7 +207,7 @@ const viewTitles: Record<View, string> = {
 export const releaseNotes = [
   {
     title: "La phase finale en vrai tableau",
-    description: "L'onglet Résultats affiche désormais la phase finale sous forme d'arbre, avec les tours reliés des 16es jusqu'à la finale (et la petite finale à part). Le classement des poules a aussi été réaligné pour que toutes les colonnes tombent juste.",
+    description: "L'onglet Résultats affiche désormais la phase finale sous forme d'arbre, avec les tours reliés des 16es jusqu'à la finale (et la petite finale à part). Le classement des poules a aussi été réaligné, avec en plus les buts marqués (bp) et encaissés (bc) de chaque équipe.",
     date: "2026-06-14"
   },
   {
@@ -2519,6 +2519,8 @@ function GroupStandingsView({ standings }: { standings: GroupStanding[] }) {
                   <th scope="col" title="Gagnés">G</th>
                   <th scope="col" title="Nuls">N</th>
                   <th scope="col" title="Perdus">P</th>
+                  <th scope="col" title="Buts marqués">bp</th>
+                  <th scope="col" title="Buts encaissés">bc</th>
                   <th scope="col" title="Différence de buts">Diff</th>
                   <th scope="col" title="Points">Pts</th>
                 </tr>
@@ -2545,6 +2547,8 @@ function GroupStandingsView({ standings }: { standings: GroupStanding[] }) {
                       <td>{row.won}</td>
                       <td>{row.drawn}</td>
                       <td>{row.lost}</td>
+                      <td>{row.goalsFor}</td>
+                      <td>{row.goalsAgainst}</td>
                       <td>{formatGoalDiff(row.goalDiff)}</td>
                       <td className="standings-points">{row.points}</td>
                     </tr>

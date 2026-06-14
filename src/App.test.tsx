@@ -1301,6 +1301,14 @@ describe("App components", () => {
     // France a gagné 2-0 (3 pts) : en tête de poule et donc qualifiée (top 2).
     const franceRow = screen.getByText("France").closest("tr");
     expect(franceRow).toHaveClass("qualified");
+    // Colonnes buts marqués (bp) / encaissés (bc) affichées.
+    expect(screen.getByRole("columnheader", { name: "bp" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "bc" })).toBeInTheDocument();
+    // France : 2 marqués, 0 encaissé.
+    const franceCells = within(franceRow as HTMLElement).getAllByRole("cell");
+    // # | Équipe | J | G | N | P | bp | bc | Diff | Pts
+    expect(franceCells[6]).toHaveTextContent("2");
+    expect(franceCells[7]).toHaveTextContent("0");
   });
 
   it("shows an empty state in the results tab when no match is finished", async () => {
