@@ -2933,6 +2933,22 @@ button {
   border-collapse: collapse;
   border: 2px solid var(--fg);
   font-size: 0.92rem;
+  /* Largeurs de colonnes IDENTIQUES d'une poule a l'autre : sans ca chaque
+     table s'auto-dimensionne sur son contenu (un nom long comme
+     "Bosnie-Herzegovine" elargit la colonne equipe) et les colonnes de stats
+     ne s'alignent plus entre groupes. */
+  table-layout: fixed;
+}
+
+/* Colonnes de stats (J G N P Diff Pts) a largeur fixe ; la colonne equipe
+   prend le reste, le rang est etroit. */
+.standings-table th,
+.standings-table td {
+  width: 3.4rem;
+}
+
+.standings-table .standings-team {
+  width: auto;
 }
 
 .standings-table th,
