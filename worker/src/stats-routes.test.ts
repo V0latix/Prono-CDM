@@ -8,7 +8,11 @@ import type { Env, User } from "./types";
 // applique juste celles dont les routes testées ont besoin : schéma de base,
 // groupes, colonnes match_group et venue.
 import initialMigration from "../../migrations/0001_initial.sql?raw";
+import userProfilesMigration from "../../migrations/0002_user_profiles.sql?raw";
+import cleanupProfilesMigration from "../../migrations/0003_cleanup_user_profiles.sql?raw";
 import groupsMigration from "../../migrations/0005_groups.sql?raw";
+import profileViewsMigration from "../../migrations/0007_profile_views.sql?raw";
+import inviteCodesMigration from "../../migrations/0008_group_invite_codes.sql?raw";
 import matchGroupMigration from "../../migrations/0010_match_group.sql?raw";
 import venueMigration from "../../migrations/0011_match_venue.sql?raw";
 
@@ -18,7 +22,11 @@ import venueMigration from "../../migrations/0011_match_venue.sql?raw";
 
 const migrations = [
   initialMigration,
+  userProfilesMigration,
+  cleanupProfilesMigration,
   groupsMigration,
+  profileViewsMigration,
+  inviteCodesMigration,
   matchGroupMigration,
   venueMigration
 ];
@@ -126,6 +134,29 @@ describe("/api/results : scores les plus pronostiqués par la ligue", () => {
       { home: 1, away: 0, count: 1 },
       { home: 2, away: 2, count: 1 }
     ]);
+  });
+});
+
+describe("/api/users/:id/profile : pronos passés du joueur", () => {
+  it("ne renvoie que les pronos sur matchs terminés, du plus récent au plus ancien", async () => {
+    // Match à venir + prono de Bob dessus : ne doit JAMAIS fuiter.
+    await env.DB.prepare(
+      `INSERT INTO matches (id, external_id, home_team, away_team, kickoff_at, stage,
+         match_group, venue, status, last_synced_at)
+       VALUES ('m3','m3','m3-home','m3-away','2026-07-01T19:00:00Z','GROUP_STAGE',
+         'GROUP_A', NULL, 'TIMED', '2026-06-12T22:00:00Z')`
+    ).run();
+    await seedPrediction("u2", "m3", 1, 1, 0);
+
+    const res = await route(context("/api/users/u2/profile"));
+    const body = (await res.json()) as {
+      predictions: Array<{ id: string; status: string; prediction: { predictedHomeScore: number } | null }>;
+    };
+
+    // m2 (12 juin) avant m1 (11 juin) ; m3 (à venir) exclu.
+    expect(body.predictions.map((p) => p.id)).toEqual(["m2", "m1"]);
+    expect(body.predictions.every((p) => p.status === "FINISHED")).toBe(true);
+    expect(body.predictions[0].prediction?.predictedHomeScore).toBe(0);
   });
 });
 

@@ -368,7 +368,29 @@ describe("App components", () => {
               isOwner: false
             })
           ],
-          rank: 2
+          rank: 2,
+          predictions: [
+            match({
+              id: "marie-done",
+              homeTeam: "Belgique",
+              awayTeam: "Portugal",
+              kickoffAt: "2026-06-12T19:00:00.000Z",
+              status: "FINISHED",
+              homeScore: 1,
+              awayScore: 2,
+              locked: true,
+              prediction: {
+                predictedHomeScore: 0,
+                predictedAwayScore: 2,
+                predictedWinnerTeam: null,
+                points: 3,
+                exactScore: false,
+                correctResult: true,
+                correctGoalDiff: false,
+                updatedAt: "2026-06-12T10:00:00.000Z"
+              }
+            })
+          ]
         }
       }
     ]);
@@ -409,6 +431,9 @@ describe("App components", () => {
     expect(screen.getByText("Rang : #2")).toBeInTheDocument();
     expect(screen.getByText("Stats publiques")).toBeInTheDocument();
     expect(screen.getByText("Premier score exact")).toBeInTheDocument();
+    // Les pronos passés du joueur sont visibles (match terminé + son prono).
+    expect(screen.getByText("Pronos passés")).toBeInTheDocument();
+    expect(screen.getByText("Belgique - Portugal")).toBeInTheDocument();
 
     await browserUser.click(screen.getByRole("button", { name: /règlement/i }));
     expect(await screen.findByText("Verrouillage")).toBeInTheDocument();

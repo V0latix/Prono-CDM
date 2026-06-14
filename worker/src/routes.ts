@@ -792,13 +792,34 @@ async function getPublicUserProfile(ctx: RequestContext): Promise<Response> {
     (row) => row.userId === user.id
   );
 
+  // Pronos passés du joueur consulté : uniquement sur des matchs terminés
+  // (FINISHED/AWARDED), donc aucune fuite de prono en cours. Plus récents d'abord.
+  const predictionRows = await ctx.env.DB.prepare(
+    `SELECT matches.*, predictions.id AS prediction_id,
+            predictions.predicted_home_score, predictions.predicted_away_score,
+            predictions.predicted_winner_team, predictions.predicted_winner_code,
+            predictions.points, predictions.exact_score, predictions.correct_result,
+            predictions.correct_goal_diff, predictions.created_at AS prediction_created_at,
+            predictions.updated_at AS prediction_updated_at
+     FROM matches
+     JOIN predictions
+       ON predictions.match_id = matches.id AND predictions.user_id = ?
+     WHERE matches.status IN ('FINISHED', 'AWARDED')
+     ORDER BY matches.kickoff_at DESC`
+  )
+    .bind(user.id)
+    .all<Record<string, unknown>>();
+
   return json(ctx.request, ctx.env, {
     user: { id: user.id, pseudo: user.pseudo },
     profile: publicProfile(profile),
     stats,
     badges: await getUserBadges(ctx.env, user.id),
     groups: await getPublicGroups(ctx, ctx.user?.id ?? user.id, { userId: user.id }),
-    rank: rank?.rank ?? null
+    rank: rank?.rank ?? null,
+    predictions: (predictionRows.results ?? []).map((row) =>
+      publicMatchFromJoinedRow(row, user.id)
+    )
   });
 }
 
@@ -1452,9 +1473,11 @@ async function results(ctx: RequestContext): Promise<Response> {
      GROUP BY predictions.match_id, predictions.predicted_home_score,
               predictions.predicted_away_score`
   ).all<ScorelineAggregateRow>();
+  // limit -1 : on renvoie TOUS les scores pronostiqués par la ligue (triés par
+  // fréquence décroissante), pas seulement le top 3.
   const leaguePredictionsByMatch = topScorelinesByMatch(
     scorelineRows.results ?? [],
-    3
+    -1
   );
 
   return json(ctx.request, ctx.env, {

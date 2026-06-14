@@ -70,4 +70,18 @@ describe("topScorelinesByMatch", () => {
     expect(result.get("m1")).toHaveLength(2);
     expect(result.get("m1")?.map((s) => s.count)).toEqual([4, 3]);
   });
+
+  it("renvoie tous les scores triés quand la limite est négative", () => {
+    const result = topScorelinesByMatch(
+      [
+        row("m1", 0, 0, 4),
+        row("m1", 1, 0, 3),
+        row("m1", 2, 0, 2),
+        row("m1", 3, 0, 1)
+      ],
+      -1
+    );
+    expect(result.get("m1")).toHaveLength(4);
+    expect(result.get("m1")?.map((s) => s.count)).toEqual([4, 3, 2, 1]);
+  });
 });

@@ -201,6 +201,11 @@ const viewTitles: Record<View, string> = {
 
 export const releaseNotes = [
   {
+    title: "Les pronos passés des autres joueurs",
+    description: "Sur le profil d'un joueur, une section « Pronos passés » montre désormais tous ses pronostics sur les matchs terminés (jamais les matchs à venir). Et dans Résultats, les « Pronos ligue » d'un match affichent maintenant tous les scores joués, plus seulement les trois plus populaires.",
+    date: "2026-06-14"
+  },
+  {
     title: "Les matchs du jour direct en haut",
     description: "Mes pronos ouvre désormais sur les matchs à venir : les jours déjà passés sont repliés derrière un bouton « Afficher les jours passés ». Dans Résultats, les derniers matchs joués s'affichent en premier. Et enregistrer un prono ne te renvoie plus tout en haut de la page.",
     date: "2026-06-14"
@@ -3275,6 +3280,7 @@ type PublicProfileData = {
   badges: ProfileBadge[];
   groups: Group[];
   rank: number | null;
+  predictions: Match[];
 };
 
 function PublicProfile({ userId, onBack }: { userId: string; onBack: () => void }) {
@@ -3363,6 +3369,19 @@ function PublicProfile({ userId, onBack }: { userId: string; onBack: () => void 
             <strong>{data.profile.favoriteTeam ? teamLabel(data.profile.favoriteTeam) : "-"}</strong>
           </div>
         </div>
+      </section>
+
+      <section className="content-section">
+        <SectionTitle title="Pronos passés" />
+        {(data.predictions ?? []).length ? (
+          <div className="match-list">
+            {(data.predictions ?? []).map((match) => (
+              <MatchLine key={match.id} match={match} showResult />
+            ))}
+          </div>
+        ) : (
+          <EmptyState text="Ce joueur n'a pas encore de prono sur un match terminé." />
+        )}
       </section>
     </div>
   );
