@@ -201,6 +201,11 @@ const viewTitles: Record<View, string> = {
 
 export const releaseNotes = [
   {
+    title: "Les matchs du jour direct en haut",
+    description: "Mes pronos ouvre désormais sur les matchs à venir : les jours déjà passés sont repliés derrière un bouton « Afficher les jours passés ». Dans Résultats, les derniers matchs joués s'affichent en premier. Et enregistrer un prono ne te renvoie plus tout en haut de la page.",
+    date: "2026-06-14"
+  },
+  {
     title: "Stade et chaîne TV sur chaque match",
     description: "Chaque match affiche désormais le stade où il se joue et la chaîne qui le diffuse : beIN SPORTS pour tous, et le badge M6 sur les matchs de poule diffusés en clair.",
     date: "2026-06-11"
@@ -525,6 +530,16 @@ function matchDayKey(match: Match): string {
     month: "2-digit",
     day: "2-digit"
   }).format(new Date(match.kickoffAt));
+}
+
+// Clé du jour courant au même format que matchDayKey (YYYY-MM-DD), pour comparer
+// des jours par simple comparaison de chaînes.
+function todayKey(): string {
+  return new Intl.DateTimeFormat("fr-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
 }
 
 // Libellé court du tour à élimination directe à partir du code football-data.
@@ -1644,6 +1659,7 @@ function Predictions() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [showPast, setShowPast] = useState(false);
 
   async function save(match: Match, homeScore: number, awayScore: number, winnerTeam: string | null) {
     setSavingId(match.id);
@@ -1668,7 +1684,7 @@ function Predictions() {
     }
   }
 
-  if (loading) return <ShellState label="Chargement des matchs..." />;
+  if (loading && !data) return <ShellState label="Chargement des matchs..." />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
   const matches = [...(data?.matches ?? [])].sort(
@@ -1691,6 +1707,20 @@ function Predictions() {
     []
   );
 
+  // On met en avant les jours à venir / du jour : les jours passés (verrouillés,
+  // en lecture seule) sont repliés derrière un bouton. Si aucun jour actif
+  // (tournoi terminé), on déplie tout pour ne rien masquer.
+  const today = todayKey();
+  const pastGroups = groupedMatches.filter((group) => group.day < today);
+  const activeGroups = groupedMatches.filter((group) => group.day >= today);
+  const hasActiveGroups = activeGroups.length > 0;
+  const visibleGroups = !hasActiveGroups
+    ? groupedMatches
+    : showPast
+      ? groupedMatches
+      : activeGroups;
+  const canTogglePast = hasActiveGroups && pastGroups.length > 0;
+
   return (
     <section className="content-section predictions-section">
       <SectionTitle title="Mes pronos" action={<RefreshButton onClick={reload} />} />
@@ -1705,7 +1735,19 @@ function Predictions() {
       {message && <p className="inline-message">{message}</p>}
       {matches.length ? (
         <div className="prediction-day-list">
-          {groupedMatches.map((group) => (
+          {canTogglePast && (
+            <button
+              type="button"
+              className="past-days-toggle"
+              aria-expanded={showPast}
+              onClick={() => setShowPast((value) => !value)}
+            >
+              {showPast
+                ? "Masquer les jours passés"
+                : `Afficher les jours passés (${pastGroups.length})`}
+            </button>
+          )}
+          {visibleGroups.map((group) => (
             <section className="prediction-day" key={group.day} aria-labelledby={`prediction-day-${group.day}`}>
               <div className="prediction-day-header">
                 <div>
@@ -2302,13 +2344,18 @@ function Results() {
   const results = data?.results ?? EMPTY_MATCHES;
   const standings = useMemo(() => computeGroupStandings(results), [results]);
 
-  if (loading) return <ShellState label="Chargement des résultats..." />;
+  if (loading && !data) return <ShellState label="Chargement des résultats..." />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
   const predicted = results.filter((match) => match.prediction);
   const totalPoints = predicted.reduce((sum, match) => sum + (match.prediction?.points ?? 0), 0);
   const exactScores = predicted.filter((match) => match.prediction?.exactScore).length;
-  const groupedResults = results.reduce<Array<{ day: string; matches: Match[] }>>(
+  // Les matchs les plus récents d'abord : on voit le dernier résultat en haut,
+  // pas le premier match de la compétition.
+  const orderedResults = [...results].sort(
+    (a, b) => Date.parse(b.kickoffAt) - Date.parse(a.kickoffAt)
+  );
+  const groupedResults = orderedResults.reduce<Array<{ day: string; matches: Match[] }>>(
     (groups, match) => {
       const day = matchDayKey(match);
       const currentGroup = groups.at(-1);

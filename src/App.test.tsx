@@ -685,6 +685,62 @@ describe("App components", () => {
     });
   });
 
+  it("masque les jours passés par défaut et les révèle via le bouton dans Mes pronos", async () => {
+    // Dates relatives à maintenant pour rester indépendant de l'horloge réelle.
+    const dayMs = 24 * 60 * 60 * 1000;
+    const futureKickoff = new Date(Date.now() + 10 * dayMs).toISOString();
+    const pastKickoff = new Date(Date.now() - 10 * dayMs).toISOString();
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/matches",
+        body: {
+          matches: [
+            match({
+              id: "past-1",
+              homeTeam: "Bresil",
+              awayTeam: "Croatie",
+              kickoffAt: pastKickoff,
+              locked: true
+            }),
+            match({
+              id: "future-1",
+              kickoffAt: futureKickoff
+            })
+          ]
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getAllByRole("button", { name: /mes pronos/i })[0]);
+
+    // Le match à venir est visible, le match passé est replié par défaut.
+    expect(await screen.findByText("France - Argentine")).toBeInTheDocument();
+    expect(screen.queryByText("Bresil - Croatie")).not.toBeInTheDocument();
+
+    const toggle = screen.getByRole("button", { name: /afficher les jours passés \(1\)/i });
+    await browserUser.click(toggle);
+
+    expect(screen.getByText("Bresil - Croatie")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /masquer les jours passés/i })
+    ).toBeInTheDocument();
+  });
+
   it("clears the score field on focus so typing replaces the leading zero", async () => {
     // Regression: sur mobile (iOS Safari/WebKit) `select()` au focus n'etait pas
     // honore, le 0 restait colle et saisir 3 donnait "30". Le champ se vide
@@ -889,6 +945,60 @@ describe("App components", () => {
     expect(await screen.findByText("Pronos ligue")).toBeInTheDocument();
     expect(screen.getByText("×8")).toBeInTheDocument();
     expect(screen.getByText("×6")).toBeInTheDocument();
+  });
+
+  it("affiche les résultats les plus récents en premier", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/results",
+        body: {
+          results: [
+            match({
+              id: "older",
+              homeTeam: "Bresil",
+              awayTeam: "Croatie",
+              kickoffAt: "2026-06-10T19:00:00.000Z",
+              status: "FINISHED",
+              homeScore: 1,
+              awayScore: 0,
+              locked: true
+            }),
+            match({
+              id: "newer",
+              kickoffAt: "2026-06-12T19:00:00.000Z",
+              status: "FINISHED",
+              homeScore: 2,
+              awayScore: 1,
+              locked: true
+            })
+          ]
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getByRole("button", { name: /résultats/i }));
+
+    const newer = await screen.findByText("France - Argentine");
+    const older = screen.getByText("Bresil - Croatie");
+    // Le match le plus récent (12/06) doit apparaître avant le plus ancien (10/06).
+    expect(
+      newer.compareDocumentPosition(older) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it("affiche la courbe de progression dans le classement", async () => {

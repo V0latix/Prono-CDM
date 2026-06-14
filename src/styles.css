@@ -694,6 +694,22 @@ button {
   gap: 1rem;
 }
 
+.past-days-toggle {
+  justify-self: start;
+  min-height: 2.45rem;
+  padding: 0 0.95rem;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+  color: var(--fg);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.past-days-toggle:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
 .prediction-day {
   display: grid;
   gap: 0.75rem;
