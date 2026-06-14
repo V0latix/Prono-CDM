@@ -2962,8 +2962,18 @@ button {
   min-width: 7.5rem;
 }
 
+.standings-table .standings-team {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Creneau drapeau de largeur fixe (rendu meme vide) : les noms d'equipes
+   restent alignes d'une ligne et d'une poule a l'autre, drapeau ou non. */
 .standings-table .standings-team .team-flag {
-  margin-right: 0.4rem;
+  width: 1.5rem;
+  text-align: center;
+  margin-right: 0;
 }
 
 .standings-table .standings-points {
@@ -3013,9 +3023,12 @@ button {
   color: var(--muted);
 }
 
+/* Gap horizontal entre tours : DOIT egaler le `gap` de .bracket pour que les
+   traits de connexion (calcules en --bracket-gap/2) tombent juste. */
 .bracket {
+  --bracket-gap: 2.2rem;
   display: flex;
-  gap: 1.1rem;
+  gap: var(--bracket-gap);
   align-items: stretch;
   min-width: min-content;
 }
@@ -3023,7 +3036,6 @@ button {
 .bracket-round {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
   min-width: 12.5rem;
   flex: 0 0 auto;
 }
@@ -3031,27 +3043,90 @@ button {
 .bracket-round-title {
   font-family: var(--font-display);
   font-size: 0.95rem;
-  margin: 0;
+  margin: 0 0 0.6rem;
   padding-bottom: 0.3rem;
   border-bottom: 2px solid var(--fg);
   text-align: center;
 }
 
+/* Repartition verticale egale : chaque match occupe une "bande" (.bracket-slot)
+   de hauteur identique. Un tour ayant moitie moins de matchs a des bandes deux
+   fois plus hautes -> ses matchs se centrent au milieu de la paire du tour
+   precedent, ce qui dessine l'entonnoir. */
 .bracket-round-matches {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
-  /* Aligne les matchs en haut de colonne : on presente les tours cote a cote
-     (tour par tour), sans centrage vertical qui laisserait croire qu'un match
-     alimente le match adjacent du tour suivant (filiation non connue). */
-  justify-content: flex-start;
+  flex: 1;
+}
+
+.bracket-slot {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  position: relative;
+  /* Padding vertical symetrique : evite que les cartes se touchent dans les
+     tours denses sans decaler leur centre (les traits restent alignes). */
+  padding: 0.35rem 0;
 }
 
 .bracket-match {
+  width: 100%;
   border: 2px solid var(--fg);
   border-radius: 0.45rem;
   background: var(--panel);
   overflow: hidden;
+  position: relative;
+}
+
+/* --- Traits de connexion en equerre (appariement positionnel, indicatif) --- */
+/* Sortie horizontale : du bord droit du match vers le point milieu de la paire. */
+.bracket-round:not(:last-child) .bracket-slot::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: calc(var(--bracket-gap) / 2);
+  height: 2px;
+  background: var(--fg);
+}
+
+/* Trait vertical reliant les deux matchs d'une paire, au point milieu (x =
+   bord droit + gap/2). 1er de paire (impair) descend, 2e (pair) monte : les
+   deux moities se rejoignent a la frontiere des bandes = centre du match
+   suivant. */
+.bracket-round:not(:last-child) .bracket-slot::before {
+  content: "";
+  position: absolute;
+  left: calc(100% + var(--bracket-gap) / 2 - 1px);
+  width: 2px;
+  height: 50%;
+  background: var(--fg);
+}
+
+.bracket-round:not(:last-child) .bracket-slot:nth-child(odd)::before {
+  top: 50%;
+}
+
+.bracket-round:not(:last-child) .bracket-slot:nth-child(even)::before {
+  bottom: 50%;
+}
+
+/* Entree horizontale : du point milieu de la paire precedente vers le bord
+   gauche du match (tours >= 2). */
+.bracket-round:not(:first-child) .bracket-slot .bracket-match::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: calc(-1 * var(--bracket-gap) / 2);
+  width: calc(var(--bracket-gap) / 2);
+  height: 2px;
+  background: var(--fg);
+}
+
+/* Petite finale : hors de l'arbre, bloc autonome sans connecteur. */
+.bracket-third-place {
+  margin-top: 1.2rem;
+  max-width: 14.5rem;
 }
 
 .bracket-team {

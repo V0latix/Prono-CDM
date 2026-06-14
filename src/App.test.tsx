@@ -1077,6 +1077,74 @@ describe("App components", () => {
     ).toBeTruthy();
   });
 
+  it("affiche la phase finale en arbre avec la petite finale à part", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      { path: "/api/results", body: { results: [] } },
+      {
+        path: "/api/bracket",
+        body: {
+          matches: [
+            match({
+              id: "demi-1",
+              homeTeam: "France",
+              awayTeam: "Bresil",
+              stage: "SEMI_FINALS",
+              stageKind: "KNOCKOUT",
+              kickoffAt: "2026-07-14T19:00:00.000Z"
+            }),
+            match({
+              id: "finale",
+              homeTeam: "Argentine",
+              awayTeam: "Espagne",
+              stage: "FINAL",
+              stageKind: "KNOCKOUT",
+              kickoffAt: "2026-07-19T19:00:00.000Z"
+            }),
+            match({
+              id: "petite-finale",
+              homeTeam: "Maroc",
+              awayTeam: "Portugal",
+              stage: "THIRD_PLACE",
+              stageKind: "KNOCKOUT",
+              kickoffAt: "2026-07-18T19:00:00.000Z"
+            })
+          ]
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getByRole("button", { name: /résultats/i }));
+    await browserUser.click(screen.getByRole("button", { name: /tableau final/i }));
+
+    // Les tours du championnat sont rendus dans l'entonnoir...
+    expect(await screen.findByText("1/2 finale")).toBeInTheDocument();
+    expect(screen.getByText("Finale")).toBeInTheDocument();
+    // ...et la petite finale dans son bloc dédié, hors de l'arbre principal.
+    const thirdPlaceTitle = screen.getByText("Petite finale");
+    const thirdPlaceBlock = thirdPlaceTitle.closest(".bracket-third-place");
+    expect(thirdPlaceBlock).not.toBeNull();
+    expect(within(thirdPlaceBlock as HTMLElement).getByText("Maroc")).toBeInTheDocument();
+    // Le match de petite finale n'est pas dans l'entonnoir .bracket.
+    const funnel = document.querySelector(".bracket") as HTMLElement;
+    expect(within(funnel).queryByText("Maroc")).toBeNull();
+    expect(within(funnel).getByText("Argentine")).toBeInTheDocument();
+  });
+
   it("affiche la courbe de progression dans le classement", async () => {
     installFetchMock([
       { path: "/api/me", body: { user } },

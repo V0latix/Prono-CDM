@@ -206,6 +206,11 @@ const viewTitles: Record<View, string> = {
 
 export const releaseNotes = [
   {
+    title: "La phase finale en vrai tableau",
+    description: "L'onglet Résultats affiche désormais la phase finale sous forme d'arbre, avec les tours reliés des 16es jusqu'à la finale (et la petite finale à part). Le classement des poules a aussi été réaligné pour que toutes les colonnes tombent juste.",
+    date: "2026-06-14"
+  },
+  {
     title: "Tous les drapeaux à leur place",
     description: "Les équipes qui s'affichaient sans drapeau (ou avec un drapeau noir) ont désormais le bon : Écosse, Angleterre, Bosnie-Herzégovine, RD Congo, Cap-Vert, Algérie, Ouzbékistan, Curaçao… avec aussi leur nom en français.",
     date: "2026-06-14"
@@ -2533,7 +2538,7 @@ function GroupStandingsView({ standings }: { standings: GroupStanding[] }) {
                     <tr key={row.team} className={rowClass}>
                       <td className="standings-rank">{index + 1}</td>
                       <td className="standings-team">
-                        {teamFlag(row.team) && <span className="team-flag">{teamFlag(row.team)}</span>}
+                        <span className="team-flag">{teamFlag(row.team)}</span>
                         <span>{teamLabel(row.team)}</span>
                       </td>
                       <td>{row.played}</td>
@@ -2558,15 +2563,70 @@ function isMatchFinished(match: Match): boolean {
   return match.status === "FINISHED" || match.status === "AWARDED";
 }
 
-// Phase finale presentee tour par tour : une colonne par tour (16es -> finale),
-// avec scroll horizontal sur petit ecran. On n'affiche pas de chemins de
-// progression (la filiation entre matchs n'est pas fournie par la source).
+// Carte d'un match de phase finale (equipes, score, pied). Partagee entre
+// l'arbre principal et le bloc petite finale.
+function BracketMatchCard({
+  match,
+  teamLabel
+}: {
+  match: Match;
+  teamLabel: (team: string) => string;
+}) {
+  const done = isMatchFinished(match);
+  const homeWon = done && match.winnerTeam === match.homeTeam;
+  const awayWon = done && match.winnerTeam === match.awayTeam;
+  return (
+    <article className="bracket-match">
+      <div className={`bracket-team${homeWon ? " winner" : ""}`}>
+        <span className="bracket-team-name">
+          <span className="team-flag">{teamFlag(match.homeTeam)}</span>
+          <span>{teamLabel(match.homeTeam)}</span>
+        </span>
+        <span className="bracket-team-score">{done ? match.homeScore : ""}</span>
+      </div>
+      <div className={`bracket-team${awayWon ? " winner" : ""}`}>
+        <span className="bracket-team-name">
+          <span className="team-flag">{teamFlag(match.awayTeam)}</span>
+          <span>{teamLabel(match.awayTeam)}</span>
+        </span>
+        <span className="bracket-team-score">{done ? match.awayScore : ""}</span>
+      </div>
+      <div className="bracket-match-foot">
+        <span className="bracket-match-date">{formatDate(match.kickoffAt)}</span>
+        {(match.tvChannels ?? []).length > 0 && (
+          <span className="bracket-match-channels">
+            {(match.tvChannels ?? []).map((channel) => (
+              <ChannelLogo key={channel.key} channel={channel} />
+            ))}
+          </span>
+        )}
+        {match.prediction && done && (
+          <span className="status-chip success">{match.prediction.points} pts</span>
+        )}
+      </div>
+    </article>
+  );
+}
+
+// Phase finale presentee en arbre : une colonne par tour (16es -> finale),
+// reliees par des traits en equerre, avec scroll horizontal sur petit ecran.
+// Limite assumee (choix produit) : la source ne fournit PAS la filiation des
+// matchs (quel match alimente quel autre). Les appariements de l'arbre sont donc
+// DEDUITS positionnellement (matchs adjacents d'un tour -> meme match du tour
+// suivant) et restent indicatifs. La petite finale (3e place) est sortie de
+// l'entonnoir car alimentee par les deux perdants des demies.
 // Charge sa propre ressource a l'affichage de la vue.
 function BracketView() {
   const { data, error, reload, loading } = useResource<{ matches: Match[] }>("/api/bracket");
   const teamLabel = useTeamLabel();
   const matches = data?.matches ?? EMPTY_MATCHES;
   const rounds = useMemo(() => buildBracketRounds(matches), [matches]);
+  // order 5 = petite finale : hors de l'arbre principal.
+  const funnelRounds = useMemo(() => rounds.filter((round) => round.order !== 5), [rounds]);
+  const thirdPlace = useMemo(
+    () => rounds.find((round) => round.order === 5)?.matches[0] ?? null,
+    [rounds]
+  );
 
   if (loading) return <ShellState label="Chargement de la phase finale..." />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
@@ -2578,9 +2638,11 @@ function BracketView() {
 
   return (
     <div className="bracket-scroll">
-      <p className="bracket-caption">Phase finale, tour par tour — des 16es à la finale.</p>
+      <p className="bracket-caption">
+        Tableau indicatif — les rencontres exactes du tour suivant ne sont pas garanties.
+      </p>
       <div className="bracket">
-        {rounds.map((round) => (
+        {funnelRounds.map((round) => (
           <section
             className="bracket-round"
             key={round.order}
@@ -2588,50 +2650,21 @@ function BracketView() {
           >
             <h2 className="bracket-round-title">{knockoutRoundLabel(round.stage)}</h2>
             <div className="bracket-round-matches">
-              {round.matches.map((match) => {
-                const done = isMatchFinished(match);
-                const homeWon = done && match.winnerTeam === match.homeTeam;
-                const awayWon = done && match.winnerTeam === match.awayTeam;
-                return (
-                  <article className="bracket-match" key={match.id}>
-                    <div className={`bracket-team${homeWon ? " winner" : ""}`}>
-                      <span className="bracket-team-name">
-                        {teamFlag(match.homeTeam) && (
-                          <span className="team-flag">{teamFlag(match.homeTeam)}</span>
-                        )}
-                        <span>{teamLabel(match.homeTeam)}</span>
-                      </span>
-                      <span className="bracket-team-score">{done ? match.homeScore : ""}</span>
-                    </div>
-                    <div className={`bracket-team${awayWon ? " winner" : ""}`}>
-                      <span className="bracket-team-name">
-                        {teamFlag(match.awayTeam) && (
-                          <span className="team-flag">{teamFlag(match.awayTeam)}</span>
-                        )}
-                        <span>{teamLabel(match.awayTeam)}</span>
-                      </span>
-                      <span className="bracket-team-score">{done ? match.awayScore : ""}</span>
-                    </div>
-                    <div className="bracket-match-foot">
-                      <span className="bracket-match-date">{formatDate(match.kickoffAt)}</span>
-                      {(match.tvChannels ?? []).length > 0 && (
-                        <span className="bracket-match-channels">
-                          {(match.tvChannels ?? []).map((channel) => (
-                            <ChannelLogo key={channel.key} channel={channel} />
-                          ))}
-                        </span>
-                      )}
-                      {match.prediction && done && (
-                        <span className="status-chip success">{match.prediction.points} pts</span>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
+              {round.matches.map((match) => (
+                <div className="bracket-slot" key={match.id}>
+                  <BracketMatchCard match={match} teamLabel={teamLabel} />
+                </div>
+              ))}
             </div>
           </section>
         ))}
       </div>
+      {thirdPlace && (
+        <div className="bracket-third-place">
+          <h2 className="bracket-round-title">Petite finale</h2>
+          <BracketMatchCard match={thirdPlace} teamLabel={teamLabel} />
+        </div>
+      )}
     </div>
   );
 }

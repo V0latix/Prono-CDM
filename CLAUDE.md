@@ -24,7 +24,7 @@ Le frontend ne doit jamais appeler football-data.org directement. Il lit uniquem
 - `src/shared/scoring.ts` : calcul pur des points, partageable frontend/Worker.
 - `src/shared/week.ts` : bornes de la semaine pour le classement hebdomadaire.
 - `src/shared/standings.ts` : calcul pur du classement des poules (onglet Resultats), a partir des matchs termines.
-- `src/shared/bracket.ts` : regroupement pur des matchs de phase finale par tour (vue Resultats > phase finale), utilise par `src/App.tsx`. Voir la limite assumee plus bas (pas de filiation entre matchs).
+- `src/shared/bracket.ts` : regroupement pur des matchs de phase finale par tour (vue Resultats > phase finale), utilise par `src/App.tsx`. La source ne fournit pas la filiation : l'arbre dessine par `BracketView` deduit les appariements positionnellement (indicatif). Voir la note plus bas.
 - `src/shared/tv-broadcast.ts` : diffuseur(s) TV francais d'un match, mapping cure en code par id football-data (defaut beIN SPORTS, M6 pour le clair). Consomme cote Worker (`routes.ts`).
 - `src/shared/venues.ts` : stade de chaque match, mapping cure en code par id football-data. Consomme cote Worker (`routes.ts`).
 - `src/styles.css` : design system global, themes, responsive.
@@ -430,7 +430,7 @@ Contraintes :
 - Ne jamais stocker le PIN en clair.
 - Ne jamais autoriser un prono apres coup d'envoi uniquement cote UI : la validation serveur est obligatoire.
 - La chaine TV et le stade ne viennent PAS de l'API (plan gratuit football-data muet sur ces champs) : ils sont cures en code par id football-data dans `src/shared/tv-broadcast.ts` et `src/shared/venues.ts`. Ajouter un match = ajouter une entree dans ces mappings, par id stable (fiable meme quand les equipes sont "a definir").
-- La vue phase finale (`src/shared/bracket.ts`) presente les matchs tour par tour, sans filiation (la source ne dit pas quel match alimente quel match suivant) : l'UI ne doit pas laisser croire qu'une colonne alimente un match precis de la suivante.
+- La vue phase finale dessine un arbre (BracketView + CSS `.bracket`), mais la source ne fournit PAS la filiation reelle (quel match alimente quel match suivant). Les appariements sont DEDUITS positionnellement (matchs adjacents d'un tour -> meme match du tour suivant) : choix produit assume, le tableau est indicatif et ne reflete pas forcement le tableau officiel. La petite finale (3e place) est sortie de l'entonnoir. Si la filiation reelle devient disponible un jour, c'est ici qu'il faudra brancher le vrai appariement.
 
 ## Workflow conseille pour Claude Code
 

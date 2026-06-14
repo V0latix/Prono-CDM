@@ -4,12 +4,12 @@
 //
 // Limite assumee : football-data.org (et notre schema) ne fournissent PAS les
 // relations de filiation entre matchs (quel match alimente quel match du tour
-// suivant). On ne peut donc pas dessiner un vrai arbre avec des chemins de
-// progression fiables. Cette fonction se contente donc de presenter les matchs
-// "tour par tour" : un groupe par tour, ordonne 16es -> finale, et a l'interieur
-// d'un tour un ordre deterministe par coup d'envoi (puis id). L'UI ne doit pas
-// laisser entendre qu'un match d'une colonne alimente un match precis de la
-// colonne suivante.
+// suivant). Cette fonction se contente donc de regrouper les matchs "tour par
+// tour" : un groupe par tour, ordonne 16es -> finale, et a l'interieur d'un tour
+// un ordre deterministe par coup d'envoi (puis id). L'UI (BracketView) dessine un
+// arbre dont les APPARIEMENTS sont DEDUITS positionnellement (matchs adjacents
+// d'un tour -> meme match du tour suivant) : choix produit assume, le tableau
+// reste donc indicatif et ne reflete pas forcement le tableau officiel.
 
 import { getStageKind } from "./scoring";
 
