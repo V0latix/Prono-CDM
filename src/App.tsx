@@ -91,25 +91,30 @@ const languageStorageKey = "prono-cdm-language";
 // français pour l'affichage selon la langue choisie. Les variantes d'orthographe
 // anglaises pointent vers le même nom français.
 const teamTranslationEntries: Array<[string, string]> = [
+  ["Algeria", "Algérie"],
   ["Argentina", "Argentine"],
   ["Australia", "Australie"],
   ["Austria", "Autriche"],
   ["Belgium", "Belgique"],
   ["Bolivia", "Bolivie"],
+  ["Bosnia-Herzegovina", "Bosnie-Herzégovine"],
   ["Brazil", "Brésil"],
   ["Cameroon", "Cameroun"],
   ["Canada", "Canada"],
   ["Cape Verde", "Cap-Vert"],
+  ["Cape Verde Islands", "Cap-Vert"],
   ["Chile", "Chili"],
   ["China", "Chine"],
   ["China PR", "Chine"],
   ["Colombia", "Colombie"],
   ["Costa Rica", "Costa Rica"],
   ["Croatia", "Croatie"],
+  ["Curaçao", "Curaçao"],
   ["Czech Republic", "République tchèque"],
   ["Czechia", "République tchèque"],
   ["Denmark", "Danemark"],
   ["DR Congo", "RD Congo"],
+  ["Congo DR", "RD Congo"],
   ["Ecuador", "Équateur"],
   ["Egypt", "Égypte"],
   ["England", "Angleterre"],
@@ -200,6 +205,11 @@ const viewTitles: Record<View, string> = {
 };
 
 export const releaseNotes = [
+  {
+    title: "Tous les drapeaux à leur place",
+    description: "Les équipes qui s'affichaient sans drapeau (ou avec un drapeau noir) ont désormais le bon : Écosse, Angleterre, Bosnie-Herzégovine, RD Congo, Cap-Vert, Algérie, Ouzbékistan, Curaçao… avec aussi leur nom en français.",
+    date: "2026-06-14"
+  },
   {
     title: "Les pronos passés des autres joueurs",
     description: "Sur le profil d'un joueur, une section « Pronos passés » montre désormais tous ses pronostics sur les matchs terminés (jamais les matchs à venir). Et dans Résultats, les « Pronos ligue » d'un match affichent maintenant tous les scores joués, plus seulement les trois plus populaires.",
@@ -374,8 +384,9 @@ const teamFlagEntries: Array<[string, string]> = [
   ["Afrique du Sud", "🇿🇦"],
   ["Albanie", "🇦🇱"],
   ["Algérie", "🇩🇿"],
+  ["Algeria", "🇩🇿"],
   ["Allemagne", "🇩🇪"],
-  ["Angleterre", "🏴"],
+  ["Angleterre", "🏴󠁧󠁢󠁥󠁮󠁧󠁿"],
   ["Arabie saoudite", "🇸🇦"],
   ["Argentina", "🇦🇷"],
   ["Argentine", "🇦🇷"],
@@ -387,6 +398,8 @@ const teamFlagEntries: Array<[string, string]> = [
   ["Belgium", "🇧🇪"],
   ["Bolivie", "🇧🇴"],
   ["Bolivia", "🇧🇴"],
+  ["Bosnie-Herzégovine", "🇧🇦"],
+  ["Bosnia-Herzegovina", "🇧🇦"],
   ["Brazil", "🇧🇷"],
   ["Brésil", "🇧🇷"],
   ["Cameroun", "🇨🇲"],
@@ -394,6 +407,7 @@ const teamFlagEntries: Array<[string, string]> = [
   ["Canada", "🇨🇦"],
   ["Cap-Vert", "🇨🇻"],
   ["Cape Verde", "🇨🇻"],
+  ["Cape Verde Islands", "🇨🇻"],
   ["Chile", "🇨🇱"],
   ["Chili", "🇨🇱"],
   ["China", "🇨🇳"],
@@ -407,6 +421,7 @@ const teamFlagEntries: Array<[string, string]> = [
   ["Cote d'Ivoire", "🇨🇮"],
   ["Croatie", "🇭🇷"],
   ["Croatia", "🇭🇷"],
+  ["Curaçao", "🇨🇼"],
   ["Danemark", "🇩🇰"],
   ["Denmark", "🇩🇰"],
   ["Ecuador", "🇪🇨"],
@@ -416,7 +431,7 @@ const teamFlagEntries: Array<[string, string]> = [
   ["Équateur", "🇪🇨"],
   ["Espagne", "🇪🇸"],
   ["États-Unis", "🇺🇸"],
-  ["England", "🏴"],
+  ["England", "🏴󠁧󠁢󠁥󠁮󠁧󠁿"],
   ["France", "🇫🇷"],
   ["Georgia", "🇬🇪"],
   ["Germany", "🇩🇪"],
@@ -458,6 +473,7 @@ const teamFlagEntries: Array<[string, string]> = [
   ["Norway", "🇳🇴"],
   ["Nouvelle-Zélande", "🇳🇿"],
   ["Ouzbékistan", "🇺🇿"],
+  ["Uzbekistan", "🇺🇿"],
   ["New Zealand", "🇳🇿"],
   ["Panama", "🇵🇦"],
   ["Paraguay", "🇵🇾"],
@@ -470,6 +486,7 @@ const teamFlagEntries: Array<[string, string]> = [
   ["Qatar", "🇶🇦"],
   ["RD Congo", "🇨🇩"],
   ["DR Congo", "🇨🇩"],
+  ["Congo DR", "🇨🇩"],
   ["Czech Republic", "🇨🇿"],
   ["Czechia", "🇨🇿"],
   ["République dominicaine", "🇩🇴"],
@@ -477,7 +494,8 @@ const teamFlagEntries: Array<[string, string]> = [
   ["Roumanie", "🇷🇴"],
   ["Romania", "🇷🇴"],
   ["Saudi Arabia", "🇸🇦"],
-  ["Scotland", "🏴"],
+  ["Scotland", "🏴󠁧󠁢󠁳󠁣󠁴󠁿"],
+  ["Écosse", "🏴󠁧󠁢󠁳󠁣󠁴󠁿"],
   ["Sénégal", "🇸🇳"],
   ["Senegal", "🇸🇳"],
   ["Serbie", "🇷🇸"],
@@ -504,7 +522,8 @@ const teamFlagEntries: Array<[string, string]> = [
   ["Uruguay", "🇺🇾"],
   ["USA", "🇺🇸"],
   ["Venezuela", "🇻🇪"],
-  ["Wales", "🏴"]
+  ["Wales", "🏴󠁧󠁢󠁷󠁬󠁳󠁿"],
+  ["Pays de Galles", "🏴󠁧󠁢󠁷󠁬󠁳󠁿"]
 ];
 
 const teamFlags = new Map(

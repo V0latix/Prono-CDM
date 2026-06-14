@@ -636,6 +636,57 @@ describe("App components", () => {
     expect(screen.getByText("🇩🇪")).toBeInTheDocument();
   });
 
+  it("renders flags for teams previously missing or shown with the plain black flag", async () => {
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: undefined,
+          activity: [],
+          syncStatus
+        }
+      },
+      {
+        path: "/api/matches",
+        body: {
+          matches: [
+            match({
+              id: "scot-bih",
+              homeTeam: "Scotland",
+              awayTeam: "Bosnia-Herzegovina"
+            }),
+            match({
+              id: "cgo-cpv",
+              homeTeam: "Congo DR",
+              awayTeam: "Cape Verde Islands"
+            })
+          ]
+        }
+      }
+    ]);
+    const browserUser = userEvent.setup();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "Dashboard" });
+    await browserUser.click(screen.getAllByRole("button", { name: /mes pronos/i })[0]);
+
+    // Noms traduits en français...
+    expect((await screen.findAllByText("Écosse")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Bosnie-Herzégovine").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("RD Congo").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cap-Vert").length).toBeGreaterThan(0);
+    // ...et drapeaux corrects : Écosse en drapeau régional (plus le 🏴 noir).
+    expect(screen.getByText("🏴󠁧󠁢󠁳󠁣󠁴󠁿")).toBeInTheDocument();
+    expect(screen.getByText("🇧🇦")).toBeInTheDocument();
+    expect(screen.getByText("🇨🇩")).toBeInTheDocument();
+    expect(screen.getByText("🇨🇻")).toBeInTheDocument();
+    expect(screen.queryByText("🏴")).not.toBeInTheDocument();
+  });
+
   it("groups predictions by day and allows updating a saved prediction before kickoff", async () => {
     const { calls } = installFetchMock([
       { path: "/api/me", body: { user } },
