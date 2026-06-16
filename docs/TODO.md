@@ -61,12 +61,6 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 
 ### Résultats
 
-- Ajouter un détail de calcul des points par match.
-- Afficher pourquoi un prono a marqué 0, 3, 4, 5, 6, 8 ou 10 points.
-- Ajouter une comparaison "mon prono vs prono moyen de la ligue".
-- Ajouter un filtre résultats par joueur.
-- Ajouter une vue calendrier compacte des matchs terminés.
-
 ## Priorité basse
 
 ### Administration
@@ -78,14 +72,9 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
   - nombre de matchs mis à jour
   - erreur éventuelle
 - Ajouter une commande admin pour recalculer tous les points.
-- Ajouter une commande admin pour régénérer le feed d'activité.
 - Ajouter un export CSV du classement et des pronostics.
 
 ### Notifications
-
-- Ajouter des rappels navigateur pour les pronos non faits.
-- Ajouter une notification après recalcul des points.
-- Ajouter une notification quand un joueur devient premier.
 
 ### Terminé - Notifications
 
@@ -114,11 +103,3 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 - Centraliser les types partagés entre Worker et frontend pour éviter les divergences.
 - Factoriser les requêtes SQL répétées qui construisent les matchs avec pronostic.
 - Ajouter une couche de validation partagée pour les payloads API.
-
-## Questions produit à trancher
-
-- Est-ce que les profils doivent être visibles par tous les membres de la ligue ?
-- Est-ce qu'on veut autoriser plusieurs ligues plus tard ou garder une seule ligue privée ?
-- Est-ce que les pronos doivent devenir visibles aux autres après le coup d'envoi ?
-- Est-ce qu'on veut afficher les scores différés comme une contrainte explicite sur chaque résultat ?
-- Est-ce qu'on veut un mode "fun" avec badges et commentaires, ou garder l'app très simple ?
