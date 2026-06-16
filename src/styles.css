@@ -2698,22 +2698,6 @@ button {
     font-size: 0.68rem;
   }
 
-  /* Classement des poules sur mobile : table-layout fixed sert a aligner les
-     colonnes ENTRE poules sur grand ecran (comparaison cote a cote). Sur mobile
-     les poules s'empilent et scrollent chacune dans leur coin : l'alignement
-     inter-poules n'a plus de sens, et les colonnes de stats a largeur fixe
-     ecrasent la colonne equipe (noms qui chevauchent les chiffres). On repasse
-     en largeur naturelle : la colonne equipe prend ce qu'il lui faut, les stats
-     se serrent, et le surplus part en scroll horizontal dans .standings-scroll. */
-  .standings-table {
-    table-layout: auto;
-  }
-
-  .standings-table th,
-  .standings-table td {
-    width: auto;
-  }
-
   .profile-photo-frame {
     width: 7rem;
     max-width: none;
@@ -2964,6 +2948,13 @@ button {
      "Bosnie-Herzegovine" elargit la colonne equipe) et les colonnes de stats
      ne s'alignent plus entre groupes. */
   table-layout: fixed;
+  /* Plancher de largeur : avec table-layout:fixed, quand le conteneur retrecit
+     (fenetre etroite, tablette, mobile) la colonne equipe se faisait ecraser
+     sous la largeur du nom (white-space:nowrap) et le texte DEBORDAIT sur les
+     colonnes de stats (noms qui chevauchent les chiffres). En fixant un plancher,
+     la table garde des colonnes lisibles et c'est .standings-scroll qui scrolle
+     horizontalement au lieu de laisser le texte se superposer. */
+  min-width: 43rem;
 }
 
 /* Colonnes de stats (J G N P Diff Pts) a largeur fixe ; la colonne equipe
@@ -3287,8 +3278,16 @@ button {
 }
 
 /* Stats avancées : scores les plus pronostiqués par la ligue (Résultats) */
-.match-line:has(.match-league-scores) {
-  flex-wrap: wrap;
+/* Uniquement en disposition horizontale (>=641px) : .match-line est alors une
+   rangee (info | meta), et flex-wrap fait passer la ligne "Pronos ligue" en
+   dessous, pleine largeur. Sur mobile .match-line est en colonne
+   (flex-direction:column) : y appliquer flex-wrap ferait wrapper les items en
+   COLONNES supplementaires, ce qui rejetait la ligne "Pronos ligue" hors champ a
+   droite (clippee, donc invisible). En colonne, l'empilement naturel suffit. */
+@media (min-width: 641px) {
+  .match-line:has(.match-league-scores) {
+    flex-wrap: wrap;
+  }
 }
 
 .match-league-scores {

@@ -61,18 +61,29 @@ describe("responsive CSS", () => {
     expect(reduced).toContain("animation: none");
   });
 
-  it("lets the group standings table scroll horizontally on mobile instead of clipping columns", () => {
+  it("lets the group standings table scroll horizontally instead of clipping columns", () => {
     // .standings-group est un item de grille : sans min-width:0 il refuse de
     // retrecir sous la largeur de sa table et se fait rogner par
     // l'overflow:hidden de .content-section (colonnes Diff/Pts coupees, sans
-    // scroll). Cf. bug d'affichage mobile de l'onglet Resultats > Poules.
+    // scroll). Cf. bug d'affichage de l'onglet Resultats > Poules.
     expect(css).toMatch(/\.standings-group\s*\{[^}]*min-width:\s*0/);
 
-    // Sur mobile la table repasse en largeur naturelle : sinon les colonnes de
-    // stats a largeur fixe ecrasent la colonne equipe (noms chevauchant les
-    // chiffres).
-    const mobile = mediaBlock(640);
-    expect(mobile).toMatch(/\.standings-table\s*\{[^}]*table-layout:\s*auto/);
+    // La table garde un plancher de largeur : avec table-layout:fixed, un
+    // conteneur etroit ecrasait la colonne equipe et le nom (white-space:nowrap)
+    // debordait sur les colonnes de stats (noms qui chevauchent les chiffres).
+    // Le min-width force .standings-scroll a scroller au lieu de laisser le texte
+    // se superposer.
+    expect(css).toMatch(/\.standings-table\s*\{[^}]*min-width:\s*\d/);
+  });
+
+  it("only wraps the league-scores row in desktop (row) layout, not mobile column", () => {
+    // En colonne (mobile), flex-wrap sur .match-line wrappe en COLONNES et rejette
+    // la ligne "Pronos ligue" hors champ a droite (clippee). Le flex-wrap doit
+    // donc etre limite a la disposition horizontale.
+    const desktop = css.slice(css.indexOf("@media (min-width: 641px)"));
+    expect(desktop).toMatch(
+      /\.match-line:has\(\.match-league-scores\)\s*\{[^}]*flex-wrap:\s*wrap/
+    );
   });
 
   it("puts profile editing before badges on mobile", () => {
