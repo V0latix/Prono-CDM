@@ -61,6 +61,20 @@ describe("responsive CSS", () => {
     expect(reduced).toContain("animation: none");
   });
 
+  it("lets the group standings table scroll horizontally on mobile instead of clipping columns", () => {
+    // .standings-group est un item de grille : sans min-width:0 il refuse de
+    // retrecir sous la largeur de sa table et se fait rogner par
+    // l'overflow:hidden de .content-section (colonnes Diff/Pts coupees, sans
+    // scroll). Cf. bug d'affichage mobile de l'onglet Resultats > Poules.
+    expect(css).toMatch(/\.standings-group\s*\{[^}]*min-width:\s*0/);
+
+    // Sur mobile la table repasse en largeur naturelle : sinon les colonnes de
+    // stats a largeur fixe ecrasent la colonne equipe (noms chevauchant les
+    // chiffres).
+    const mobile = mediaBlock(640);
+    expect(mobile).toMatch(/\.standings-table\s*\{[^}]*table-layout:\s*auto/);
+  });
+
   it("puts profile editing before badges on mobile", () => {
     const mobile = mediaBlock(640);
 

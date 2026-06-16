@@ -2698,6 +2698,22 @@ button {
     font-size: 0.68rem;
   }
 
+  /* Classement des poules sur mobile : table-layout fixed sert a aligner les
+     colonnes ENTRE poules sur grand ecran (comparaison cote a cote). Sur mobile
+     les poules s'empilent et scrollent chacune dans leur coin : l'alignement
+     inter-poules n'a plus de sens, et les colonnes de stats a largeur fixe
+     ecrasent la colonne equipe (noms qui chevauchent les chiffres). On repasse
+     en largeur naturelle : la colonne equipe prend ce qu'il lui faut, les stats
+     se serrent, et le surplus part en scroll horizontal dans .standings-scroll. */
+  .standings-table {
+    table-layout: auto;
+  }
+
+  .standings-table th,
+  .standings-table td {
+    width: auto;
+  }
+
   .profile-photo-frame {
     width: 7rem;
     max-width: none;
@@ -2873,6 +2889,16 @@ button {
 .standings-list {
   display: grid;
   gap: 1.5rem;
+}
+
+/* Chaque poule est un item de grille : sans min-width:0 elle refuse de
+   retrecir sous la largeur intrinseque de sa table (table-layout fixed +
+   colonnes de stats), deborde la colonne de grille et se fait rogner par
+   l'overflow:hidden de .content-section sur mobile (colonnes Diff/Pts coupees,
+   sans scroll possible). min-width:0 laisse .standings-scroll redevenir la
+   boite de scroll horizontal. */
+.standings-group {
+  min-width: 0;
 }
 
 .standings-group-title {
