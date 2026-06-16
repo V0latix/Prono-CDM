@@ -27,6 +27,7 @@ import {
 } from "./auth";
 import { getUserBadges } from "./badges";
 import { getFootballDataSyncStatus, syncFootballData } from "./football-data";
+import { getWorkerErrorStatus } from "./monitoring";
 import {
   generateInviteCode,
   isValidInviteCode,
@@ -1048,9 +1049,36 @@ async function deleteGroup(ctx: RequestContext, groupId: string): Promise<Respon
   });
 }
 
+// Pagination optionnelle du calendrier (?limit & ?offset). Sans parametre on
+// renvoie tout (comportement historique) : le calendrier CDM tient en ~104 matchs.
+// La strategie est prete si le volume grandit (ex: archive multi-editions).
+export function parseMatchPagination(
+  params: URLSearchParams
+): { limit: number; offset: number } | null {
+  const rawLimit = params.get("limit");
+  const rawOffset = params.get("offset");
+  if (rawLimit === null && rawOffset === null) return null;
+
+  const limit = Number(rawLimit);
+  if (rawLimit === null || !Number.isInteger(limit) || limit < 1 || limit > 200) {
+    throw new HttpError(400, "Le paramètre limit doit être un entier entre 1 et 200.");
+  }
+
+  let offset = 0;
+  if (rawOffset !== null) {
+    offset = Number(rawOffset);
+    if (!Number.isInteger(offset) || offset < 0) {
+      throw new HttpError(400, "Le paramètre offset doit être un entier positif ou nul.");
+    }
+  }
+
+  return { limit, offset };
+}
+
 async function listMatches(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "GET");
   const user = requireUser(ctx);
+  const pagination = parseMatchPagination(ctx.url.searchParams);
   const rows = await ctx.env.DB.prepare(
     `SELECT matches.*, predictions.id AS prediction_id,
             predictions.predicted_home_score, predictions.predicted_away_score,
@@ -1061,9 +1089,9 @@ async function listMatches(ctx: RequestContext): Promise<Response> {
      FROM matches
      LEFT JOIN predictions
        ON predictions.match_id = matches.id AND predictions.user_id = ?
-     ORDER BY matches.kickoff_at ASC`
+     ORDER BY matches.kickoff_at ASC${pagination ? " LIMIT ? OFFSET ?" : ""}`
   )
-    .bind(user.id)
+    .bind(...(pagination ? [user.id, pagination.limit, pagination.offset] : [user.id]))
     .all<Record<string, unknown>>();
 
   return json(ctx.request, ctx.env, {
@@ -1622,15 +1650,25 @@ async function syncNow(ctx: RequestContext): Promise<Response> {
 async function syncStatus(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "GET");
   requireUser(ctx);
+  const [syncStatusValue, errors] = await Promise.all([
+    getFootballDataSyncStatus(ctx.env),
+    getWorkerErrorStatus(ctx.env)
+  ]);
   return json(ctx.request, ctx.env, {
-    syncStatus: await getFootballDataSyncStatus(ctx.env)
+    syncStatus: syncStatusValue,
+    errors
   });
 }
 
 export async function route(ctx: RequestContext): Promise<Response> {
   const { pathname } = ctx.url;
   if (pathname === "/api/health") {
-    return json(ctx.request, ctx.env, { ok: true });
+    // Seul endpoint reellement public (sans credentials) : on autorise un cache
+    // court cote navigateur/CDN. Les autres routes sont authentifiees et ne
+    // doivent pas etre mises en cache partage.
+    return json(ctx.request, ctx.env, { ok: true }, {
+      headers: { "Cache-Control": "public, max-age=60" }
+    });
   }
   if (pathname === "/api/auth/register") return register(ctx);
   if (pathname === "/api/auth/login") return login(ctx);

@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App, NEWS_STORAGE_KEY, NEWS_VERSION, releaseNotes } from "./App";
 import type { Group, LeaderboardRow, Match, ProfileBadge } from "./api";
 import { installFetchMock } from "./test/fetchMock";
@@ -113,6 +113,15 @@ describe("App components", () => {
   // pop-up de nouveautés ne s'ouvre dans les parcours non liés.
   beforeEach(() => {
     window.localStorage.setItem(NEWS_STORAGE_KEY, NEWS_VERSION);
+  });
+
+  // Certains tests s'appuient sur des matchs a date fixe (15-16 juin 2026) et
+  // supposent que "maintenant" tombe avant le coup d'envoi (bandeau compte a
+  // rebours, prono encore modifiable). On gele l'horloge dans ces tests pour les
+  // rendre deterministes quelle que soit la date d'execution. On ne fake que
+  // `Date` : les vrais timers restent actifs pour userEvent / findBy.
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("shows registration without invitation code and submits only pseudo and PIN", async () => {
@@ -260,6 +269,10 @@ describe("App components", () => {
   });
 
   it("renders dashboard data and navigates to leaderboard and rules", async () => {
+    // Avant le coup d'envoi du 15/06 19:00 : France - Argentine doit s'afficher
+    // dans le bandeau compte a rebours en plus des deux listes.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-15T08:00:00.000Z"));
     installFetchMock([
       { path: "/api/me", body: { user } },
       {
@@ -688,6 +701,10 @@ describe("App components", () => {
   });
 
   it("groups predictions by day and allows updating a saved prediction before kickoff", async () => {
+    // "avant le coup d'envoi" : on se place le matin du 15/06, donc les deux
+    // matchs (15/06 19:00 et 16/06 16:00) sont a venir et encore modifiables.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-15T08:00:00.000Z"));
     const { calls } = installFetchMock([
       { path: "/api/me", body: { user } },
       {

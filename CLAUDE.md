@@ -354,6 +354,9 @@ Suites importantes :
 - `src/shared/venues.test.ts` : resolution du stade d'un match (override cure vs venue API).
 - `worker/src/auth.test.ts` : PIN, hashing, locks, cookies, bearer, purge sessions, hash factice.
 - `worker/src/routes.test.ts` : routage API, validation des entrees, codes d'erreur.
+- `worker/src/profile-routes.test.ts` : routes profil (GET/PUT `/api/profile`), validation photo invalide/trop lourde, gardes d'auth.
+- `worker/src/flow.integration.test.ts` : parcours complet inscription -> prono -> score -> classement (faux D1 a etat partage `worker/src/test-db.ts`).
+- `worker/src/infra.test.ts` : pagination `/api/matches` (`parseMatchPagination`), cache `/api/health`, surveillance des erreurs Worker (`worker/src/monitoring.ts`).
 - `worker/src/scoring-db.test.ts` : recalcul des points et breakdown apres synchro.
 - `worker/src/football-data.test.ts` : normalisation API externe.
 - `worker/src/badges.test.ts` : badges profil.

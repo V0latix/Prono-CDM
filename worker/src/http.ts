@@ -1,3 +1,4 @@
+import { recordWorkerError } from "./monitoring";
 import type { Env, User } from "./types";
 
 export type RequestContext = {
@@ -101,6 +102,9 @@ export function errorResponse(request: Request, env: Env, error: unknown): Respo
   }
 
   console.error(error);
+  // Surveillance best-effort : on journalise l'erreur 500 dans `settings` sans
+  // bloquer la reponse (et sans jamais relancer si l'ecriture echoue).
+  void recordWorkerError(env, error);
   return json(
     request,
     env,

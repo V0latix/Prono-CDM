@@ -80,14 +80,14 @@ Ce fichier regroupe des pistes d'amélioration pour faire évoluer l'app après 
 
 - [x] Ajouter un email optionnel pour rappeler les matchs à pronostiquer (~24h avant le coup d'envoi, opt-in + confirmation, via Brevo).
 
-### Qualité et robustesse
+### Terminé - Qualité et robustesse
 
-- Ajouter des tests Worker sur les routes profil.
-- Ajouter des tests sur les cas de photo invalide ou trop lourde.
-- Ajouter des tests d'intégration sur le parcours complet inscription -> prono -> score -> classement.
-- Ajouter une stratégie de pagination si le calendrier complet devient lourd.
-- Ajouter une politique de cache API interne pour les endpoints publics.
-- Ajouter une surveillance simple des erreurs Worker.
+- [x] Ajouter des tests Worker sur les routes profil. (`worker/src/profile-routes.test.ts` : GET/PUT `/api/profile`, garde d'auth de la route profil publique)
+- [x] Ajouter des tests sur les cas de photo invalide ou trop lourde. (formats refusés, data URL non image, plafond serveur 1 Mo, valeur non texte)
+- [x] Ajouter des tests d'intégration sur le parcours complet inscription -> prono -> score -> classement. (`worker/src/flow.integration.test.ts` sur un faux D1 à état partagé `worker/src/test-db.ts` + vrais handlers)
+- [x] Ajouter une stratégie de pagination si le calendrier complet devient lourd. (`?limit`/`?offset` optionnels sur `/api/matches`, `parseMatchPagination`, sans rien casser par défaut)
+- [x] Ajouter une politique de cache API interne pour les endpoints publics. (`Cache-Control: public, max-age=60` sur `/api/health`, seul endpoint sans credentials)
+- [x] Ajouter une surveillance simple des erreurs Worker. (`worker/src/monitoring.ts` : compteur + dernière erreur 500 en `settings`, exposés via `/api/sync/status`)
 
 ## Idées de design
 
