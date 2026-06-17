@@ -73,14 +73,21 @@ async function setSetting(env: Env, key: string, value: string): Promise<void> {
 
 async function recordLeaderActivity(env: Env): Promise<void> {
   const [leader, previousLeader, latestFinishedMatch] = await Promise.all([
+    // IMPORTANT : on ne somme QUE les points des matchs termines. recalculateAllPoints
+    // attribue aussi des points sur le score LIVE d'un match en cours ; sans ce filtre,
+    // le total du leader (et son identite) refletait des points momentanes qui changent
+    // au coup de sifflet final. On figeait alors dans le feed un "X prend la tete avec
+    // N points" jamais reel (ex: 33 pts que personne n'a une fois le match fini). Meme
+    // regle que le feed "score exact" et les series : le feed ne reflete que du termine.
     env.DB.prepare(
       `SELECT users.id AS user_id, users.pseudo,
-              COALESCE(SUM(predictions.points), 0) AS points,
-              COALESCE(SUM(CASE WHEN predictions.exact_score = 1 THEN 1 ELSE 0 END), 0) AS exact_scores,
-              COALESCE(SUM(CASE WHEN predictions.correct_result = 1 AND predictions.exact_score = 0 THEN 1 ELSE 0 END), 0) AS correct_results,
-              COALESCE(SUM(CASE WHEN predictions.correct_goal_diff = 1 AND predictions.exact_score = 0 THEN 1 ELSE 0 END), 0) AS goal_diffs
+              COALESCE(SUM(CASE WHEN matches.status IN ('FINISHED', 'AWARDED') THEN predictions.points ELSE 0 END), 0) AS points,
+              COALESCE(SUM(CASE WHEN matches.status IN ('FINISHED', 'AWARDED') AND predictions.exact_score = 1 THEN 1 ELSE 0 END), 0) AS exact_scores,
+              COALESCE(SUM(CASE WHEN matches.status IN ('FINISHED', 'AWARDED') AND predictions.correct_result = 1 AND predictions.exact_score = 0 THEN 1 ELSE 0 END), 0) AS correct_results,
+              COALESCE(SUM(CASE WHEN matches.status IN ('FINISHED', 'AWARDED') AND predictions.correct_goal_diff = 1 AND predictions.exact_score = 0 THEN 1 ELSE 0 END), 0) AS goal_diffs
        FROM users
        LEFT JOIN predictions ON predictions.user_id = users.id
+       LEFT JOIN matches ON matches.id = predictions.match_id
        GROUP BY users.id, users.pseudo
        ORDER BY points DESC, exact_scores DESC, correct_results DESC, goal_diffs DESC, users.pseudo ASC
        LIMIT 1`

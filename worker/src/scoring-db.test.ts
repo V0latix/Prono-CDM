@@ -267,6 +267,52 @@ describe("recalculateAllPoints (intégration D1 réelle)", () => {
     expect((await readPrediction("p_live"))?.points).toBe(5);
   });
 
+  it("ne fait pas passer leader un joueur sur des points de match en cours (feed)", async () => {
+    // Régression : "X prend la tête avec N points" figeait un total LIVE jamais réel
+    // (ex: 33 pts que personne n'a une fois les matchs finis). Le leader du feed doit
+    // se baser uniquement sur les matchs terminés.
+
+    // u1 : score exact d'un match TERMINÉ (poule) = 5 pts -> vrai leader.
+    await seedMatch({
+      id: "m_fin",
+      stage: "GROUP_STAGE",
+      status: "FINISHED",
+      homeScore: 2,
+      awayScore: 1,
+      winnerCode: "HOME_TEAM"
+    });
+    await seedPrediction("u1", { id: "pf", matchId: "m_fin", home: 2, away: 1, winnerCode: null });
+
+    // u2 : score exact d'un match EN COURS (finale, 10 pts en live) -> ne doit PAS
+    // le faire passer leader dans le feed.
+    await env.DB.prepare(
+      "INSERT INTO users (id, pseudo, pin_hash) VALUES ('u2', 'Bob', 'x')"
+    ).run();
+    await seedMatch({
+      id: "m_live",
+      stage: "FINAL",
+      status: "IN_PLAY",
+      homeScore: 1,
+      awayScore: 1,
+      winnerCode: "HOME_TEAM"
+    });
+    await seedPrediction("u2", { id: "pl", matchId: "m_live", home: 1, away: 1, winnerCode: "HOME_TEAM" });
+
+    await recalculateAllPoints(env);
+
+    // Les points live de u2 sont bien calculés en base (10)...
+    expect((await readPrediction("pl"))?.points).toBe(10);
+
+    // ... mais le feed "nouveau leader" ne reflète que le terminé : u1 (5 pts).
+    const leaderRows = await env.DB.prepare(
+      "SELECT user_id, message FROM activity_feed WHERE type = 'new_leader'"
+    ).all<{ user_id: string; message: string }>();
+    const rows = leaderRows.results ?? [];
+    expect(rows.length).toBe(1);
+    expect(rows[0].user_id).toBe("u1");
+    expect(rows[0].message).toContain("5 points");
+  });
+
   it("recalcule correctement au-delà d'un lot de batch (> 50 pronos)", async () => {
     // Garde-fou contre la régression "synchro qui meurt avant la fin" : la boucle
     // de recalcul est batchée (lots de 50). On vérifie qu'un volume franchissant la

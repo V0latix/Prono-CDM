@@ -244,9 +244,13 @@ export function createMemoryDb(
 
     // --- leader aggregate (recordLeaderActivity) -----------------------------
     if (has("FROM users") && has("LEFT JOIN predictions") && has("GROUP BY")) {
+      const isFinishedMatch = (matchId: unknown) =>
+        isFinishedStatus(tables.matches.find((m) => m.id === matchId)?.status);
       const ranked = tables.users
         .map((user) => {
-          const preds = tables.predictions.filter((p) => p.user_id === user.id);
+          const preds = tables.predictions.filter(
+            (p) => p.user_id === user.id && isFinishedMatch(p.match_id)
+          );
           return {
             user_id: user.id,
             pseudo: user.pseudo,
