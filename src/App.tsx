@@ -206,6 +206,11 @@ const viewTitles: Record<View, string> = {
 
 export const releaseNotes = [
   {
+    title: "Profil joueur plus clair",
+    description: "Sur le profil d'un joueur, la liste « Pronos passés » est maintenant repliée par défaut : on voit d'abord ses badges et ses stats, et on déplie ses pronostics d'un simple bouton quand on veut les consulter.",
+    date: "2026-06-18"
+  },
+  {
     title: "La phase finale en vrai tableau",
     description: "L'onglet Résultats affiche désormais la phase finale sous forme d'arbre, avec les tours reliés des 16es jusqu'à la finale (et la petite finale à part). Le classement des poules a aussi été réaligné, avec en plus les buts marqués (bp) et encaissés (bc) de chaque équipe.",
     date: "2026-06-14"
@@ -3345,6 +3350,7 @@ function PublicProfile({ userId, onBack }: { userId: string; onBack: () => void 
     [userId]
   );
   const teamLabel = useTeamLabel();
+  const [showPastPredictions, setShowPastPredictions] = useState(false);
 
   if (loading) return <ShellState label="Chargement du profil joueur..." />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
@@ -3430,11 +3436,25 @@ function PublicProfile({ userId, onBack }: { userId: string; onBack: () => void 
       <section className="content-section">
         <SectionTitle title="Pronos passés" />
         {(data.predictions ?? []).length ? (
-          <div className="match-list">
-            {(data.predictions ?? []).map((match) => (
-              <MatchLine key={match.id} match={match} showResult />
-            ))}
-          </div>
+          <>
+            <button
+              type="button"
+              className="past-days-toggle"
+              aria-expanded={showPastPredictions}
+              onClick={() => setShowPastPredictions((value) => !value)}
+            >
+              {showPastPredictions
+                ? "Masquer les pronos passés"
+                : `Afficher les pronos passés (${(data.predictions ?? []).length})`}
+            </button>
+            {showPastPredictions && (
+              <div className="match-list">
+                {(data.predictions ?? []).map((match) => (
+                  <MatchLine key={match.id} match={match} showResult />
+                ))}
+              </div>
+            )}
+          </>
         ) : (
           <EmptyState text="Ce joueur n'a pas encore de prono sur un match terminé." />
         )}

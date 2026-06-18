@@ -444,9 +444,19 @@ describe("App components", () => {
     expect(screen.getByText("Rang : #2")).toBeInTheDocument();
     expect(screen.getByText("Stats publiques")).toBeInTheDocument();
     expect(screen.getByText("Premier score exact")).toBeInTheDocument();
-    // Les pronos passés du joueur sont visibles (match terminé + son prono).
+    // Les pronos passés sont repliés par défaut : on voit d'abord badges/stats,
+    // la liste n'apparaît qu'après avoir déplié.
     expect(screen.getByText("Pronos passés")).toBeInTheDocument();
-    expect(screen.getByText("Belgique - Portugal")).toBeInTheDocument();
+    expect(screen.queryByText("Belgique - Portugal")).not.toBeInTheDocument();
+    await browserUser.click(
+      screen.getByRole("button", { name: /afficher les pronos passés \(1\)/i })
+    );
+    expect(await screen.findByText("Belgique - Portugal")).toBeInTheDocument();
+    // Le bouton bascule en masquage et replie la liste.
+    await browserUser.click(
+      screen.getByRole("button", { name: /masquer les pronos passés/i })
+    );
+    expect(screen.queryByText("Belgique - Portugal")).not.toBeInTheDocument();
 
     await browserUser.click(screen.getByRole("button", { name: /règlement/i }));
     expect(await screen.findByText("Verrouillage")).toBeInTheDocument();
