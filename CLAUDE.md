@@ -25,6 +25,8 @@ Le frontend ne doit jamais appeler football-data.org directement. Il lit uniquem
 - `src/shared/week.ts` : bornes de la semaine pour le classement hebdomadaire.
 - `src/shared/standings.ts` : calcul pur du classement des poules (onglet Resultats), a partir des matchs termines.
 - `src/shared/bracket.ts` : regroupement pur des matchs de phase finale par tour (vue Resultats > phase finale), utilise par `src/App.tsx`. La source ne fournit pas la filiation : l'arbre dessine par `BracketView` deduit les appariements positionnellement (indicatif). Voir la note plus bas.
+- `src/shared/league-predictions.ts` : agregation pure des scores les plus pronostiques par la ligue ("Pronos ligue" dans Resultats / profil).
+- `src/shared/progression.ts` : serie pure de la courbe de progression du classement (vue stats).
 - `src/shared/tv-broadcast.ts` : diffuseur(s) TV francais d'un match, mapping cure en code par id football-data (defaut beIN SPORTS, M6 pour le clair). Consomme cote Worker (`routes.ts`).
 - `src/shared/venues.ts` : stade de chaque match, mapping cure en code par id football-data. Consomme cote Worker (`routes.ts`).
 - `src/styles.css` : design system global, themes, responsive.
@@ -36,6 +38,7 @@ Le frontend ne doit jamais appeler football-data.org directement. Il lit uniquem
 - `worker/src/badges.ts` : calcul des badges de profil.
 - `worker/src/invites.ts` : codes d'invitation de groupe et throttle de synchro.
 - `worker/src/leaderboard-window.ts` : normalisation de la fenetre de dates du classement hebdo.
+- `worker/src/monitoring.ts` : compteur best-effort des erreurs Worker (`recordWorkerError` / `getWorkerErrorStatus`), expose via `/api/sync/status`.
 - `worker/src/prediction-session.ts` : selection de la "session" de matchs a pronostiquer (regroupe soiree + nuit).
 - `worker/src/email.ts` : envoi email transactionnel via Brevo.
 - `worker/src/notifications.ts` : rappels "fais tes pronos" 24h avant kickoff.
@@ -135,6 +138,8 @@ Routes principales dans `worker/src/routes.ts` :
 - `PUT /api/predictions/:matchId`
 - `GET /api/leaderboard` (accepte `from`/`to` pour le classement hebdomadaire)
 - `GET /api/results`
+- `GET /api/stats/progression` (courbe de progression du classement)
+- `GET /api/bracket` (matchs de phase finale, tri par tour cote client)
 - `POST /api/admin/sync`
 - `GET /api/sync/status`
 
@@ -349,6 +354,8 @@ Suites importantes :
 - `src/responsive-css.test.ts` : contraintes CSS responsive/themes.
 - `src/shared/scoring.test.ts` : calcul des points.
 - `src/shared/standings.test.ts` : classement des poules (points 3/1/0, tie-break diff/buts).
+- `src/shared/league-predictions.test.ts` : agregation des scores les plus pronostiques.
+- `src/shared/progression.test.ts` : serie de la courbe de progression.
 - `src/shared/bracket.test.ts` : regroupement des matchs de phase finale par tour.
 - `src/shared/tv-broadcast.test.ts` : resolution des diffuseurs TV (defaut beIN, overrides M6).
 - `src/shared/venues.test.ts` : resolution du stade d'un match (override cure vs venue API).
@@ -359,6 +366,8 @@ Suites importantes :
 - `worker/src/infra.test.ts` : pagination `/api/matches` (`parseMatchPagination`), cache `/api/health`, surveillance des erreurs Worker (`worker/src/monitoring.ts`).
 - `worker/src/scoring-db.test.ts` : recalcul des points et breakdown apres synchro.
 - `worker/src/football-data.test.ts` : normalisation API externe.
+- `worker/src/football-data.upsert.test.ts` : protection anti-effacement des scores (COALESCE a l'upsert).
+- `worker/src/stats-routes.test.ts` : routes `/api/stats/progression` et `/api/bracket` (Miniflare D1 reel).
 - `worker/src/badges.test.ts` : badges profil.
 - `worker/src/email.test.ts` : envoi Brevo, no-op sans cle/expediteur.
 - `worker/src/notifications.test.ts` : rappels pronos, fenetre 24h, anti-doublon.
