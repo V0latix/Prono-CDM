@@ -42,7 +42,8 @@ manuelle est le filet de secours, via le même chemin de code.
 
 ## Section 2 — Modèle de données (migration `0012_tdf.sql`)
 
-Tables préfixées `tdf_`, reste du schéma intact.
+Tables préfixées `tdf_`, plus une colonne `is_admin` (défaut 0) ajoutée à `users` et passée à 1
+pour le compte propriétaire. Reste du schéma intact.
 
 - **`tdf_riders`** — peloton. `id` (slug PCS stable), `name`, `team`, `nationality`,
   `is_young` (éligible maillot blanc), `status` (`active`/`abandoned`). Rempli par l'Action
@@ -76,8 +77,12 @@ Le Worker ne scrape jamais.
   - `POST /api/admin/tdf/roster` — upsert peloton + étapes.
   - `POST /api/admin/tdf/stage-result` — top 10 + combatif d'une étape → déclenche le recalcul.
   - `POST /api/admin/tdf/final` — résultats grand départ en fin de Tour.
-- **Filet manuel = mêmes routes**, exposées dans un petit écran admin front (réservé à l'admin).
-  PCS casse ou se trompe → saisie/correction à la main, même chemin de code.
+- **Filet manuel = mêmes routes**, exposées dans un petit écran admin front **visible
+  uniquement depuis le compte propriétaire** : colonne `is_admin` sur `users` (défaut 0,
+  passée à 1 pour le compte du propriétaire via la migration). `/api/me` renvoie le flag ;
+  le front n'affiche l'écran admin que si `is_admin`. Les routes admin restent en plus
+  protégées par `TDF_SYNC_SECRET` (l'Action n'a pas de compte). PCS casse ou se trompe →
+  saisie/correction à la main, même chemin de code.
 - **Idempotent** : ré-envoyer un résultat écrase proprement et recalcule. Protection
   anti-effacement façon foot : un résultat réel n'est jamais remplacé par du vide.
 
@@ -157,3 +162,5 @@ socle, on n'enrichit pas tout de suite.
   (même chemin de code).
 - Verrou prono d'étape : 13h00 par défaut, éditable par étape. Grand départ : départ de l'étape 1.
 - Barème figé (section 4).
+- Combatif : coureur libre (peut être l'un des 10 picks du top 10 ou non).
+- Écran admin visible uniquement depuis le compte propriétaire (flag `is_admin` sur `users`).
