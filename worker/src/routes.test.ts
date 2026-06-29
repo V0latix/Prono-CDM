@@ -68,7 +68,7 @@ function fakeContext(options: {
   return { ctx, updated };
 }
 
-const fakeUser: User = { id: "user-1", pseudo: "Dede", created_at: "2026-06-05" };
+const fakeUser: User = { id: "user-1", pseudo: "Dede", created_at: "2026-06-05", is_admin: 0 };
 
 describe("POST /api/profile/pin", () => {
   it("change le PIN quand le PIN actuel est correct", async () => {

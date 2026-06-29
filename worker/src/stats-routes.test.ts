@@ -34,7 +34,7 @@ const migrations = [
 let mf: Miniflare;
 let env: Env;
 
-const user: User = { id: "u1", pseudo: "Alice", created_at: "2026-06-01T00:00:00Z" };
+const user: User = { id: "u1", pseudo: "Alice", created_at: "2026-06-01T00:00:00Z", is_admin: 0 };
 
 async function applyMigrations(): Promise<void> {
   for (const migration of migrations) {

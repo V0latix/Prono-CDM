@@ -21,6 +21,7 @@ export type User = {
   id: string;
   pseudo: string;
   created_at: string;
+  is_admin: number;
 };
 
 export type MatchRow = {
@@ -88,4 +89,45 @@ export type GroupMemberRow = {
   user_id: string;
   role: "owner" | "member";
   created_at: string;
+};
+
+export type TdfRiderRow = {
+  id: string;
+  name: string;
+  team: string | null;
+  nationality: string | null;
+  is_young: number;
+  status: string;
+};
+
+export type TdfStageRow = {
+  stage_no: number;
+  date: string;
+  lock_at: string;
+  type: string;
+  label: string;
+  status: string;
+  combative_rider_id: string | null;
+  last_synced_at: string | null;
+};
+
+export type TdfStagePredictionRow = {
+  user_id: string;
+  stage_no: number;
+  rider_ids: string;
+  combative_rider_id: string | null;
+  points: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TdfGrandDepartPredictionRow = {
+  user_id: string;
+  yellow1: string | null; yellow2: string | null; yellow3: string | null;
+  white1: string | null; white2: string | null; white3: string | null;
+  green: string | null;
+  polka: string | null;
+  points: number;
+  created_at: string;
+  updated_at: string;
 };

@@ -5,7 +5,7 @@ import { parseMatchPagination, route } from "./routes";
 import { createMemoryDb } from "./test-db";
 import type { User } from "./types";
 
-const fakeUser: User = { id: "u1", pseudo: "Dede", created_at: "2026-06-16" };
+const fakeUser: User = { id: "u1", pseudo: "Dede", created_at: "2026-06-16", is_admin: 0 };
 
 describe("parseMatchPagination", () => {
   it("renvoie null sans parametre (comportement historique : tout le calendrier)", () => {

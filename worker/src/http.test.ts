@@ -85,7 +85,7 @@ describe("requireUser", () => {
   }
 
   it("renvoie l'utilisateur quand il est connecté", () => {
-    const user: User = { id: "u1", pseudo: "Dems", created_at: "2026-06-05T00:00:00.000Z" };
+    const user: User = { id: "u1", pseudo: "Dems", created_at: "2026-06-05T00:00:00.000Z", is_admin: 0 };
     expect(requireUser(context(user))).toBe(user);
   });
 
