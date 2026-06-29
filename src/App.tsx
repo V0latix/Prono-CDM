@@ -63,10 +63,14 @@ import {
   type GroupStanding
 } from "./shared/standings";
 import { buildBracketRounds } from "./shared/bracket";
+import TdfApp from "./tdf/TdfApp";
 
 // Le graphe (recharts, lourd) est chargé à la demande : il ne pèse sur le bundle
 // initial que lorsqu'on ouvre le Classement.
 const ProgressionChartView = lazy(() => import("./ProgressionChartView"));
+
+type Universe = "cdm" | "tdf";
+const universeStorageKey = "pcdm_universe";
 
 type View = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "profile" | "publicProfile";
 const themeOptions = [
@@ -867,7 +871,14 @@ export function App() {
   const [theme, setTheme] = useState<ThemeMode>(initialTheme);
   const [language, setLanguage] = useState<Language>(initialLanguage);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [universe, setUniverse] = useState<Universe>(
+    () => (localStorage.getItem(universeStorageKey) as Universe) || "cdm"
+  );
   const news = useNewsSeen();
+
+  useEffect(() => {
+    localStorage.setItem(universeStorageKey, universe);
+  }, [universe]);
 
   // Une requete authentifiee a recu un 401 : on revient proprement a l'ecran de
   // connexion (au lieu d'un "Reessayer" qui rejoue la meme requete en echec).
@@ -1026,37 +1037,64 @@ export function App() {
               <UserRound size={18} />
               {user.pseudo}
             </button>
+            <UniverseSwitcher value={universe} onChange={setUniverse} />
           </div>
         </header>
-        <WhatsNewModal unseen={news.unseen} onDismiss={news.markSeen} />
-        {view === "dashboard" && <Dashboard onOpenPredictions={() => setView("predictions")} />}
-        {view === "predictions" && <Predictions />}
-        {view === "leaderboard" && (
-          <Leaderboard
-            currentUser={user}
-            onOpenProfile={(userId) => {
-              setPublicProfileUserId(userId);
-              setView("publicProfile");
-            }}
-          />
-        )}
-        {view === "results" && <Results />}
-        {view === "rules" && <Rules />}
-        {view === "profile" && (
-          <Profile
-            user={user}
-            language={language}
-            onLanguageChange={changeLanguage}
-            theme={theme}
-            onThemeChange={changeTheme}
-          />
-        )}
-        {view === "publicProfile" && publicProfileUserId && (
-          <PublicProfile userId={publicProfileUserId} onBack={() => setView("leaderboard")} />
+        {universe === "tdf" ? (
+          <TdfApp user={user} />
+        ) : (
+          <>
+            <WhatsNewModal unseen={news.unseen} onDismiss={news.markSeen} />
+            {view === "dashboard" && <Dashboard onOpenPredictions={() => setView("predictions")} />}
+            {view === "predictions" && <Predictions />}
+            {view === "leaderboard" && (
+              <Leaderboard
+                currentUser={user}
+                onOpenProfile={(userId) => {
+                  setPublicProfileUserId(userId);
+                  setView("publicProfile");
+                }}
+              />
+            )}
+            {view === "results" && <Results />}
+            {view === "rules" && <Rules />}
+            {view === "profile" && (
+              <Profile
+                user={user}
+                language={language}
+                onLanguageChange={changeLanguage}
+                theme={theme}
+                onThemeChange={changeTheme}
+              />
+            )}
+            {view === "publicProfile" && publicProfileUserId && (
+              <PublicProfile userId={publicProfileUserId} onBack={() => setView("leaderboard")} />
+            )}
+          </>
         )}
       </main>
     </div>
     </LanguageContext.Provider>
+  );
+}
+
+function UniverseSwitcher({
+  value,
+  onChange
+}: {
+  value: Universe;
+  onChange: (next: Universe) => void;
+}) {
+  return (
+    <button
+      className="universe-switcher"
+      type="button"
+      title={value === "cdm" ? "Passer au Tour de France" : "Passer à la Coupe du Monde"}
+      aria-label={value === "cdm" ? "Passer au Tour de France" : "Passer à la Coupe du Monde"}
+      onClick={() => onChange(value === "cdm" ? "tdf" : "cdm")}
+    >
+      {value === "cdm" ? "🚴" : "⚽"}
+    </button>
   );
 }
 
