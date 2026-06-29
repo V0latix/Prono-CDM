@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Miniflare } from "miniflare";
 import type { Env } from "./types";
-import { recalculateTdfStagePoints } from "./tdf-scoring-db";
+import { recalculateTdfStagePoints, recalculateTdfGrandDepart } from "./tdf-scoring-db";
 
 import initialMigration from "../../migrations/0001_initial.sql?raw";
 import tdfMigration from "../../migrations/0012_tdf.sql?raw";
@@ -76,5 +76,40 @@ describe("recalculateTdfStagePoints", () => {
       "SELECT points FROM tdf_stage_predictions WHERE user_id='u1' AND stage_no=1"
     ).first<{ points: number }>();
     expect(row?.points).toBe(28);
+  });
+});
+
+describe("recalculateTdfGrandDepart", () => {
+  beforeEach(async () => {
+    await env.DB.prepare(
+      "INSERT INTO users (id, pseudo, pin_hash, is_admin) VALUES ('u1','Alice','x',0)"
+    ).run();
+    await env.DB.prepare(
+      `INSERT INTO tdf_grand_depart_predictions
+         (user_id, yellow1, yellow2, yellow3, white1, white2, white3, green, polka, points, created_at, updated_at)
+       VALUES ('u1','a','b','c',NULL,NULL,NULL,NULL,NULL,0,'2026-07-01T00:00:00Z','2026-07-01T00:00:00Z')`
+    ).run();
+  });
+
+  it("no-op : sans résultats ne change pas les points", async () => {
+    await recalculateTdfGrandDepart(env as any);
+    const row = await env.DB.prepare(
+      "SELECT points FROM tdf_grand_depart_predictions WHERE user_id='u1'"
+    ).first<{ points: number }>();
+    expect(row?.points).toBe(0);
+  });
+
+  it("scoring : podium maillot jaune exact → 140 pts", async () => {
+    await env.DB.prepare(
+      `INSERT INTO tdf_grand_depart_results
+         (id, yellow1, yellow2, yellow3, white1, white2, white3, green, polka, updated_at)
+       VALUES (1,'a','b','c',NULL,NULL,NULL,NULL,NULL,'2026-07-27T18:00:00Z')`
+    ).run();
+    await recalculateTdfGrandDepart(env as any);
+    const row = await env.DB.prepare(
+      "SELECT points FROM tdf_grand_depart_predictions WHERE user_id='u1'"
+    ).first<{ points: number }>();
+    // yellow1 exact (1er) = 80, yellow2 exact (2e) = 40, yellow3 exact (3e) = 20 → 140
+    expect(row?.points).toBe(140);
   });
 });

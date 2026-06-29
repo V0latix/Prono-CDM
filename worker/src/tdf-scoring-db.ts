@@ -7,7 +7,8 @@ import { runD1Batch } from "./d1-batch";
 import type {
   Env,
   TdfStagePredictionRow,
-  TdfGrandDepartPredictionRow
+  TdfGrandDepartPredictionRow,
+  TdfGrandDepartResultRow
 } from "./types";
 
 // Recalcule et stocke les points de tous les pronos d'une étape, à partir
@@ -60,7 +61,7 @@ export async function recalculateTdfStagePoints(
 export async function recalculateTdfGrandDepart(env: Env): Promise<void> {
   const res = await env.DB.prepare(
     "SELECT * FROM tdf_grand_depart_results WHERE id = 1"
-  ).first<TdfGrandDepartPredictionRow>();
+  ).first<TdfGrandDepartResultRow>();
   if (!res) return;
 
   const preds = await env.DB.prepare(
