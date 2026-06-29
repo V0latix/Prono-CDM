@@ -15,6 +15,7 @@ export type Env = {
   EMAIL_FROM_NAME?: string;
   APP_URL?: string;
   API_URL?: string;
+  TDF_SYNC_SECRET?: string;
 };
 
 export type User = {

@@ -37,6 +37,7 @@ import {
   tdfLeaderboard,
   tdfResults
 } from "./tdf-routes";
+import { tdfAdminRoster, tdfAdminStageResult, tdfAdminFinal } from "./tdf-admin-routes";
 import {
   generateInviteCode,
   isValidInviteCode,
@@ -596,7 +597,10 @@ async function logout(ctx: RequestContext): Promise<Response> {
 
 async function me(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "GET");
-  return json(ctx.request, ctx.env, { user: ctx.user });
+  const user = ctx.user
+    ? { id: ctx.user.id, pseudo: ctx.user.pseudo, isAdmin: Boolean(ctx.user.is_admin) }
+    : null;
+  return json(ctx.request, ctx.env, { user });
 }
 
 async function getProfile(ctx: RequestContext): Promise<Response> {
@@ -1722,5 +1726,8 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname === "/api/tdf/grand-depart" && ctx.request.method === "PUT") return tdfSaveGrandDepart(ctx);
   const tdfPredMatch = pathname.match(/^\/api\/tdf\/predictions\/(\d+)$/);
   if (tdfPredMatch) return tdfSaveStagePrediction(ctx, Number(tdfPredMatch[1]));
+  if (pathname === "/api/admin/tdf/roster") return tdfAdminRoster(ctx);
+  if (pathname === "/api/admin/tdf/stage-result") return tdfAdminStageResult(ctx);
+  if (pathname === "/api/admin/tdf/final") return tdfAdminFinal(ctx);
   throw new HttpError(404, "Route introuvable.");
 }

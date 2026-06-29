@@ -223,7 +223,7 @@ export async function getUserFromSession(
 
   const tokenHash = await sha256Hex(token);
   const user = await env.DB.prepare(
-    `SELECT users.id, users.pseudo, users.created_at
+    `SELECT users.id, users.pseudo, users.created_at, users.is_admin
      FROM sessions
      JOIN users ON users.id = sessions.user_id
      WHERE sessions.token_hash = ? AND sessions.expires_at > ?
