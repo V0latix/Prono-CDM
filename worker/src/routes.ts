@@ -29,6 +29,15 @@ import { getUserBadges } from "./badges";
 import { getFootballDataSyncStatus, syncFootballData } from "./football-data";
 import { getWorkerErrorStatus } from "./monitoring";
 import {
+  tdfRiders,
+  tdfStages,
+  tdfDashboard,
+  tdfSaveStagePrediction,
+  tdfSaveGrandDepart,
+  tdfLeaderboard,
+  tdfResults
+} from "./tdf-routes";
+import {
   generateInviteCode,
   isValidInviteCode,
   normalizeInviteCode,
@@ -1705,5 +1714,13 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname === "/api/bracket") return bracket(ctx);
   if (pathname === "/api/admin/sync") return syncNow(ctx);
   if (pathname === "/api/sync/status") return syncStatus(ctx);
+  if (pathname === "/api/tdf/riders") return tdfRiders(ctx);
+  if (pathname === "/api/tdf/stages") return tdfStages(ctx);
+  if (pathname === "/api/tdf/dashboard") return tdfDashboard(ctx);
+  if (pathname === "/api/tdf/leaderboard") return tdfLeaderboard(ctx);
+  if (pathname === "/api/tdf/results") return tdfResults(ctx);
+  if (pathname === "/api/tdf/grand-depart") return tdfSaveGrandDepart(ctx);
+  const tdfPredMatch = pathname.match(/^\/api\/tdf\/predictions\/(\d+)$/);
+  if (tdfPredMatch) return tdfSaveStagePrediction(ctx, Number(tdfPredMatch[1]));
   throw new HttpError(404, "Route introuvable.");
 }
