@@ -1719,7 +1719,7 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname === "/api/tdf/dashboard") return tdfDashboard(ctx);
   if (pathname === "/api/tdf/leaderboard") return tdfLeaderboard(ctx);
   if (pathname === "/api/tdf/results") return tdfResults(ctx);
-  if (pathname === "/api/tdf/grand-depart") return tdfSaveGrandDepart(ctx);
+  if (pathname === "/api/tdf/grand-depart" && ctx.request.method === "PUT") return tdfSaveGrandDepart(ctx);
   const tdfPredMatch = pathname.match(/^\/api\/tdf\/predictions\/(\d+)$/);
   if (tdfPredMatch) return tdfSaveStagePrediction(ctx, Number(tdfPredMatch[1]));
   throw new HttpError(404, "Route introuvable.");

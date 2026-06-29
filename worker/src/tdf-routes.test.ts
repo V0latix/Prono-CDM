@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Miniflare } from "miniflare";
-import { tdfSaveStagePrediction } from "./tdf-routes";
+import { tdfSaveStagePrediction, tdfSaveGrandDepart } from "./tdf-routes";
 import type { RequestContext } from "./http";
 import type { Env, User } from "./types";
 import initialMigration from "../../migrations/0001_initial.sql?raw";
@@ -135,5 +135,75 @@ describe("tdfSaveStagePrediction validation", () => {
     });
     const res = await tdfSaveStagePrediction(ctx, 1);
     expect(res.status).toBe(200);
+  });
+});
+
+function ctxForGrandDepart(body: unknown): RequestContext {
+  return {
+    request: new Request("https://x/api/tdf/grand-depart", {
+      method: "PUT",
+      body: JSON.stringify(body)
+    }),
+    env: env as unknown as Env,
+    url: new URL("https://x/api/tdf/grand-depart"),
+    user
+  } as RequestContext;
+}
+
+describe("tdfSaveGrandDepart validation", () => {
+  it("accepte un grand départ valide et persiste la ligne", async () => {
+    await seedActiveStage(env.DB);
+    const ctx = ctxForGrandDepart({
+      yellow: ["a", "b", "c"],
+      white: ["d", "e", "f"],
+      green: "g",
+      polka: "h"
+    });
+    const res = await tdfSaveGrandDepart(ctx);
+    expect(res.status).toBe(200);
+    const row = await env.DB.prepare(
+      "SELECT * FROM tdf_grand_depart_predictions WHERE user_id = ?"
+    )
+      .bind(user.id)
+      .first<Record<string, unknown>>();
+    expect(row).not.toBeNull();
+    expect(row!.yellow1).toBe("a");
+    expect(row!.yellow2).toBe("b");
+    expect(row!.yellow3).toBe("c");
+    expect(row!.green).toBe("g");
+    expect(row!.polka).toBe("h");
+  });
+
+  it("refuse un podium jaune non distinct", async () => {
+    await seedActiveStage(env.DB);
+    const ctx = ctxForGrandDepart({
+      yellow: ["a", "a", "b"],
+      white: ["d", "e", "f"],
+      green: "g",
+      polka: "h"
+    });
+    await expect(tdfSaveGrandDepart(ctx)).rejects.toThrow(/double|jaune/i);
+  });
+
+  it("refuse un coureur inconnu dans le podium jaune", async () => {
+    await seedActiveStage(env.DB);
+    const ctx = ctxForGrandDepart({
+      yellow: ["a", "b", "zzz"],
+      white: ["d", "e", "f"],
+      green: "g",
+      polka: "h"
+    });
+    await expect(tdfSaveGrandDepart(ctx)).rejects.toThrow(/inconnu/i);
+  });
+
+  it("refuse si le grand départ est verrouillé (étape 1 dans le passé)", async () => {
+    await seedLockedStage(env.DB);
+    const ctx = ctxForGrandDepart({
+      yellow: ["a", "b", "c"],
+      white: ["d", "e", "f"],
+      green: "g",
+      polka: "h"
+    });
+    await expect(tdfSaveGrandDepart(ctx)).rejects.toThrow(/verrou/i);
   });
 });

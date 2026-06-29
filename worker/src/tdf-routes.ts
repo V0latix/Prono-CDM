@@ -78,6 +78,9 @@ export async function tdfSaveGrandDepart(ctx: RequestContext): Promise<Response>
   const firstStage = await ctx.env.DB.prepare(
     "SELECT lock_at FROM tdf_stages WHERE stage_no = 1"
   ).first<{ lock_at: string }>();
+  // ponytail: absence de l'étape 1 signifie que le calendrier n'est pas encore
+  // chargé (synchro en attente). Dans ce cas le grand départ est traité comme
+  // ouvert : dès que la synchro tourne, l'étape 1 existe et le verrou s'applique.
   if (firstStage && new Date(firstStage.lock_at).getTime() <= Date.now()) {
     throw new HttpError(409, "Le grand départ est verrouillé.");
   }
@@ -92,6 +95,9 @@ export async function tdfSaveGrandDepart(ctx: RequestContext): Promise<Response>
   const active = await activeRiderIds(ctx);
 
   const podium = (arr: (string | null)[] | undefined, label: string): (string | null)[] => {
+    if ((arr ?? []).length > 3) {
+      throw new HttpError(400, `Le podium ${label} ne peut contenir que 3 coureurs.`);
+    }
     const p = (arr ?? []).slice(0, 3);
     while (p.length < 3) p.push(null);
     const filled = p.filter(Boolean) as string[];
