@@ -70,7 +70,8 @@ Points d'attention :
 - La bulle `Nouveautes` lit la constante `releaseNotes` dans `src/App.tsx`.
 - Les release notes doivent rester orientees utilisateur. Ne pas y mettre de details techniques de deploy, Worker, preview, migration ou API.
 - Les themes disponibles sont `classic`, `dark`, `minuit`, `ardoise`, `grass`, `neon`, `france`, `tdf` (maillot jaune).
-- Les themes `ardoise`, `grass`, `neon`, `france` et `tdf` utilisent `Inter` pour une meilleure lisibilite.
+- Les themes `ardoise`, `grass`, `neon` et `france` utilisent `Inter` pour une meilleure lisibilite.
+- Le theme `tdf` (maillot jaune) utilise `Inter` en corps et `Syne` en titres, sur un charbon chaud avec halo jaune (`html[data-theme="tdf"] body`), accent jaune `#ffd400`, succes vert sprint.
 - La carte "Predictions a faire maintenant" du dashboard n'affiche PAS un jour
   calendaire : elle regroupe une "session" de matchs consecutifs (coups d'envoi
   espaces de moins de 9h, voir `worker/src/prediction-session.ts`). Sinon les

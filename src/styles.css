@@ -94,26 +94,34 @@ html[data-theme="france"] {
   color-scheme: dark;
 }
 
-/* Tour de France : fond brun-noir, accent jaune maillot jaune. */
+/* Tour de France : charbon chaud + jaune maillot jaune, vert sprint en succès. */
 html[data-theme="tdf"] {
-  --bg: #1a1400;
-  --fg: #fffbe6;
+  --bg: #16140d;
+  --fg: #fdfbef;
   --accent: #ffd400;
-  --surface: #3a2e00;
-  --panel: #2b2200;
-  --muted: #e8d9a0;
-  --danger: #ff5a4f;
-  --success: #ffd400;
-  --success-soft: rgba(255, 212, 0, 0.16);
-  --danger-soft: rgba(255, 90, 79, 0.18);
+  --surface: #2a2618;
+  --panel: #1f1c12;
+  --muted: #c3bb9c;
+  --danger: #ff6a5a;
+  --success: #38c46a;
+  --success-soft: rgba(56, 196, 106, 0.16);
+  --danger-soft: rgba(255, 106, 90, 0.16);
   --qualified-third: #ffd400;
   --qualified-third-soft: rgba(255, 212, 0, 0.2);
-  --nav-shadow: rgba(255, 212, 0, 0.34);
-  --on-accent: #1a1400;
-  --font-display: "Inter", sans-serif;
+  --nav-shadow: rgba(255, 212, 0, 0.3);
+  --on-accent: #1f1c12;
+  --font-display: "Syne", sans-serif;
   --font-body: "Inter", sans-serif;
 
   color-scheme: dark;
+}
+
+/* Lumière d'été : halo jaune doux en haut de page, comme le soleil de juillet. */
+html[data-theme="tdf"] body {
+  background:
+    radial-gradient(125% 70% at 50% -12%, rgba(255, 212, 0, 0.13), transparent 58%),
+    var(--bg);
+  background-attachment: fixed;
 }
 
 /* Minuit : bleu nuit élégant, accent bleu électrique. Sobre et reposant. */
@@ -3382,31 +3390,19 @@ button {
 }
 
 @media (max-width: 600px) {
+  /* Sur mobile la barre d'actions est dense (cloche + pseudo + bascule) :
+     on réduit la bascule d'univers à son icône pour éviter le débordement. */
   .universe-switcher {
-    padding: 0.6rem 1rem;
-    font-size: 0.92rem;
+    gap: 0;
+    padding: 0.55rem;
+    border-radius: 999px;
+  }
+  .universe-switcher__label {
+    display: none;
   }
   .universe-switcher__icon {
     font-size: 1.3rem;
   }
-}
-
-.tdf-app {
-  display: grid;
-  gap: 1.25rem;
-}
-
-.tdf-topbar {
-  margin-bottom: 0;
-}
-
-.tdf-nav {
-  /* nav-list already provides the horizontal pill bar */
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.tdf-content {
-  min-height: 20rem;
 }
 
 /* Rider list */
@@ -3419,11 +3415,21 @@ button {
 
 .tdf-filter-search {
   flex: 1 1 12rem;
-  min-width: 8rem;
+  min-width: 0;
 }
 
 .tdf-filter-bar select {
-  flex: 0 1 auto;
+  flex: 1 1 8rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Très petit écran : recherche et filtres empilés en pleine largeur. */
+@media (max-width: 480px) {
+  .tdf-filter-search,
+  .tdf-filter-bar select {
+    flex-basis: 100%;
+  }
 }
 
 .tdf-selected-chips {
@@ -3464,12 +3470,14 @@ button {
 
 .tdf-rider-btn {
   flex: 1 1 auto;
+  min-width: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-  min-height: 2.6rem;
-  padding: 0.45rem 0.85rem;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.1rem;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.85rem;
   border: 2px solid var(--fg);
   background: var(--panel);
   color: var(--fg);
@@ -3500,8 +3508,8 @@ button {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 2px solid var(--fg);
   background: var(--panel);
   color: var(--fg);
@@ -3617,6 +3625,108 @@ button {
 .tdf-stage-no {
   font-weight: 800;
   color: var(--accent);
+}
+
+/* Classement TDF : ligne riche (rang, joueur, détail des points, total). */
+.tdf-lb {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.tdf-lb-row {
+  display: grid;
+  grid-template-columns: 2.8rem 2.5rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0.9rem;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+}
+
+.tdf-lb-row.leader {
+  border-color: var(--accent);
+  box-shadow: inset 5px 0 0 var(--accent);
+  background: var(--surface);
+}
+
+.tdf-lb-rank {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  text-align: center;
+  color: var(--accent);
+}
+
+.tdf-lb-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  aspect-ratio: 1;
+  border: 2px solid var(--fg);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+.tdf-lb-id {
+  display: grid;
+  min-width: 0;
+}
+
+.tdf-lb-id strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tdf-lb-id small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.tdf-lb-breakdown {
+  display: grid;
+  gap: 0.15rem;
+  text-align: right;
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.tdf-lb-breakdown b {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.tdf-lb-total {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tdf-lb-total strong {
+  font-size: 1.35rem;
+  color: var(--accent);
+}
+
+@media (max-width: 560px) {
+  .tdf-lb-row {
+    grid-template-columns: 2.2rem 2.2rem minmax(0, 1fr) auto;
+    gap: 0.6rem;
+  }
+
+  .tdf-lb-breakdown {
+    display: none;
+  }
 }
 
 .tdf-stage-info {

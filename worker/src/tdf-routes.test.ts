@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Miniflare } from "miniflare";
-import { tdfSaveStagePrediction, tdfSaveGrandDepart } from "./tdf-routes";
+import { tdfSaveStagePrediction, tdfSaveGrandDepart, tdfLeaderboard } from "./tdf-routes";
 import type { RequestContext } from "./http";
 import type { Env, User } from "./types";
 import initialMigration from "../../migrations/0001_initial.sql?raw";
@@ -205,5 +205,53 @@ describe("tdfSaveGrandDepart validation", () => {
       polka: "h"
     });
     await expect(tdfSaveGrandDepart(ctx)).rejects.toThrow(/verrou/i);
+  });
+});
+
+describe("tdfLeaderboard", () => {
+  function ctxGet(): RequestContext {
+    return {
+      request: new Request("https://x/api/tdf/leaderboard"),
+      env: env as unknown as Env,
+      url: new URL("https://x/api/tdf/leaderboard"),
+      user
+    } as RequestContext;
+  }
+
+  it("renvoie le détail des points et exclut les joueurs sans prono", async () => {
+    // Bob (u1) a deux pronos d'étape (12 + 7 pts) + un grand départ (40 pts).
+    await env.DB.prepare(
+      `INSERT INTO users (id, pseudo, pin_hash) VALUES ('u2', 'Zoé', 'x')`
+    ).run();
+    await env.DB.prepare(
+      `INSERT INTO tdf_stage_predictions (user_id, stage_no, rider_ids, points, created_at, updated_at)
+       VALUES ('u1', 1, '[]', 12, 't', 't'), ('u1', 2, '[]', 7, 't', 't')`
+    ).run();
+    await env.DB.prepare(
+      `INSERT INTO tdf_grand_depart_predictions (user_id, points, created_at, updated_at)
+       VALUES ('u1', 40, 't', 't')`
+    ).run();
+
+    const res = await tdfLeaderboard(ctxGet());
+    const { leaderboard } = (await res.json()) as {
+      leaderboard: {
+        user_id: string;
+        points: number;
+        stage_points: number;
+        grand_depart_points: number;
+        stages_played: number;
+        best_stage: number;
+      }[];
+    };
+
+    // u2 n'a aucun prono → exclu.
+    expect(leaderboard).toHaveLength(1);
+    const bob = leaderboard[0];
+    expect(bob.user_id).toBe("u1");
+    expect(bob.points).toBe(59);
+    expect(bob.stage_points).toBe(19);
+    expect(bob.grand_depart_points).toBe(40);
+    expect(bob.stages_played).toBe(2);
+    expect(bob.best_stage).toBe(12);
   });
 });

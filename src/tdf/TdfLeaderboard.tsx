@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { fetchTdfLeaderboard } from "./api";
+import type { TdfLeaderboardEntry } from "./api";
 
-type LeaderboardEntry = { user_id: string; pseudo: string; points: number };
+const RANK_MARK = ["🟡", "🥈", "🥉"];
 
 export default function TdfLeaderboard() {
-  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [entries, setEntries] = useState<TdfLeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
@@ -32,7 +33,7 @@ export default function TdfLeaderboard() {
   if (entries.length === 0)
     return (
       <div className="empty-state">
-        <p>Aucun résultat pour le moment.</p>
+        <p>Personne n'a encore fait de prono. Sois le premier à enfiler le maillot jaune !</p>
       </div>
     );
 
@@ -41,30 +42,37 @@ export default function TdfLeaderboard() {
       <div className="section-title">
         <h2>Classement</h2>
       </div>
-      <div className="leaderboard-table">
-        <div
-          className="leaderboard-row"
-          style={{ background: "var(--surface)", fontWeight: 800, minHeight: "2.5rem" }}
-          aria-hidden="true"
-        >
-          <span className="rank">#</span>
-          <span />
-          <span>Joueur</span>
-          <span>Points</span>
-        </div>
+      <ol className="tdf-lb">
         {entries.map((entry, i) => (
-          <div key={entry.user_id} className="leaderboard-row">
-            <span className="rank">{i + 1}</span>
-            <span className="leaderboard-avatar">{entry.pseudo.charAt(0).toUpperCase()}</span>
-            <span className="leaderboard-player">
-              <strong>{entry.pseudo}</strong>
+          <li key={entry.user_id} className={`tdf-lb-row${i === 0 ? " leader" : ""}`}>
+            <span className="tdf-lb-rank" aria-label={`${i + 1}e`}>
+              {RANK_MARK[i] ?? i + 1}
             </span>
-            <span>
+            <span className="tdf-lb-avatar" aria-hidden="true">
+              {entry.pseudo.charAt(0).toUpperCase()}
+            </span>
+            <span className="tdf-lb-id">
+              <strong>{entry.pseudo}</strong>
+              <small>
+                {entry.stages_played} étape{entry.stages_played !== 1 ? "s" : ""} jouée
+                {entry.stages_played !== 1 ? "s" : ""}
+                {entry.best_stage > 0 ? ` · meilleure ${entry.best_stage} pts` : ""}
+              </small>
+            </span>
+            <span className="tdf-lb-breakdown">
+              <span>
+                <b>{entry.stage_points}</b> étapes
+              </span>
+              <span>
+                <b>{entry.grand_depart_points}</b> grand départ
+              </span>
+            </span>
+            <span className="tdf-lb-total">
               <strong>{entry.points}</strong> pt{entry.points !== 1 ? "s" : ""}
             </span>
-          </div>
+          </li>
         ))}
-      </div>
+      </ol>
     </section>
   );
 }

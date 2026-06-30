@@ -63,7 +63,7 @@ import {
   type GroupStanding
 } from "./shared/standings";
 import { buildBracketRounds } from "./shared/bracket";
-import TdfApp from "./tdf/TdfApp";
+import TdfApp, { tdfNavItems, tdfViewTitles, type TdfView } from "./tdf/TdfApp";
 
 // Le graphe (recharts, lourd) est chargé à la demande : il ne pèse sur le bundle
 // initial que lorsqu'on ouvre le Classement.
@@ -873,6 +873,7 @@ export function App() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [profileSetupPending, setProfileSetupPending] = useState(false);
   const [view, setView] = useState<View>("dashboard");
+  const [tdfView, setTdfView] = useState<TdfView>("dashboard");
   const [publicProfileUserId, setPublicProfileUserId] = useState("");
   const [theme, setTheme] = useState<ThemeMode>(initialTheme);
   const [language, setLanguage] = useState<Language>(initialLanguage);
@@ -991,25 +992,51 @@ export function App() {
     );
   }
 
+  const isTdf = universe === "tdf";
+  const isAdmin = user.isAdmin === true;
+  const showingProfile = view === "profile" || view === "publicProfile";
+  const navItemsForUniverse = isTdf
+    ? tdfNavItems.filter((item) => !item.adminOnly || isAdmin)
+    : navItems;
+  const activeNavId: string = isTdf ? tdfView : view;
+  const selectNav = (id: string) => {
+    if (isTdf) {
+      setTdfView(id as TdfView);
+      if (showingProfile) setView("dashboard");
+    } else {
+      setView(id as View);
+    }
+  };
+  const topbarTitle = showingProfile
+    ? viewTitles[view]
+    : isTdf
+      ? tdfViewTitles[tdfView]
+      : viewTitles[view];
+
   return (
     <LanguageContext.Provider value={language}>
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">26</div>
+          <div className="brand-mark">{isTdf ? "TdF" : "26"}</div>
           <div>
-            <strong>Prono CDM</strong>
+            <strong>{isTdf ? "Prono TDF" : "Prono CDM"}</strong>
           </div>
         </div>
-        {universe !== "tdf" && (
-        <nav className="nav-list" aria-label="Navigation principale">
-          {navItems.map((item) => {
+        <nav
+          className="nav-list"
+          aria-label="Navigation principale"
+          style={{
+            gridTemplateColumns: `repeat(${navItemsForUniverse.length}, minmax(0, 1fr))`
+          }}
+        >
+          {navItemsForUniverse.map((item) => {
             const Icon = item.icon;
             return (
               <button
                 key={item.id}
-                className={view === item.id ? "active" : ""}
-                onClick={() => setView(item.id)}
+                className={activeNavId === item.id ? "active" : ""}
+                onClick={() => selectNav(item.id)}
                 aria-label={item.label}
                 title={item.label}
                 type="button"
@@ -1020,7 +1047,6 @@ export function App() {
             );
           })}
         </nav>
-        )}
         <div className="sidebar-actions">
           <button
             className="logout-button"
@@ -1037,36 +1063,36 @@ export function App() {
         </div>
       </aside>
       <main className="main-area">
-        {universe !== "tdf" && (
-          <header className="topbar">
-            <div>
-              <p className="eyebrow">Coupe du monde 2026</p>
-              <h1>{viewTitles[view]}</h1>
-            </div>
-            <div className="topbar-actions">
-              <WhatsNewBubble unseen={news.unseen} onSeen={news.markSeen} />
-              <button className="user-pill" type="button" onClick={() => setView("profile")}>
-                <UserRound size={18} />
-                {user.pseudo}
-              </button>
-              <UniverseSwitcher value={universe} onChange={setUniverse} />
-            </div>
-          </header>
-        )}
-        {universe === "tdf" ? (
-          <TdfApp
-            user={user}
-            topbarActions={
-              <div className="topbar-actions">
-                <WhatsNewBubble unseen={news.unseen} onSeen={news.markSeen} />
-                <button className="user-pill" type="button" onClick={() => setView("profile")}>
-                  <UserRound size={18} />
-                  {user.pseudo}
-                </button>
-                <UniverseSwitcher value={universe} onChange={setUniverse} />
-              </div>
-            }
-          />
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">{isTdf ? "Tour de France 2026" : "Coupe du monde 2026"}</p>
+            <h1>{topbarTitle}</h1>
+          </div>
+          <div className="topbar-actions">
+            <WhatsNewBubble unseen={news.unseen} onSeen={news.markSeen} />
+            <button className="user-pill" type="button" onClick={() => setView("profile")}>
+              <UserRound size={18} />
+              {user.pseudo}
+            </button>
+            <UniverseSwitcher value={universe} onChange={setUniverse} />
+          </div>
+        </header>
+        {showingProfile ? (
+          view === "profile" ? (
+            <Profile
+              user={user}
+              language={language}
+              onLanguageChange={changeLanguage}
+              theme={theme}
+              onThemeChange={changeTheme}
+            />
+          ) : (
+            publicProfileUserId && (
+              <PublicProfile userId={publicProfileUserId} onBack={() => setView("leaderboard")} />
+            )
+          )
+        ) : isTdf ? (
+          <TdfApp user={user} view={tdfView} onNavigate={setTdfView} />
         ) : (
           <>
             <WhatsNewModal unseen={news.unseen} onDismiss={news.markSeen} />
@@ -1083,18 +1109,6 @@ export function App() {
             )}
             {view === "results" && <Results />}
             {view === "rules" && <Rules />}
-            {view === "profile" && (
-              <Profile
-                user={user}
-                language={language}
-                onLanguageChange={changeLanguage}
-                theme={theme}
-                onThemeChange={changeTheme}
-              />
-            )}
-            {view === "publicProfile" && publicProfileUserId && (
-              <PublicProfile userId={publicProfileUserId} onBack={() => setView("leaderboard")} />
-            )}
           </>
         )}
       </main>

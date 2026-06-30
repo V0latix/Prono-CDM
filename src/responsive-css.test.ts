@@ -50,6 +50,21 @@ describe("responsive CSS", () => {
     expect(css).toContain("--accent: #ffd400");
   });
 
+  it("collapses the universe switcher to icon-only and stacks TDF filters on mobile", () => {
+    const mobile = mediaBlock(600);
+    // La bascule d'univers masque son libellé sur mobile (barre d'actions dense).
+    expect(mobile).toMatch(/\.universe-switcher__label\s*\{[^}]*display:\s*none/);
+    // Le grand départ passe en une colonne sur mobile (bloc 600px dédié plus bas).
+    expect(css).toMatch(/\.tdf-grand-depart-grid\s*\{[^}]*grid-template-columns:\s*1fr/);
+
+    // La barre de filtres coureurs s'enroule au lieu de déborder.
+    expect(css).toMatch(/\.tdf-filter-bar\s*\{[^}]*flex-wrap:\s*wrap/);
+    // Sous 480px, recherche et selects passent en pleine largeur.
+    const narrow = mediaBlock(480);
+    expect(narrow).toContain(".tdf-filter-search");
+    expect(narrow).toContain("flex-basis: 100%");
+  });
+
   it("does not force uppercase on every paragraph inside the topbar", () => {
     // Le libellé .eyebrow reste en capitales, mais la règle ne doit pas viser
     // tous les .topbar p : sinon les descriptions du panneau Nouveautés (rendu

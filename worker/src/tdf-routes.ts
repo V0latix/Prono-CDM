@@ -150,13 +150,27 @@ export async function tdfLeaderboard(ctx: RequestContext): Promise<Response> {
   requireUser(ctx);
   const rows = await ctx.env.DB.prepare(
     `SELECT users.id AS user_id, users.pseudo,
-            COALESCE(s.pts, 0) + COALESCE(gd.points, 0) AS points
+            COALESCE(s.pts, 0) + COALESCE(gd.points, 0) AS points,
+            COALESCE(s.pts, 0) AS stage_points,
+            COALESCE(gd.points, 0) AS grand_depart_points,
+            COALESCE(s.played, 0) AS stages_played,
+            COALESCE(s.best, 0) AS best_stage
      FROM users
-     LEFT JOIN (SELECT user_id, SUM(points) AS pts FROM tdf_stage_predictions GROUP BY user_id) s
+     LEFT JOIN (SELECT user_id, SUM(points) AS pts, COUNT(*) AS played, MAX(points) AS best
+                FROM tdf_stage_predictions GROUP BY user_id) s
        ON s.user_id = users.id
      LEFT JOIN tdf_grand_depart_predictions gd ON gd.user_id = users.id
+     WHERE s.user_id IS NOT NULL OR gd.user_id IS NOT NULL
      ORDER BY points DESC, users.pseudo ASC`
-  ).all<{ user_id: string; pseudo: string; points: number }>();
+  ).all<{
+    user_id: string;
+    pseudo: string;
+    points: number;
+    stage_points: number;
+    grand_depart_points: number;
+    stages_played: number;
+    best_stage: number;
+  }>();
   return json(ctx.request, ctx.env, { leaderboard: rows.results ?? [] });
 }
 

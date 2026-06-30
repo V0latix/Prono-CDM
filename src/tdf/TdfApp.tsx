@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { CalendarClock, ClipboardList, Medal, Scale, Settings, Trophy } from "lucide-react";
 import type { User } from "../api";
 import {
@@ -14,9 +14,9 @@ import TdfLeaderboard from "./TdfLeaderboard";
 import TdfResults from "./TdfResults";
 import TdfRules from "./TdfRules";
 
-type TdfView = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "admin";
+export type TdfView = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "admin";
 
-const tdfNavItems: Array<{ id: TdfView; label: string; icon: typeof CalendarClock; adminOnly?: boolean }> = [
+export const tdfNavItems: Array<{ id: TdfView; label: string; icon: typeof CalendarClock; adminOnly?: boolean }> = [
   { id: "dashboard", label: "Dashboard", icon: CalendarClock },
   { id: "predictions", label: "Mes pronos", icon: ClipboardList },
   { id: "leaderboard", label: "Classement", icon: Trophy },
@@ -25,7 +25,7 @@ const tdfNavItems: Array<{ id: TdfView; label: string; icon: typeof CalendarCloc
   { id: "admin", label: "Admin", icon: Settings, adminOnly: true }
 ];
 
-const tdfViewTitles: Record<TdfView, string> = {
+export const tdfViewTitles: Record<TdfView, string> = {
   dashboard: "Dashboard",
   predictions: "Mes pronos",
   leaderboard: "Classement",
@@ -232,51 +232,27 @@ function TdfPredictions() {
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
 
-export default function TdfApp({ user, topbarActions }: { user: User; topbarActions?: ReactNode }) {
-  const [view, setView] = useState<TdfView>("dashboard");
+export default function TdfApp({
+  user,
+  view,
+  onNavigate
+}: {
+  user: User;
+  view: TdfView;
+  onNavigate: (view: TdfView) => void;
+}) {
   const isAdmin = user.isAdmin === true;
 
   return (
-    <div className="tdf-app">
-      <header className="topbar tdf-topbar">
-        <div>
-          <p className="eyebrow">Tour de France 2026</p>
-          <h1>{tdfViewTitles[view]}</h1>
-        </div>
-        {topbarActions}
-      </header>
-
-      <nav className="nav-list tdf-nav" aria-label="Navigation Tour de France">
-        {tdfNavItems
-          .filter((item) => !item.adminOnly || isAdmin)
-          .map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                className={view === item.id ? "active" : ""}
-                onClick={() => setView(item.id)}
-                aria-label={item.label}
-                title={item.label}
-                type="button"
-              >
-                <Icon size={18} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-      </nav>
-
-      <div className="tdf-content">
-        {view === "dashboard" && (
-          <TdfDashboard onOpenPredictions={() => setView("predictions")} />
-        )}
-        {view === "predictions" && <TdfPredictions />}
-        {view === "leaderboard" && <TdfLeaderboard />}
-        {view === "results" && <TdfResults />}
-        {view === "rules" && <TdfRules />}
-        {view === "admin" && isAdmin && <TdfAdmin />}
-      </div>
-    </div>
+    <>
+      {view === "dashboard" && (
+        <TdfDashboard onOpenPredictions={() => onNavigate("predictions")} />
+      )}
+      {view === "predictions" && <TdfPredictions />}
+      {view === "leaderboard" && <TdfLeaderboard />}
+      {view === "results" && <TdfResults />}
+      {view === "rules" && <TdfRules />}
+      {view === "admin" && isAdmin && <TdfAdmin />}
+    </>
   );
 }

@@ -28,8 +28,18 @@ export const fetchTdfStages = () =>
 export const fetchTdfDashboard = () =>
   api<{ nextStage: TdfStage | null; myPrediction: unknown }>("/api/tdf/dashboard");
 
+export type TdfLeaderboardEntry = {
+  user_id: string;
+  pseudo: string;
+  points: number;
+  stage_points: number;
+  grand_depart_points: number;
+  stages_played: number;
+  best_stage: number;
+};
+
 export const fetchTdfLeaderboard = () =>
-  api<{ leaderboard: { user_id: string; pseudo: string; points: number }[] }>("/api/tdf/leaderboard");
+  api<{ leaderboard: TdfLeaderboardEntry[] }>("/api/tdf/leaderboard");
 
 export const fetchTdfResults = () =>
   api<{ stages: TdfStage[]; results: { stage_no: number; rider_id: string; rank: number }[] }>("/api/tdf/results");
