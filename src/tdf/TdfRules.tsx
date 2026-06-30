@@ -13,10 +13,11 @@ export default function TdfRules() {
 
       <h2>Barème par étape</h2>
       <p>
-        1er : 10 pts · 2e : 8 pts · 3e : 6 pts · 4e : 5 pts · 5e : 4 pts ·
-        6e : 3 pts · 7e : 2 pts · 8e–10e : 1 pt.
+        Chaque coureur de ton top 10 présent dans le top 10 réel rapporte 11 − sa place réelle :
+        1er = 10 pts, 2e = 9 pts, 3e = 8 pts, 4e = 7 pts, 5e = 6 pts,
+        6e = 5 pts, 7e = 4 pts, 8e = 3 pts, 9e = 2 pts, 10e = 1 pt.
       </p>
-      <p>Combatif correct : +5 pts.</p>
+      <p>Combatif correct : +10 pts.</p>
 
       <h2>Grand Départ</h2>
       <p>
@@ -25,6 +26,15 @@ export default function TdfRules() {
         meilleur grimpeur (maillot à pois). Ces pronos rapportent des points bonus à la fin du
         Tour.
       </p>
+      <p>
+        Maillot jaune — place exacte : 1er = 80 pts, 2e = 40 pts, 3e = 20 pts.
+        Bon coureur, mauvaise place : 40 / 20 / 10 pts.
+      </p>
+      <p>
+        Maillot blanc — place exacte : 1er = 40 pts, 2e = 20 pts, 3e = 10 pts.
+        Bon coureur, mauvaise place : 20 / 10 / 5 pts.
+      </p>
+      <p>Maillot vert correct : +40 pts. Maillot à pois correct : +40 pts.</p>
 
       <h2>Verrouillage</h2>
       <p>

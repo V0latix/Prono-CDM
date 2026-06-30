@@ -154,6 +154,8 @@ function TdfPredictions() {
   }
 
   if (showGrandDepart) {
+    const stage1 = stages.find((s) => s.stage_no === 1);
+    const grandDepartLocked = stage1 !== undefined && new Date(stage1.lock_at).getTime() <= Date.now();
     return (
       <div>
         <button
@@ -164,7 +166,7 @@ function TdfPredictions() {
         >
           ← Retour
         </button>
-        <GrandDepart riders={riders} />
+        <GrandDepart riders={riders} locked={grandDepartLocked} />
       </div>
     );
   }
