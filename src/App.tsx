@@ -210,6 +210,11 @@ const viewTitles: Record<View, string> = {
 
 export const releaseNotes = [
   {
+    title: "Nouveau : pronostique le Tour de France",
+    description: "Une nouvelle section fait son entrée ! Avec le sélecteur en haut de l'écran, bascule entre la Coupe du monde et le Tour de France. Côté vélo : compose ton top 10 de chaque étape, tente le coureur le plus combatif, et fais tes pronos « grand départ » sur les maillots jaune, vert, à pois et blanc. Ton compte, tes amis et tes groupes restent les mêmes : seul l'univers change.",
+    date: "2026-06-30"
+  },
+  {
     title: "Profil joueur plus clair",
     description: "Sur le profil d'un joueur, la liste « Pronos passés » est maintenant repliée par défaut : on voit d'abord ses badges et ses stats, et on déplie ses pronostics d'un simple bouton quand on veut les consulter.",
     date: "2026-06-18"
