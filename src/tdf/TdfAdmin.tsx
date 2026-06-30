@@ -8,6 +8,23 @@ export default function TdfAdmin() {
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rosterMsg, setRosterMsg] = useState("");
+  const [rosterLoading, setRosterLoading] = useState(false);
+
+  const refreshRoster = async () => {
+    setRosterMsg("");
+    setRosterLoading(true);
+    try {
+      const res = (await api("/api/admin/tdf/refresh-roster", {
+        method: "POST"
+      })) as { loaded?: number };
+      setRosterMsg(`Peloton rechargé : ${res.loaded ?? 0} coureurs.`);
+    } catch {
+      setRosterMsg("Erreur lors du rechargement du peloton.");
+    } finally {
+      setRosterLoading(false);
+    }
+  };
 
   const rankLabel = (i: number) => {
     if (i === 0) return "1er";
@@ -45,6 +62,23 @@ export default function TdfAdmin() {
       <div className="section-title">
         <h2>Saisie résultat d'étape</h2>
       </div>
+
+      <div className="tdf-submit-row" style={{ marginBottom: "1rem" }}>
+        <button
+          type="button"
+          className="primary-button"
+          onClick={refreshRoster}
+          disabled={rosterLoading}
+        >
+          {rosterLoading ? "Rechargement…" : "Rafraîchir le peloton"}
+        </button>
+        {rosterMsg && (
+          <p className="form-notice" role="status">
+            {rosterMsg}
+          </p>
+        )}
+      </div>
+
       <p className="section-subtitle">
         Saisie ou correction du résultat d'une étape. La re-soumission écrase l'entrée précédente.
       </p>

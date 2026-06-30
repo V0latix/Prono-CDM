@@ -90,4 +90,46 @@ describe("StagePrediction", () => {
     fireEvent.click(screen.getByRole("button", { name: "Rider 10" }));
     expect(submit).not.toBeDisabled();
   });
+
+  const stage = {
+    stage_no: 1,
+    date: "2026-07-04",
+    lock_at: "2999-01-01T00:00:00Z",
+    type: "flat",
+    label: "A → B",
+    status: "upcoming",
+    combative_rider_id: null
+  };
+
+  const mixed = [
+    { id: "a", name: "Alpha", team: "Red", nationality: "FRA", is_young: 0, status: "active" },
+    { id: "b", name: "Bravo", team: "Blue", nationality: "BEL", is_young: 0, status: "active" },
+    { id: "c", name: "Charlie", team: "Red", nationality: "BEL", is_young: 0, status: "active" }
+  ];
+
+  it("filtre la liste avec la recherche par nom", async () => {
+    vi.spyOn(tdfApi, "fetchTdfRiders").mockResolvedValue({ riders: mixed } as any);
+    render(<StagePrediction stage={stage as any} />);
+    await waitFor(() => screen.getByText("Alpha"));
+
+    fireEvent.change(screen.getByLabelText(/rechercher un coureur/i), {
+      target: { value: "brav" }
+    });
+    expect(screen.getByRole("button", { name: "Bravo" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Alpha" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Charlie" })).toBeNull();
+  });
+
+  it("filtre par nationalité", async () => {
+    vi.spyOn(tdfApi, "fetchTdfRiders").mockResolvedValue({ riders: mixed } as any);
+    render(<StagePrediction stage={stage as any} />);
+    await waitFor(() => screen.getByText("Alpha"));
+
+    fireEvent.change(screen.getByLabelText(/filtrer par nationalité/i), {
+      target: { value: "BEL" }
+    });
+    expect(screen.queryByRole("button", { name: "Alpha" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Bravo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Charlie" })).toBeInTheDocument();
+  });
 });

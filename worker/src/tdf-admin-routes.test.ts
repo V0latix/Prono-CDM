@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Miniflare } from "miniflare";
-import { tdfAdminStageResult } from "./tdf-admin-routes";
+import { tdfAdminStageResult, tdfAdminRefreshRoster } from "./tdf-admin-routes";
 import type { RequestContext } from "./http";
 import type { Env, User } from "./types";
 
@@ -144,5 +144,12 @@ describe("tdfAdminStageResult", () => {
     );
     const res = await tdfAdminStageResult(ctx);
     expect(res.status).toBe(200);
+  });
+});
+
+describe("tdfAdminRefreshRoster", () => {
+  it("refuse sans le bon secret et sans is_admin", async () => {
+    const ctx = makeCtx({}, { secret: "wrong", user: null });
+    await expect(tdfAdminRefreshRoster(ctx)).rejects.toThrow(/403|interdit|autoris/i);
   });
 });

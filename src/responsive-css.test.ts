@@ -45,6 +45,11 @@ describe("responsive CSS", () => {
     expect(css).toContain('--font-body: "Inter", sans-serif');
   });
 
+  it("defines the Tour de France (maillot jaune) theme", () => {
+    expect(css).toContain('html[data-theme="tdf"]');
+    expect(css).toContain("--accent: #ffd400");
+  });
+
   it("does not force uppercase on every paragraph inside the topbar", () => {
     // Le libellé .eyebrow reste en capitales, mais la règle ne doit pas viser
     // tous les .topbar p : sinon les descriptions du panneau Nouveautés (rendu

@@ -86,11 +86,12 @@ function riderUpserts(
   return rows.map((r) =>
     env.DB.prepare(
       `INSERT INTO tdf_riders (id, name, team, nationality, is_young, status)
-       VALUES (?, ?, ?, NULL, ?, 'active')
+       VALUES (?, ?, ?, ?, ?, 'active')
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name, team = excluded.team,
+         nationality = COALESCE(excluded.nationality, nationality),
          is_young = CASE WHEN excluded.is_young = 1 THEN 1 ELSE is_young END`
-    ).bind(r.bib, r.rider, r.team, young.has(r.bib) ? 1 : 0)
+    ).bind(r.bib, r.rider, r.team, r.nationality, young.has(r.bib) ? 1 : 0)
   );
 }
 
@@ -107,28 +108,56 @@ async function youngBibs(
   return set;
 }
 
-// Avant la course, alimente le peloton depuis le classement general (itg) de la
-// premiere etape, pour que les joueurs puissent pronostiquer. Best-effort.
-async function bootstrapPeloton(
+// Alimente le peloton depuis le classement general (itg) de la premiere etape,
+// pour que les joueurs puissent pronostiquer. Best-effort.
+// - force=false : ne charge que si le peloton est vide (bootstrap au fil de l'eau).
+// - force=true  : recharge inconditionnellement (bouton admin / changement d'edition)
+//   et purge les coureurs d'exemple (id non numerique) pour ne garder que le vrai
+//   peloton keye par dossard. Renvoie le nombre de coureurs charges.
+async function loadPeloton(
   env: Env,
   fetchImpl: FetchLike,
-  base: string
-): Promise<void> {
-  const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM tdf_riders").first<{ n: number }>();
-  if ((count?.n ?? 0) > 0) return;
+  base: string,
+  options: { force?: boolean } = {}
+): Promise<number> {
+  if (!options.force) {
+    const count = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM tdf_riders"
+    ).first<{ n: number }>();
+    if ((count?.n ?? 0) > 0) return 0;
+  }
   const first = await env.DB.prepare(
     "SELECT stage_no FROM tdf_stages ORDER BY stage_no ASC LIMIT 1"
   ).first<{ stage_no: number }>();
-  if (!first) return;
+  if (!first) return 0;
   const page = await getText(fetchImpl, `${base}/en/rankings/stage-${first.stage_no}`);
-  if (!page) return;
+  if (!page) return 0;
   const paths = extractAjaxRankingPaths(page);
-  if (!paths.itg) return;
+  if (!paths.itg) return 0;
   const itg = await getText(fetchImpl, `${base}${paths.itg}`);
   const rows = itg ? parseRankingTable(itg) : [];
-  if (!rows.length) return;
+  if (!rows.length) return 0;
   const young = await youngBibs(env, fetchImpl, base, paths.ijg);
-  await runD1Batch(env, riderUpserts(env, rows, young));
+
+  const writes = riderUpserts(env, rows, young);
+  if (options.force) {
+    // Supprime les coureurs d'exemple (ids non numeriques) : le vrai peloton est
+    // keye par dossard letour (numerique).
+    writes.push(env.DB.prepare("DELETE FROM tdf_riders WHERE id NOT GLOB '[0-9]*'"));
+  }
+  await runD1Batch(env, writes);
+  return rows.length;
+}
+
+// Recharge le peloton complet a la demande (bouton admin). Renvoie le nombre charge.
+export async function refreshTdfPeloton(
+  env: Env,
+  deps: SyncDeps = {}
+): Promise<{ loaded: number }> {
+  const fetchImpl: FetchLike = deps.fetch ?? ((url) => fetch(url));
+  const base = env.LETOUR_BASE_URL ?? DEFAULT_BASE;
+  const loaded = await loadPeloton(env, fetchImpl, base, { force: true });
+  return { loaded };
 }
 
 async function syncFinalClassifications(
@@ -186,7 +215,7 @@ export async function syncTourDeFrance(env: Env, deps: SyncDeps = {}): Promise<{
       return {};
     }
 
-    await bootstrapPeloton(env, fetchImpl, base);
+    await loadPeloton(env, fetchImpl, base);
 
     const today = now.toISOString().slice(0, 10);
     const maxStage = Math.max(...stages.map((s) => s.stage_no));

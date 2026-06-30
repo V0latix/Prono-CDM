@@ -18,6 +18,7 @@ export type LetourRankingRow = {
   bib: string;
   rider: string;
   team: string;
+  nationality: string | null;
 };
 
 function titleCase(slug: string): string {
@@ -36,11 +37,13 @@ export function parseRankingTable(html: string): LetourRankingRow[] {
     const pos = tr.match(/row__position[^>]*>\s*<span>\s*(\d+)\s*<\/span>/);
     const link = tr.match(/\/en\/rider\/(\d+)\/([^/"]+)\/([^/"]+)/);
     if (!pos || !link) continue; // ligne d'en-tete ou ligne sans coureur
+    const flag = tr.match(/data-class="flag--([a-z]+)"/);
     out.push({
       rank: Number(pos[1]),
       bib: link[1],
       team: titleCase(link[2]),
-      rider: titleCase(link[3])
+      rider: titleCase(link[3]),
+      nationality: flag ? flag[1].toUpperCase() : null
     });
   }
   return out;

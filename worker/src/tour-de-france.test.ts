@@ -6,7 +6,7 @@ import tdfMigration from "../../migrations/0012_tdf.sql?raw";
 import iteHtml from "../../src/shared/__fixtures__/letour-ite.html?raw";
 import iceHtml from "../../src/shared/__fixtures__/letour-ice.html?raw";
 import pageHtml from "../../src/shared/__fixtures__/letour-stage-page.html?raw";
-import { syncTourDeFrance } from "./tour-de-france";
+import { syncTourDeFrance, refreshTdfPeloton } from "./tour-de-france";
 import type { Env } from "./types";
 
 // Synchro reelle sur D1 (miniflare) avec un `fetch` injecte qui renvoie de vrais
@@ -88,6 +88,31 @@ describe("syncTourDeFrance", () => {
       "SELECT points FROM tdf_stage_predictions WHERE user_id = 'u1'"
     ).first<{ points: number }>();
     expect(pred?.points).toBe(10);
+
+    const nat = await env.DB.prepare(
+      "SELECT nationality FROM tdf_riders WHERE id = '101'"
+    ).first<{ nationality: string }>();
+    expect(nat?.nationality).toBe("BEL");
+  });
+
+  it("refreshTdfPeloton charge le peloton et purge les coureurs d'exemple", async () => {
+    // un coureur d'exemple a id non numerique (comme le seed de preview)
+    await env.DB.prepare(
+      "INSERT INTO tdf_riders (id, name, team, nationality, is_young, status) VALUES ('tadej-pogacar','Demo','Demo',NULL,0,'active')"
+    ).run();
+
+    const out = await refreshTdfPeloton(env, { fetch: fakeFetch });
+    expect(out.loaded).toBe(3);
+
+    const sample = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM tdf_riders WHERE id NOT GLOB '[0-9]*'"
+    ).first<{ n: number }>();
+    expect(sample?.n).toBe(0);
+
+    const real = await env.DB.prepare(
+      "SELECT name, nationality FROM tdf_riders WHERE id = '101'"
+    ).first<{ name: string; nationality: string }>();
+    expect(real?.nationality).toBe("BEL");
   });
 
   it("est idempotent et n'efface pas un resultat existant", async () => {

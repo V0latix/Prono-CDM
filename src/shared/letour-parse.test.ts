@@ -16,12 +16,15 @@ describe("parseRankingTable", () => {
       rank: 1,
       bib: "101",
       rider: "Jasper Philipsen",
-      team: "Alpecin Deceuninck"
+      team: "Alpecin Deceuninck",
+      nationality: "BEL"
     });
     expect(rows[1].bib).toBe("41");
     expect(rows[1].rider).toBe("Biniam Girmay");
+    expect(rows[1].nationality).toBe("ERI");
     expect(rows[2].rank).toBe(3);
     expect(rows[2].bib).toBe("228");
+    expect(rows[2].nationality).toBe("NOR");
   });
 
   it("ignore la ligne d'en-tete (rangs entiers >= 1)", () => {

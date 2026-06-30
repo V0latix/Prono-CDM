@@ -94,6 +94,28 @@ html[data-theme="france"] {
   color-scheme: dark;
 }
 
+/* Tour de France : fond brun-noir, accent jaune maillot jaune. */
+html[data-theme="tdf"] {
+  --bg: #1a1400;
+  --fg: #fffbe6;
+  --accent: #ffd400;
+  --surface: #3a2e00;
+  --panel: #2b2200;
+  --muted: #e8d9a0;
+  --danger: #ff5a4f;
+  --success: #ffd400;
+  --success-soft: rgba(255, 212, 0, 0.16);
+  --danger-soft: rgba(255, 90, 79, 0.18);
+  --qualified-third: #ffd400;
+  --qualified-third-soft: rgba(255, 212, 0, 0.2);
+  --nav-shadow: rgba(255, 212, 0, 0.34);
+  --on-accent: #1a1400;
+  --font-display: "Inter", sans-serif;
+  --font-body: "Inter", sans-serif;
+
+  color-scheme: dark;
+}
+
 /* Minuit : bleu nuit élégant, accent bleu électrique. Sobre et reposant. */
 html[data-theme="minuit"] {
   --bg: #0b1020;
@@ -3326,6 +3348,49 @@ button {
 
 /* ─── TDF module ──────────────────────────────────────────────────────────── */
 
+/* Bouton de bascule d'univers : pilule large et visible avec libellé. */
+.universe-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1.25rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 6px 18px var(--nav-shadow, rgba(0, 0, 0, 0.25));
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.universe-switcher:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.universe-switcher:active {
+  transform: translateY(0);
+}
+
+.universe-switcher__icon {
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+@media (max-width: 600px) {
+  .universe-switcher {
+    padding: 0.6rem 1rem;
+    font-size: 0.92rem;
+  }
+  .universe-switcher__icon {
+    font-size: 1.3rem;
+  }
+}
+
 .tdf-app {
   display: grid;
   gap: 1.25rem;
@@ -3345,6 +3410,44 @@ button {
 }
 
 /* Rider list */
+.tdf-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+
+.tdf-filter-search {
+  flex: 1 1 12rem;
+  min-width: 8rem;
+}
+
+.tdf-filter-bar select {
+  flex: 0 1 auto;
+}
+
+.tdf-selected-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+}
+
+.tdf-chip {
+  border: none;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+}
+
+.tdf-chip:hover {
+  filter: brightness(1.06);
+}
+
 .tdf-rider-list {
   list-style: none;
   margin: 0 0 1rem;

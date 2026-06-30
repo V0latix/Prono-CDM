@@ -69,8 +69,8 @@ Points d'attention :
 - Le bouton pseudo ouvre le profil utilisateur.
 - La bulle `Nouveautes` lit la constante `releaseNotes` dans `src/App.tsx`.
 - Les release notes doivent rester orientees utilisateur. Ne pas y mettre de details techniques de deploy, Worker, preview, migration ou API.
-- Les themes disponibles sont `classic`, `dark`, `minuit`, `ardoise`, `grass`, `neon`, `france`.
-- Les themes `ardoise`, `grass`, `neon` et `france` utilisent `Inter` pour une meilleure lisibilite.
+- Les themes disponibles sont `classic`, `dark`, `minuit`, `ardoise`, `grass`, `neon`, `france`, `tdf` (maillot jaune).
+- Les themes `ardoise`, `grass`, `neon`, `france` et `tdf` utilisent `Inter` pour une meilleure lisibilite.
 - La carte "Predictions a faire maintenant" du dashboard n'affiche PAS un jour
   calendaire : elle regroupe une "session" de matchs consecutifs (coups d'envoi
   espaces de moins de 9h, voir `worker/src/prediction-session.ts`). Sinon les
@@ -439,7 +439,7 @@ L'app a deux univers de prono : `cdm` (Coupe du monde, historique) et `tdf` (Tou
 Fichiers TDF :
 
 - `src/shared/tdf-scoring.ts` : scoring pur (etape + grand depart), couvert par `tdf-scoring.test.ts`.
-- `src/tdf/` : module front (shell `TdfApp`, `StagePrediction`, `GrandDepart`, `TdfLeaderboard`, `TdfResults`, `TdfRules`, `TdfAdmin`, client `api.ts`).
+- `src/tdf/` : module front (shell `TdfApp`, `StagePrediction`, `GrandDepart`, `TdfLeaderboard`, `TdfResults`, `TdfRules`, `TdfAdmin`, `RiderFilterBar`, client `api.ts`). `RiderFilterBar`/`useRiderFilter` = recherche + filtres nationalite/equipe sur la liste des coureurs (utilise dans `StagePrediction`).
 - `worker/src/tdf-routes.ts` : routes joueur `/api/tdf/*` (riders, stages, dashboard, predictions, grand-depart, leaderboard, results).
 - `worker/src/tdf-admin-routes.ts` : routes admin `/api/admin/tdf/*` (roster, stage-result, final), protegees par `assertTdfSyncSecret` (header `x-tdf-sync-secret` == `TDF_SYNC_SECRET`, OU user `is_admin`).
 - `worker/src/tdf-scoring-db.ts` : recalcul des points (etape + grand depart), batche via `runD1Batch`.
@@ -453,7 +453,7 @@ Scoring TDF (fige) :
 - Grand depart : podium jaune place exacte 80/40/20, bon coureur mauvaise place = moitie de la place REELLE (40/20/10) ; podium blanc 40/20/10 ou 20/10/5 ; vert +40 ; pois +40.
 - Tout changement met a jour `src/shared/tdf-scoring.ts`, son test, ET le texte de `src/tdf/TdfRules.tsx` (le reglement affiche doit toujours refleter le code).
 
-Donnee cyclisme : aucune API gratuite propre (ProCyclingStats bloque nos IP en 403, abandonne). La source est le site officiel **letour.fr** (HTML public, gratuit), fetché et parsé DIRECTEMENT par le Worker dans le cron `*/10` (`worker/src/tour-de-france.ts` + `src/shared/letour-parse.ts`). C'est l'exception assumee a la regle "le Worker ne scrape jamais" (cette regle visait PCS : bloquant + Python ; letour est du HTML simple, officiel, accessible). Identite coureur = numero de dossard letour. Types de classement : `ite` (resultat etape), `ice` (combatif), `itg`/`ipg`/`img`/`ijg` (jaune/vert/pois/blanc). Anti-effacement : un parsing vide n'ecrase jamais un resultat reel. La saisie manuelle (`TdfAdmin`, visible du seul compte `is_admin`) reste le filet de secours. `assertTdfSyncSecret` garde encore le chemin `x-tdf-sync-secret`, mais seul le chemin `is_admin` est utilise (l'ecran manuel) ; `TDF_SYNC_SECRET` est de fait inutilise.
+Donnee cyclisme : aucune API gratuite propre (ProCyclingStats bloque nos IP en 403, abandonne). La source est le site officiel **letour.fr** (HTML public, gratuit), fetché et parsé DIRECTEMENT par le Worker dans le cron `*/10` (`worker/src/tour-de-france.ts` + `src/shared/letour-parse.ts`). C'est l'exception assumee a la regle "le Worker ne scrape jamais" (cette regle visait PCS : bloquant + Python ; letour est du HTML simple, officiel, accessible). Identite coureur = numero de dossard letour (l'edition courante est servie ; ca bascule sur 2026 quand letour publie). Le parsing capture aussi la nationalite (`data-class="flag--xxx"`). Le peloton complet est charge par `loadPeloton` (bootstrap si vide, ou force via `refreshTdfPeloton` / route admin `POST /api/admin/tdf/refresh-roster` + bouton "Rafraichir le peloton" dans `TdfAdmin`). Types de classement : `ite` (resultat etape), `ice` (combatif), `itg`/`ipg`/`img`/`ijg` (jaune/vert/pois/blanc). Anti-effacement : un parsing vide n'ecrase jamais un resultat reel. La saisie manuelle (`TdfAdmin`, visible du seul compte `is_admin`) reste le filet de secours. `assertTdfSyncSecret` garde encore le chemin `x-tdf-sync-secret`, mais seul le chemin `is_admin` est utilise (l'ecran manuel) ; `TDF_SYNC_SECRET` est de fait inutilise.
 
 Validation serveur TDF (jamais que cote UI) : prono d'etape = 10 coureurs distincts du peloton actif, refuse apres `lock_at` (defaut 13h00) ; grand depart refuse apres le depart de l'etape 1.
 

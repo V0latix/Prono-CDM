@@ -80,7 +80,8 @@ const themeOptions = [
   { id: "ardoise", label: "Ardoise" },
   { id: "grass", label: "Mode gazon" },
   { id: "neon", label: "Néon stade" },
-  { id: "france", label: "Bleu blanc rouge" }
+  { id: "france", label: "Bleu blanc rouge" },
+  { id: "tdf", label: "Tour de France" }
 ] as const;
 type ThemeMode = (typeof themeOptions)[number]["id"];
 
@@ -1109,15 +1110,19 @@ function UniverseSwitcher({
   value: Universe;
   onChange: (next: Universe) => void;
 }) {
+  const label = value === "cdm" ? "Passer au Tour de France" : "Revenir à la Coupe du Monde";
   return (
     <button
-      className="universe-switcher"
+      className={`universe-switcher universe-switcher--${value === "cdm" ? "to-tdf" : "to-cdm"}`}
       type="button"
-      title={value === "cdm" ? "Passer au Tour de France" : "Passer à la Coupe du Monde"}
-      aria-label={value === "cdm" ? "Passer au Tour de France" : "Passer à la Coupe du Monde"}
+      title={label}
+      aria-label={label}
       onClick={() => onChange(value === "cdm" ? "tdf" : "cdm")}
     >
-      {value === "cdm" ? "🚴" : "⚽"}
+      <span className="universe-switcher__icon" aria-hidden="true">
+        {value === "cdm" ? "🚴" : "⚽"}
+      </span>
+      <span className="universe-switcher__label">{label}</span>
     </button>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchTdfRiders, saveTdfStagePrediction } from "./api";
 import type { TdfRider, TdfStage } from "./api";
+import { RiderFilterBar, useRiderFilter } from "./RiderFilterBar";
 
 export default function StagePrediction({ stage }: { stage: TdfStage }) {
   const [riders, setRiders] = useState<TdfRider[]>([]);
@@ -8,6 +9,11 @@ export default function StagePrediction({ stage }: { stage: TdfStage }) {
   const [combativeId, setCombativeId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [loadError, setLoadError] = useState("");
+  const filter = useRiderFilter(riders);
+  const selectedRiders = useMemo(
+    () => selected.map((id) => riders.find((r) => r.id === id)).filter(Boolean) as TdfRider[],
+    [selected, riders]
+  );
 
   const locked = useMemo(
     () => new Date(stage.lock_at).getTime() <= Date.now(),
@@ -67,8 +73,26 @@ export default function StagePrediction({ stage }: { stage: TdfStage }) {
         </p>
       )}
 
+      {!locked && selectedRiders.length > 0 && (
+        <div className="tdf-selected-chips" aria-label="Coureurs sélectionnés">
+          {selectedRiders.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              className="tdf-chip"
+              aria-label={`Retirer ${r.name}`}
+              onClick={() => toggle(r.id)}
+            >
+              {r.name} ✕
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!locked && <RiderFilterBar state={filter} />}
+
       <ul className="tdf-rider-list" aria-label="Liste des coureurs">
-        {riders.map((r) => (
+        {filter.filtered.map((r) => (
           <li key={r.id} className="tdf-rider-row">
             <button
               type="button"
@@ -79,7 +103,12 @@ export default function StagePrediction({ stage }: { stage: TdfStage }) {
               onClick={() => toggle(r.id)}
             >
               {r.name}
-              {r.team && <span className="tdf-rider-team">{r.team}</span>}
+              {r.team && (
+                <span className="tdf-rider-team">
+                  {r.team}
+                  {r.nationality ? ` · ${r.nationality}` : ""}
+                </span>
+              )}
             </button>
             <button
               type="button"

@@ -4,6 +4,7 @@ import {
   recalculateTdfStagePoints,
   recalculateTdfGrandDepart
 } from "./tdf-scoring-db";
+import { refreshTdfPeloton } from "./tour-de-france";
 
 // Accès admin : soit le secret partagé (GitHub Action, sans compte),
 // soit un user connecté avec is_admin = 1 (écran manuel front).
@@ -160,4 +161,12 @@ export async function tdfAdminFinal(ctx: RequestContext): Promise<Response> {
 
   await recalculateTdfGrandDepart(ctx.env);
   return json(ctx.request, ctx.env, { ok: true });
+}
+
+// Recharge le peloton complet depuis letour (bouton admin). Remplace les coureurs
+// d'exemple par le vrai peloton (nationalite + equipe).
+export async function tdfAdminRefreshRoster(ctx: RequestContext): Promise<Response> {
+  assertTdfSyncSecret(ctx);
+  const { loaded } = await refreshTdfPeloton(ctx.env);
+  return json(ctx.request, ctx.env, { ok: true, loaded });
 }

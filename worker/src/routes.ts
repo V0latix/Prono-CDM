@@ -38,7 +38,12 @@ import {
   tdfLeaderboard,
   tdfResults
 } from "./tdf-routes";
-import { tdfAdminRoster, tdfAdminStageResult, tdfAdminFinal } from "./tdf-admin-routes";
+import {
+  tdfAdminRoster,
+  tdfAdminStageResult,
+  tdfAdminFinal,
+  tdfAdminRefreshRoster
+} from "./tdf-admin-routes";
 import {
   generateInviteCode,
   isValidInviteCode,
@@ -1732,5 +1737,6 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname === "/api/admin/tdf/roster") return tdfAdminRoster(ctx);
   if (pathname === "/api/admin/tdf/stage-result") return tdfAdminStageResult(ctx);
   if (pathname === "/api/admin/tdf/final") return tdfAdminFinal(ctx);
+  if (pathname === "/api/admin/tdf/refresh-roster") return tdfAdminRefreshRoster(ctx);
   throw new HttpError(404, "Route introuvable.");
 }
