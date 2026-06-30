@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { CalendarClock, ClipboardList, Medal, Scale, Trophy } from "lucide-react";
+import { CalendarClock, ClipboardList, Medal, Scale, Settings, Trophy } from "lucide-react";
 import type { User } from "../api";
 import {
   fetchTdfDashboard,
@@ -9,18 +9,20 @@ import {
 import type { TdfRider, TdfStage } from "./api";
 import GrandDepart from "./GrandDepart";
 import StagePrediction from "./StagePrediction";
+import TdfAdmin from "./TdfAdmin";
 import TdfLeaderboard from "./TdfLeaderboard";
 import TdfResults from "./TdfResults";
 import TdfRules from "./TdfRules";
 
-type TdfView = "dashboard" | "predictions" | "leaderboard" | "results" | "rules";
+type TdfView = "dashboard" | "predictions" | "leaderboard" | "results" | "rules" | "admin";
 
-const tdfNavItems: Array<{ id: TdfView; label: string; icon: typeof CalendarClock }> = [
+const tdfNavItems: Array<{ id: TdfView; label: string; icon: typeof CalendarClock; adminOnly?: boolean }> = [
   { id: "dashboard", label: "Dashboard", icon: CalendarClock },
   { id: "predictions", label: "Mes pronos", icon: ClipboardList },
   { id: "leaderboard", label: "Classement", icon: Trophy },
   { id: "results", label: "Résultats", icon: Medal },
-  { id: "rules", label: "Règlement", icon: Scale }
+  { id: "rules", label: "Règlement", icon: Scale },
+  { id: "admin", label: "Admin", icon: Settings, adminOnly: true }
 ];
 
 const tdfViewTitles: Record<TdfView, string> = {
@@ -28,7 +30,8 @@ const tdfViewTitles: Record<TdfView, string> = {
   predictions: "Mes pronos",
   leaderboard: "Classement",
   results: "Résultats",
-  rules: "Règlement"
+  rules: "Règlement",
+  admin: "Admin"
 };
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
@@ -227,8 +230,9 @@ function TdfPredictions() {
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
 
-export default function TdfApp(_props: { user: User; topbarActions?: ReactNode }) {
+export default function TdfApp({ user, topbarActions }: { user: User; topbarActions?: ReactNode }) {
   const [view, setView] = useState<TdfView>("dashboard");
+  const isAdmin = user.isAdmin === true;
 
   return (
     <div className="tdf-app">
@@ -237,26 +241,28 @@ export default function TdfApp(_props: { user: User; topbarActions?: ReactNode }
           <p className="eyebrow">Tour de France 2026</p>
           <h1>{tdfViewTitles[view]}</h1>
         </div>
-        {_props.topbarActions}
+        {topbarActions}
       </header>
 
       <nav className="nav-list tdf-nav" aria-label="Navigation Tour de France">
-        {tdfNavItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.id}
-              className={view === item.id ? "active" : ""}
-              onClick={() => setView(item.id)}
-              aria-label={item.label}
-              title={item.label}
-              type="button"
-            >
-              <Icon size={18} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
+        {tdfNavItems
+          .filter((item) => !item.adminOnly || isAdmin)
+          .map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                className={view === item.id ? "active" : ""}
+                onClick={() => setView(item.id)}
+                aria-label={item.label}
+                title={item.label}
+                type="button"
+              >
+                <Icon size={18} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
       </nav>
 
       <div className="tdf-content">
@@ -267,6 +273,7 @@ export default function TdfApp(_props: { user: User; topbarActions?: ReactNode }
         {view === "leaderboard" && <TdfLeaderboard />}
         {view === "results" && <TdfResults />}
         {view === "rules" && <TdfRules />}
+        {view === "admin" && isAdmin && <TdfAdmin />}
       </div>
     </div>
   );

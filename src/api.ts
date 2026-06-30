@@ -1,6 +1,7 @@
 export type User = {
   id: string;
   pseudo: string;
+  isAdmin?: boolean;
 };
 
 export type Profile = {
