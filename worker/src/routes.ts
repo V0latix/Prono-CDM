@@ -27,6 +27,7 @@ import {
 } from "./auth";
 import { getUserBadges } from "./badges";
 import { getFootballDataSyncStatus, syncFootballData } from "./football-data";
+import { getTdfSyncStatus } from "./tour-de-france";
 import { getWorkerErrorStatus } from "./monitoring";
 import {
   tdfRiders,
@@ -1663,12 +1664,14 @@ async function syncNow(ctx: RequestContext): Promise<Response> {
 async function syncStatus(ctx: RequestContext): Promise<Response> {
   assertMethod(ctx, "GET");
   requireUser(ctx);
-  const [syncStatusValue, errors] = await Promise.all([
+  const [syncStatusValue, tdfSyncStatus, errors] = await Promise.all([
     getFootballDataSyncStatus(ctx.env),
+    getTdfSyncStatus(ctx.env),
     getWorkerErrorStatus(ctx.env)
   ]);
   return json(ctx.request, ctx.env, {
     syncStatus: syncStatusValue,
+    tdfSyncStatus,
     errors
   });
 }

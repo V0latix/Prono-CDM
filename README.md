@@ -171,27 +171,20 @@ Les tests couvrent le calcul des points, y compris les matchs à élimination di
 
 ## Synchro Tour de France
 
-La synchro cyclisme n'est pas faite par le Worker (ProCyclingStats bloque les clients
-generiques et la lib de scraping est en Python). Elle tourne dans une GitHub Action
-(`.github/workflows/tdf-sync.yml`) qui lance `tools/tdf_sync.py`.
+La synchro cyclisme est faite directement par le Worker, dans le cron existant
+(`*/10`), depuis le site officiel **letour.fr** (HTML public, accessible, gratuit).
+ProCyclingStats a ete abandonne : il bloque nos IP (403). Voir
+`worker/src/tour-de-france.ts` (synchro) et `src/shared/letour-parse.ts` (parsing pur).
 
-Secrets a configurer dans GitHub (Settings > Secrets and variables > Actions) :
+- Identite coureur = numero de dossard letour (stable sur la duree du Tour).
+- Resultat d'etape (`ite`) + combatif (`ice`) + classements finaux (`itg`/`ipg`/`img`/`ijg`).
+- Anti-effacement : un resultat reel n'est jamais ecrase par un parsing vide.
+- Statut visible via `GET /api/sync/status` (champ `tdfSyncStatus`).
+- `LETOUR_BASE_URL` (optionnel) surcharge l'URL de base pour les tests.
 
-- `TDF_API_BASE` : URL du Worker (ex. `https://prono-cdm-api.volatix-prono-cdm.workers.dev`)
-- `TDF_SYNC_SECRET` : meme valeur que le secret pose cote Worker
-
-Cote Worker, poser le secret partage :
-
-```bash
-npx wrangler secret put TDF_SYNC_SECRET
-```
-
-Rendre un compte admin (pour l'ecran de saisie/correction manuelle) :
+Filet de secours : l'ecran admin manuel (`src/tdf/TdfAdmin.tsx`, visible si `is_admin`)
+permet de saisir/corriger un resultat d'etape. Rendre un compte admin :
 
 ```bash
-npx wrangler d1 execute prono-cdm --remote --command "UPDATE users SET is_admin=1 WHERE pseudo='TON_PSEUDO';"
+npx wrangler d1 execute prono-cdm --remote --command "UPDATE users SET is_admin=1 WHERE pseudo='dems';"
 ```
-
-Lancer la synchro du peloton + parcours (une fois) : declencher le workflow `TDF sync`
-en `workflow_dispatch` avec `roster=true`. Les resultats d'etape se synchronisent ensuite
-toutes les 30 min ; l'ecran admin reste le filet de secours si une etape se synchronise mal.

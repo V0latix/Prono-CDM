@@ -443,7 +443,8 @@ Fichiers TDF :
 - `worker/src/tdf-routes.ts` : routes joueur `/api/tdf/*` (riders, stages, dashboard, predictions, grand-depart, leaderboard, results).
 - `worker/src/tdf-admin-routes.ts` : routes admin `/api/admin/tdf/*` (roster, stage-result, final), protegees par `assertTdfSyncSecret` (header `x-tdf-sync-secret` == `TDF_SYNC_SECRET`, OU user `is_admin`).
 - `worker/src/tdf-scoring-db.ts` : recalcul des points (etape + grand depart), batche via `runD1Batch`.
-- `tools/tdf_sync.py` + `.github/workflows/tdf-sync.yml` : synchro ProCyclingStats (Python, GitHub Action).
+- `worker/src/tour-de-france.ts` : synchro letour.fr faite par le Worker (cron `*/10`), `getTdfSyncStatus`.
+- `src/shared/letour-parse.ts` : parsing pur des fragments de classement letour (couvert par `letour-parse.test.ts`).
 - `migrations/0012_tdf.sql` : tables `tdf_*` + colonne `users.is_admin`.
 
 Scoring TDF (fige) :
@@ -452,11 +453,11 @@ Scoring TDF (fige) :
 - Grand depart : podium jaune place exacte 80/40/20, bon coureur mauvaise place = moitie de la place REELLE (40/20/10) ; podium blanc 40/20/10 ou 20/10/5 ; vert +40 ; pois +40.
 - Tout changement met a jour `src/shared/tdf-scoring.ts`, son test, ET le texte de `src/tdf/TdfRules.tsx` (le reglement affiche doit toujours refleter le code).
 
-Donnee cyclisme : aucune API gratuite propre (PCS bloque les clients generiques, lib Python). Le Worker NE SCRAPE JAMAIS : la GitHub Action lance `procyclingstats` et POST vers les routes admin. La saisie manuelle (`TdfAdmin`, visible du seul compte `is_admin`) est le filet de secours et passe par le meme chemin de code. Anti-effacement : un top 10 vide n'ecrase jamais un resultat existant.
+Donnee cyclisme : aucune API gratuite propre (ProCyclingStats bloque nos IP en 403, abandonne). La source est le site officiel **letour.fr** (HTML public, gratuit), fetché et parsé DIRECTEMENT par le Worker dans le cron `*/10` (`worker/src/tour-de-france.ts` + `src/shared/letour-parse.ts`). C'est l'exception assumee a la regle "le Worker ne scrape jamais" (cette regle visait PCS : bloquant + Python ; letour est du HTML simple, officiel, accessible). Identite coureur = numero de dossard letour. Types de classement : `ite` (resultat etape), `ice` (combatif), `itg`/`ipg`/`img`/`ijg` (jaune/vert/pois/blanc). Anti-effacement : un parsing vide n'ecrase jamais un resultat reel. La saisie manuelle (`TdfAdmin`, visible du seul compte `is_admin`) reste le filet de secours. `assertTdfSyncSecret` garde encore le chemin `x-tdf-sync-secret`, mais seul le chemin `is_admin` est utilise (l'ecran manuel) ; `TDF_SYNC_SECRET` est de fait inutilise.
 
 Validation serveur TDF (jamais que cote UI) : prono d'etape = 10 coureurs distincts du peloton actif, refuse apres `lock_at` (defaut 13h00) ; grand depart refuse apres le depart de l'etape 1.
 
-Deploiement TDF (owner-gated, voir `docs/superpowers/plans/2026-06-30-tour-de-france-univers.md` Task 10) : migration distante `0012`, `wrangler secret put TDF_SYNC_SECRET`, `is_admin=1` sur le compte proprietaire, deploy API, secrets GitHub `TDF_API_BASE`/`TDF_SYNC_SECRET`.
+Deploiement TDF (owner-gated) : migration distante `0012` (deja appliquee), deploy API (`npm run deploy:api`), `is_admin=1` sur le compte proprietaire (`dems`). Le peloton se remplit automatiquement depuis letour des que l'edition 2026 est publiee (la synchro no-op gracieusement avant). Pas de promote prod frontend sans validation explicite.
 
 ## Pieges connus
 
