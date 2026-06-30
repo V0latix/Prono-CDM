@@ -329,6 +329,8 @@ Migrations existantes :
 - `0009_email_notifications.sql` : preferences email par utilisateur + journal d'envoi (`notification_log`).
 - `0010_match_group.sql` : colonne `match_group` (poule `GROUP_A`..., `NULL` en phase finale, remplie a la prochaine synchro).
 - `0011_match_venue.sql` : colonne `venue` (stade du match, `NULL` si la source ne le fournit pas, remplie a la prochaine synchro).
+- `0012_tdf.sql` : tables `tdf_*` (peloton, etapes, resultats, pronos, grand depart) + colonne `users.is_admin`.
+- `0013_tdf_route.sql` : colonne `tdf_stages.profile_image_url` (image de profil ASO) + table `tdf_stage_cols` (cols traverses : position, kind, name, category, km), remplies par la synchro letour.
 
 Commandes :
 
@@ -445,7 +447,9 @@ Fichiers TDF :
 - `worker/src/tdf-admin-routes.ts` : routes admin `/api/admin/tdf/*` (roster, stage-result, final), protegees par `assertTdfSyncSecret` (header `x-tdf-sync-secret` == `TDF_SYNC_SECRET`, OU user `is_admin`).
 - `worker/src/tdf-scoring-db.ts` : recalcul des points (etape + grand depart), batche via `runD1Batch`.
 - `worker/src/tour-de-france.ts` : synchro letour.fr faite par le Worker (cron `*/10`), `getTdfSyncStatus`.
-- `src/shared/letour-parse.ts` : parsing pur des fragments de classement letour (couvert par `letour-parse.test.ts`).
+- `src/shared/letour-parse.ts` : parsing pur des fragments de classement letour ET des pages de parcours (`parseStageDetail` : label/type/date, image de profil ASO, cols categorises) (couvert par `letour-parse.test.ts`).
+- `src/shared/tdf-jersey-points.ts` : bareme pur des points maillot vert (arrivee selon type d'etape + sprint intermediaire) et a pois (par categorie de col, double a l'arrivee au sommet HC/1). Purement informatif (n'affecte pas le scoring). Couvert par `tdf-jersey-points.test.ts`.
+- `src/tdf/StageRouteSection.tsx` : section "Parcours des etapes" du dashboard TDF : image de profil letour + cols avec points vert/pois (via `tdf-jersey-points`), liste depliable (`<details>`).
 - `migrations/0012_tdf.sql` : tables `tdf_*` + colonne `users.is_admin`.
 
 Scoring TDF (fige) :
@@ -454,7 +458,9 @@ Scoring TDF (fige) :
 - Grand depart : podium jaune place exacte 80/40/20, bon coureur mauvaise place = moitie de la place REELLE (40/20/10) ; podium blanc 40/20/10 ou 20/10/5 ; vert +40 ; pois +40.
 - Tout changement met a jour `src/shared/tdf-scoring.ts`, son test, ET le texte de `src/tdf/TdfRules.tsx` (le reglement affiche doit toujours refleter le code).
 
-Donnee cyclisme : aucune API gratuite propre (ProCyclingStats bloque nos IP en 403, abandonne). La source est le site officiel **letour.fr** (HTML public, gratuit), fetché et parsé DIRECTEMENT par le Worker dans le cron `*/10` (`worker/src/tour-de-france.ts` + `src/shared/letour-parse.ts`). C'est l'exception assumee a la regle "le Worker ne scrape jamais" (cette regle visait PCS : bloquant + Python ; letour est du HTML simple, officiel, accessible). Identite coureur = numero de dossard letour (l'edition courante est servie ; ca bascule sur 2026 quand letour publie). Le parsing capture aussi la nationalite (`data-class="flag--xxx"`). Le peloton complet est charge par `loadPeloton` (bootstrap si vide, ou force via `refreshTdfPeloton` / route admin `POST /api/admin/tdf/refresh-roster` + bouton "Rafraichir le peloton" dans `TdfAdmin`). Types de classement : `ite` (resultat etape), `ice` (combatif), `itg`/`ipg`/`img`/`ijg` (jaune/vert/pois/blanc). Anti-effacement : un parsing vide n'ecrase jamais un resultat reel. La saisie manuelle (`TdfAdmin`, visible du seul compte `is_admin`) reste le filet de secours. `assertTdfSyncSecret` garde encore le chemin `x-tdf-sync-secret`, mais seul le chemin `is_admin` est utilise (l'ecran manuel) ; `TDF_SYNC_SECRET` est de fait inutilise.
+Donnee cyclisme : aucune API gratuite propre (ProCyclingStats bloque nos IP en 403, abandonne). La source est le site officiel **letour.fr** (HTML public, gratuit), fetché et parsé DIRECTEMENT par le Worker dans le cron `*/10` (`worker/src/tour-de-france.ts` + `src/shared/letour-parse.ts`). C'est l'exception assumee a la regle "le Worker ne scrape jamais" (cette regle visait PCS : bloquant + Python ; letour est du HTML simple, officiel, accessible). Identite coureur = numero de dossard letour (l'edition courante est servie ; ca bascule sur 2026 quand letour publie). Le parsing capture aussi la nationalite (`data-class="flag--xxx"`). Le peloton complet est charge par `loadPeloton` (bootstrap si vide, ou force via `refreshTdfPeloton` / route admin `POST /api/admin/tdf/refresh-roster` + bouton "Rafraichir le peloton" dans `TdfAdmin`). Types de classement : `ite` (resultat etape), `ice` (combatif), `itg`/`ipg`/`img`/`ijg` (jaune/vert/pois/blanc). Anti-effacement : un parsing vide n'ecrase jamais un resultat reel.
+
+Parcours d'etape : `loadStageRoutes` scrape la page `/en/stage-N` (profil officiel ASO via `data-src` de `sporting__content__img`, + cols categorises via les lignes `<tr class="itinerary__checkpoint--{1,2,3,4,hc}">`), cree/complete le calendrier 21 etapes (label/type/date, `lock_at` 13h Paris) et remplit `tdf_stage_cols`. Charge paresseusement par le cron (plafonne par tick) ou en force via `refreshTdfRoute` / route admin `POST /api/admin/tdf/refresh-route` + bouton "Rafraichir les parcours" dans `TdfAdmin`. Les points vert/pois ne sont PAS scrapes : ils sont derives de la categorie du col / type d'etape via `src/shared/tdf-jersey-points.ts` (bareme ASO standard). Affiches sur le dashboard (`StageRouteSection`). La saisie manuelle (`TdfAdmin`, visible du seul compte `is_admin`) reste le filet de secours. `assertTdfSyncSecret` garde encore le chemin `x-tdf-sync-secret`, mais seul le chemin `is_admin` est utilise (l'ecran manuel) ; `TDF_SYNC_SECRET` est de fait inutilise.
 
 Validation serveur TDF (jamais que cote UI) : prono d'etape = 10 coureurs distincts du peloton actif, refuse apres `lock_at` (defaut 13h00) ; grand depart refuse apres le depart de l'etape 1.
 

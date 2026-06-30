@@ -3,17 +3,19 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Miniflare } from "miniflare";
 import initialMigration from "../../migrations/0001_initial.sql?raw";
 import tdfMigration from "../../migrations/0012_tdf.sql?raw";
+import routeMigration from "../../migrations/0013_tdf_route.sql?raw";
 import iteHtml from "../../src/shared/__fixtures__/letour-ite.html?raw";
 import iceHtml from "../../src/shared/__fixtures__/letour-ice.html?raw";
 import pageHtml from "../../src/shared/__fixtures__/letour-stage-page.html?raw";
-import { syncTourDeFrance, refreshTdfPeloton } from "./tour-de-france";
+import stageDetailHtml from "../../src/shared/__fixtures__/letour-stage-detail.html?raw";
+import { syncTourDeFrance, refreshTdfPeloton, refreshTdfRoute } from "./tour-de-france";
 import type { Env } from "./types";
 
 // Synchro reelle sur D1 (miniflare) avec un `fetch` injecte qui renvoie de vrais
 // fragments letour.fr captures en fixtures. Verifie : peloton + top 10 + combatif
 // + statut etape + recalcul des points.
 
-const migrations = [initialMigration, tdfMigration];
+const migrations = [initialMigration, tdfMigration, routeMigration];
 let mf: Miniflare;
 let env: Env;
 
@@ -130,5 +132,48 @@ describe("syncTourDeFrance", () => {
       "SELECT value FROM settings WHERE key = 'tdf_sync_status'"
     ).first<{ value: string }>();
     expect(st?.value).toBe("ok");
+  });
+});
+
+describe("refreshTdfRoute", () => {
+  // fetch local : toute page d'étape /en/stage-N renvoie le profil capturé.
+  const routeFetch = (url: string) =>
+    Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(/\/en\/stage-\d+/.test(url) ? stageDetailHtml : "")
+    });
+
+  it("scrape profil + cols et crée le calendrier manquant", async () => {
+    const out = await refreshTdfRoute(env, { fetch: routeFetch });
+    expect(out.loaded).toBe(21);
+
+    // L'étape 1 (existante) reçoit l'image de profil ASO.
+    const stage1 = await env.DB.prepare(
+      "SELECT profile_image_url AS img FROM tdf_stages WHERE stage_no = 1"
+    ).first<{ img: string }>();
+    expect(stage1?.img).toContain("tdf26-profils");
+
+    // Les 20 autres étapes sont créées (date présente dans le profil).
+    const count = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM tdf_stages"
+    ).first<{ n: number }>();
+    expect(count?.n).toBe(21);
+
+    // Les cols catégorisés (1/2/3) sont stockés, dans l'ordre.
+    const cols = await env.DB.prepare(
+      "SELECT category, name FROM tdf_stage_cols WHERE stage_no = 1 ORDER BY position ASC"
+    ).all<{ category: string; name: string }>();
+    expect((cols.results ?? []).map((c) => c.category)).toEqual(["1", "2", "3"]);
+  });
+
+  it("anti-effacement : un parsing vide n'efface pas les cols existants", async () => {
+    await refreshTdfRoute(env, { fetch: routeFetch });
+    // Un fetch qui ne renvoie aucun parcours ne doit pas vider les cols.
+    const emptyFetch = () => Promise.resolve({ ok: true, text: () => Promise.resolve("") });
+    await refreshTdfRoute(env, { fetch: emptyFetch });
+    const n = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM tdf_stage_cols WHERE stage_no = 1"
+    ).first<{ n: number }>();
+    expect(n?.n).toBe(3);
   });
 });

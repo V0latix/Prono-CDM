@@ -49,6 +49,88 @@ export function parseRankingTable(html: string): LetourRankingRow[] {
   return out;
 }
 
+// ── Parcours d'étape (page /en/stage-N) ──────────────────────────────────────
+//
+// La page de détail d'une étape porte, en clair :
+//   - l'en-tête `stageHeader__infos` : date, route (Ville > Ville), type ;
+//   - l'image de profil ASO (`sporting__content__img` / `data-src=...tdf26-profils...`) ;
+//   - la table d'itinéraire `sporting__table` où chaque point est un
+//     `<tr class="itinerary__checkpoint--{code}">` : les cols catégorisés ont un
+//     code 1/2/3/4 (et hc), les autres points (départ r, arrivée a, villes n…) sont
+//     ignorés. Les barèmes vert/pois sont calculés à part (catégorie standard ASO).
+
+export type LetourCol = { category: string; name: string; km: number | null };
+
+export type LetourStageDetail = {
+  label: string;
+  type: string; // 'flat' | 'hilly' | 'mountain' | 'itt' | 'ttt' | ''
+  date: string | null; // 'YYYY-MM-DD'
+  profileImageUrl: string | null;
+  cols: LetourCol[];
+};
+
+function decodeText(s: string): string {
+  return s
+    .replace(/<wbr\s*\/?>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&gt;/g, ">")
+    .replace(/&lt;/g, "<")
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function mapStageType(raw: string): string {
+  const t = raw.toLowerCase();
+  if (t.includes("team time")) return "ttt";
+  if (t.includes("individual time") || t.includes("time-trial") || t.includes("time trial"))
+    return "itt";
+  if (t.includes("mountain")) return "mountain";
+  if (t.includes("hilly")) return "hilly";
+  if (t.includes("flat")) return "flat";
+  return "";
+}
+
+const COL_CATEGORIES = new Set(["1", "2", "3", "4", "hc"]);
+
+export function parseStageDetail(html: string): LetourStageDetail {
+  // La route contient un span imbriqué (`<span>></span>`) : on capture jusqu'au
+  // </span> qui ferme juste avant </h1>, pas le </span> interne.
+  const route = html.match(/stageHeader__infos__route"[^>]*>([\s\S]*?)<\/span>\s*<\/h1>/);
+  const label = route ? decodeText(route[1]).replace(/\s*>\s*/g, " → ") : "";
+
+  const dateBlock = html.match(/stageHeader__infos__date"[^>]*>([\s\S]*?)<\/div>/);
+  const md = dateBlock ? decodeText(dateBlock[1]).match(/(\d{2})\/(\d{2})/) : null;
+  const yearMatch = html.match(/Tour de France\s+(\d{4})/);
+  const year = yearMatch ? yearMatch[1] : "2026";
+  const date = md ? `${year}-${md[1]}-${md[2]}` : null;
+
+  const typeBlock = html.match(/Type<\/span>[\s\S]*?<\/?br\s*\/?>([\s\S]*?)<\/p>/i);
+  const type = typeBlock ? mapStageType(decodeText(typeBlock[1])) : "";
+
+  const img = html.match(/sporting__content__img[^>]*\sdata-src="([^"]+)"/);
+  const profileImageUrl = img ? img[1] : null;
+
+  const cols: LetourCol[] = [];
+  const rowRe = /<tr[^>]*itinerary__checkpoint--([a-z0-9]+)[^>]*>([\s\S]*?)<\/tr>/g;
+  let m: RegExpExecArray | null;
+  while ((m = rowRe.exec(html)) !== null) {
+    const code = m[1].toLowerCase();
+    if (!COL_CATEGORIES.has(code)) continue;
+    const body = m[2];
+    const nameMatch = body.match(/itinerary__name"[^>]*>([\s\S]*?)<\/td>/);
+    const name = nameMatch ? decodeText(nameMatch[1]) : "";
+    if (!name) continue;
+    const kmMatch = body.match(/<td>\s*([\d.,]+)\s*<\/td>/);
+    const km = kmMatch ? Number(kmMatch[1].replace(",", ".")) : null;
+    cols.push({ category: code === "hc" ? "HC" : code, name, km });
+  }
+
+  return { label, type, date, profileImageUrl, cols };
+}
+
 // Le fragment combativite (`ice`) ne contient qu'un coureur : son dossard.
 export function parseCombativity(html: string): string | null {
   const rows = parseRankingTable(html);

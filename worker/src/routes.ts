@@ -42,7 +42,8 @@ import {
   tdfAdminRoster,
   tdfAdminStageResult,
   tdfAdminFinal,
-  tdfAdminRefreshRoster
+  tdfAdminRefreshRoster,
+  tdfAdminRefreshRoute
 } from "./tdf-admin-routes";
 import {
   generateInviteCode,
@@ -1738,5 +1739,6 @@ export async function route(ctx: RequestContext): Promise<Response> {
   if (pathname === "/api/admin/tdf/stage-result") return tdfAdminStageResult(ctx);
   if (pathname === "/api/admin/tdf/final") return tdfAdminFinal(ctx);
   if (pathname === "/api/admin/tdf/refresh-roster") return tdfAdminRefreshRoster(ctx);
+  if (pathname === "/api/admin/tdf/refresh-route") return tdfAdminRefreshRoute(ctx);
   throw new HttpError(404, "Route introuvable.");
 }

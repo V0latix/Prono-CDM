@@ -18,6 +18,7 @@ import {
   extractAjaxRankingPaths,
   parseCombativity,
   parseRankingTable,
+  parseStageDetail,
   type LetourRankingRow
 } from "../../src/shared/letour-parse";
 import type { Env } from "./types";
@@ -160,6 +161,97 @@ export async function refreshTdfPeloton(
   return { loaded };
 }
 
+const TDF_STAGE_COUNT = 21;
+
+// 13:00 Europe/Paris (CEST en juillet, UTC+2) => 11:00 UTC.
+function defaultLockAt(date: string): string {
+  return `${date}T11:00:00.000Z`;
+}
+
+// Scrape les pages /en/stage-N : profil officiel (image ASO) + cols catégorisés,
+// et crée/complète au passage le calendrier (label/type/date). Best-effort.
+// - force=false : ne traite que les étapes sans image de profil (paresseux, plafonné
+//   par tick pour tenir le budget cron) ;
+// - force=true  : re-scrape toutes les étapes (bouton admin).
+// Anti-effacement : on ne remplace les cols d'une étape que si le parsing en a trouvé,
+// et on n'écrase jamais un label/type/date réel par une valeur vide.
+async function loadStageRoutes(
+  env: Env,
+  fetchImpl: FetchLike,
+  base: string,
+  options: { force?: boolean; max?: number } = {}
+): Promise<number> {
+  const force = options.force ?? false;
+  const max = options.max ?? (force ? TDF_STAGE_COUNT : 3);
+
+  const existing = await env.DB.prepare(
+    "SELECT stage_no, profile_image_url AS img FROM tdf_stages"
+  ).all<{ stage_no: number; img: string | null }>();
+  const rows = existing.results ?? [];
+  const existingNos = new Set(rows.map((r) => r.stage_no));
+  const haveProfile = new Set(rows.filter((r) => r.img).map((r) => r.stage_no));
+
+  let loaded = 0;
+  for (let n = 1; n <= TDF_STAGE_COUNT && loaded < max; n += 1) {
+    if (!force && haveProfile.has(n)) continue;
+
+    const html = await getText(fetchImpl, `${base}/en/stage-${n}`);
+    if (!html) continue;
+    const detail = parseStageDetail(html);
+    if (!detail.label && !detail.profileImageUrl && detail.cols.length === 0) continue;
+
+    const writes: D1PreparedStatement[] = [];
+    if (existingNos.has(n)) {
+      writes.push(
+        env.DB.prepare(
+          `UPDATE tdf_stages SET
+             date = COALESCE(?, date),
+             type = CASE WHEN ? != '' THEN ? ELSE type END,
+             label = CASE WHEN ? != '' THEN ? ELSE label END,
+             profile_image_url = COALESCE(?, profile_image_url)
+           WHERE stage_no = ?`
+        ).bind(detail.date, detail.type, detail.type, detail.label, detail.label, detail.profileImageUrl, n)
+      );
+    } else if (detail.date) {
+      writes.push(
+        env.DB.prepare(
+          `INSERT INTO tdf_stages (stage_no, date, lock_at, type, label, status, profile_image_url)
+           VALUES (?, ?, ?, ?, ?, 'upcoming', ?)`
+        ).bind(n, detail.date, defaultLockAt(detail.date), detail.type || "flat", detail.label, detail.profileImageUrl)
+      );
+    } else {
+      continue; // nouvelle étape sans date exploitable : on ne peut pas la créer
+    }
+
+    if (detail.cols.length) {
+      writes.push(env.DB.prepare("DELETE FROM tdf_stage_cols WHERE stage_no = ?").bind(n));
+      detail.cols.forEach((c, i) => {
+        writes.push(
+          env.DB.prepare(
+            `INSERT INTO tdf_stage_cols (stage_no, position, kind, name, category, km)
+             VALUES (?, ?, 'col', ?, ?, ?)`
+          ).bind(n, i, c.name, c.category, c.km)
+        );
+      });
+    }
+
+    await runD1Batch(env, writes);
+    loaded += 1;
+  }
+  return loaded;
+}
+
+// Re-scrape tous les parcours a la demande (bouton admin). Renvoie le nombre traite.
+export async function refreshTdfRoute(
+  env: Env,
+  deps: SyncDeps = {}
+): Promise<{ loaded: number }> {
+  const fetchImpl: FetchLike = deps.fetch ?? ((url) => fetch(url));
+  const base = env.LETOUR_BASE_URL ?? DEFAULT_BASE;
+  const loaded = await loadStageRoutes(env, fetchImpl, base, { force: true });
+  return { loaded };
+}
+
 async function syncFinalClassifications(
   env: Env,
   fetchImpl: FetchLike,
@@ -206,6 +298,13 @@ export async function syncTourDeFrance(env: Env, deps: SyncDeps = {}): Promise<{
   const base = env.LETOUR_BASE_URL ?? DEFAULT_BASE;
 
   try {
+    // Calendrier + profils + cols : bootstrap/complète paresseusement (plafonné).
+    try {
+      await loadStageRoutes(env, fetchImpl, base);
+    } catch {
+      /* best-effort : ne fait pas échouer la synchro des résultats */
+    }
+
     const stagesRes = await env.DB.prepare(
       "SELECT stage_no, date, status FROM tdf_stages ORDER BY stage_no ASC"
     ).all<{ stage_no: number; date: string; status: string }>();

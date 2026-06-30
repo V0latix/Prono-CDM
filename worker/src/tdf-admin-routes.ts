@@ -4,7 +4,7 @@ import {
   recalculateTdfStagePoints,
   recalculateTdfGrandDepart
 } from "./tdf-scoring-db";
-import { refreshTdfPeloton } from "./tour-de-france";
+import { refreshTdfPeloton, refreshTdfRoute } from "./tour-de-france";
 
 // Accès admin : soit le secret partagé (GitHub Action, sans compte),
 // soit un user connecté avec is_admin = 1 (écran manuel front).
@@ -168,5 +168,12 @@ export async function tdfAdminFinal(ctx: RequestContext): Promise<Response> {
 export async function tdfAdminRefreshRoster(ctx: RequestContext): Promise<Response> {
   assertTdfSyncSecret(ctx);
   const { loaded } = await refreshTdfPeloton(ctx.env);
+  return json(ctx.request, ctx.env, { ok: true, loaded });
+}
+
+// Re-scrape les parcours d'etape depuis letour (profil + cols). Bouton admin.
+export async function tdfAdminRefreshRoute(ctx: RequestContext): Promise<Response> {
+  assertTdfSyncSecret(ctx);
+  const { loaded } = await refreshTdfRoute(ctx.env);
   return json(ctx.request, ctx.env, { ok: true, loaded });
 }

@@ -20,10 +20,23 @@ export async function tdfRiders(ctx: RequestContext): Promise<Response> {
 
 export async function tdfStages(ctx: RequestContext): Promise<Response> {
   requireUser(ctx);
-  const rows = await ctx.env.DB.prepare(
-    "SELECT * FROM tdf_stages ORDER BY stage_no ASC"
-  ).all<TdfStageRow>();
-  return json(ctx.request, ctx.env, { stages: rows.results ?? [] });
+  const [stagesRes, colsRes] = await Promise.all([
+    ctx.env.DB.prepare("SELECT * FROM tdf_stages ORDER BY stage_no ASC").all<TdfStageRow>(),
+    ctx.env.DB.prepare(
+      "SELECT stage_no, kind, name, category, km FROM tdf_stage_cols ORDER BY stage_no ASC, position ASC"
+    ).all<{ stage_no: number; kind: string; name: string; category: string | null; km: number | null }>()
+  ]);
+  const colsByStage = new Map<number, { kind: string; name: string; category: string | null; km: number | null }[]>();
+  for (const c of colsRes.results ?? []) {
+    const list = colsByStage.get(c.stage_no) ?? [];
+    list.push({ kind: c.kind, name: c.name, category: c.category, km: c.km });
+    colsByStage.set(c.stage_no, list);
+  }
+  const stages = (stagesRes.results ?? []).map((s) => ({
+    ...s,
+    cols: colsByStage.get(s.stage_no) ?? []
+  }));
+  return json(ctx.request, ctx.env, { stages });
 }
 
 export async function tdfSaveStagePrediction(

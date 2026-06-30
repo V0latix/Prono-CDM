@@ -7,6 +7,7 @@ import {
   fetchTdfStages
 } from "./api";
 import type { TdfRider, TdfStage } from "./api";
+import StageRouteSection from "./StageRouteSection";
 import GrandDepart from "./GrandDepart";
 import StagePrediction from "./StagePrediction";
 import TdfAdmin from "./TdfAdmin";
@@ -100,6 +101,8 @@ function TdfDashboard({ onOpenPredictions }: { onOpenPredictions: () => void }) 
           <p>Pas de prochaine étape pour le moment.</p>
         </div>
       )}
+
+      <StageRouteSection />
     </div>
   );
 }

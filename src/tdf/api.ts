@@ -9,6 +9,13 @@ export type TdfRider = {
   status: string;
 };
 
+export type TdfCol = {
+  kind: string; // 'col'
+  name: string;
+  category: string | null; // 'HC' | '1' | '2' | '3' | '4'
+  km: number | null;
+};
+
 export type TdfStage = {
   stage_no: number;
   date: string;
@@ -17,6 +24,8 @@ export type TdfStage = {
   label: string;
   status: string;
   combative_rider_id: string | null;
+  profile_image_url?: string | null;
+  cols?: TdfCol[];
 };
 
 export const fetchTdfRiders = () =>

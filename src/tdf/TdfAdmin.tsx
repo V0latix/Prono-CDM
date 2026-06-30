@@ -10,6 +10,8 @@ export default function TdfAdmin() {
   const [loading, setLoading] = useState(false);
   const [rosterMsg, setRosterMsg] = useState("");
   const [rosterLoading, setRosterLoading] = useState(false);
+  const [routeMsg, setRouteMsg] = useState("");
+  const [routeLoading, setRouteLoading] = useState(false);
 
   const refreshRoster = async () => {
     setRosterMsg("");
@@ -23,6 +25,21 @@ export default function TdfAdmin() {
       setRosterMsg("Erreur lors du rechargement du peloton.");
     } finally {
       setRosterLoading(false);
+    }
+  };
+
+  const refreshRoute = async () => {
+    setRouteMsg("");
+    setRouteLoading(true);
+    try {
+      const res = (await api("/api/admin/tdf/refresh-route", {
+        method: "POST"
+      })) as { loaded?: number };
+      setRouteMsg(`Parcours rechargés : ${res.loaded ?? 0} étapes.`);
+    } catch {
+      setRouteMsg("Erreur lors du rechargement des parcours.");
+    } finally {
+      setRouteLoading(false);
     }
   };
 
@@ -75,6 +92,19 @@ export default function TdfAdmin() {
         {rosterMsg && (
           <p className="form-notice" role="status">
             {rosterMsg}
+          </p>
+        )}
+        <button
+          type="button"
+          className="primary-button"
+          onClick={refreshRoute}
+          disabled={routeLoading}
+        >
+          {routeLoading ? "Rechargement…" : "Rafraîchir les parcours"}
+        </button>
+        {routeMsg && (
+          <p className="form-notice" role="status">
+            {routeMsg}
           </p>
         )}
       </div>

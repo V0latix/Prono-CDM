@@ -1,11 +1,12 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Miniflare } from "miniflare";
-import { tdfSaveStagePrediction, tdfSaveGrandDepart, tdfLeaderboard } from "./tdf-routes";
+import { tdfSaveStagePrediction, tdfSaveGrandDepart, tdfLeaderboard, tdfStages } from "./tdf-routes";
 import type { RequestContext } from "./http";
 import type { Env, User } from "./types";
 import initialMigration from "../../migrations/0001_initial.sql?raw";
 import tdfMigration from "../../migrations/0012_tdf.sql?raw";
+import routeMigration from "../../migrations/0013_tdf_route.sql?raw";
 
 // Intégration sur D1 réelle (Miniflare) : harness identique à stats-routes.test.ts.
 // On applique 0001_initial.sql + 0012_tdf.sql, on seed via env.DB,
@@ -22,7 +23,7 @@ const user: User = {
 };
 
 async function applyMigrations(): Promise<void> {
-  for (const migration of [initialMigration, tdfMigration]) {
+  for (const migration of [initialMigration, tdfMigration, routeMigration]) {
     for (const statement of migration.split(";")) {
       const sql = statement.trim();
       if (sql) await env.DB.prepare(sql).run();
@@ -205,6 +206,36 @@ describe("tdfSaveGrandDepart validation", () => {
       polka: "h"
     });
     await expect(tdfSaveGrandDepart(ctx)).rejects.toThrow(/verrou/i);
+  });
+});
+
+describe("tdfStages", () => {
+  it("renvoie chaque étape avec son profil et ses cols ordonnés", async () => {
+    await env.DB.prepare(
+      `INSERT INTO tdf_stages (stage_no, date, lock_at, type, label, status, profile_image_url)
+       VALUES (1, '2026-07-04', '2026-07-04T11:00:00Z', 'mountain', 'A → B', 'upcoming', 'https://img.aso.fr/x')`
+    ).run();
+    await env.DB.prepare(
+      `INSERT INTO tdf_stage_cols (stage_no, position, kind, name, category, km) VALUES
+       (1, 1, 'col', 'Col deux', '2', 92.3),
+       (1, 0, 'col', 'Col un', '1', 148.5)`
+    ).run();
+
+    const ctx = {
+      request: new Request("https://x/api/tdf/stages"),
+      env: env as unknown as Env,
+      url: new URL("https://x/api/tdf/stages"),
+      user
+    } as RequestContext;
+    const res = await tdfStages(ctx);
+    const { stages } = (await res.json()) as {
+      stages: { stage_no: number; profile_image_url: string; cols: { name: string; category: string }[] }[];
+    };
+
+    expect(stages[0].profile_image_url).toBe("https://img.aso.fr/x");
+    // Ordre par position : Col un (0) avant Col deux (1).
+    expect(stages[0].cols.map((c) => c.name)).toEqual(["Col un", "Col deux"]);
+    expect(stages[0].cols.map((c) => c.category)).toEqual(["1", "2"]);
   });
 });
 
