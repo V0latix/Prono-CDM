@@ -432,6 +432,32 @@ Contraintes :
 - Le reglement ne doit pas parler de Worker ni de details backend.
 - Le reglement parle de "phase finale", pas de "matchs a enjeu".
 
+## Univers Tour de France
+
+L'app a deux univers de prono : `cdm` (Coupe du monde, historique) et `tdf` (Tour de France). Comptes, profils, groupes et badges sont PARTAGES ; pronos, classements, resultats et reglement sont SEPARES par univers. Un selecteur en haut (`src/App.tsx`, etat `universe`, persiste en `localStorage` cle `pcdm_universe`) bascule entre les deux et monte `src/tdf/TdfApp.tsx` quand `tdf` est actif. Le chemin CDM est inchange quand `universe === "cdm"`.
+
+Fichiers TDF :
+
+- `src/shared/tdf-scoring.ts` : scoring pur (etape + grand depart), couvert par `tdf-scoring.test.ts`.
+- `src/tdf/` : module front (shell `TdfApp`, `StagePrediction`, `GrandDepart`, `TdfLeaderboard`, `TdfResults`, `TdfRules`, `TdfAdmin`, client `api.ts`).
+- `worker/src/tdf-routes.ts` : routes joueur `/api/tdf/*` (riders, stages, dashboard, predictions, grand-depart, leaderboard, results).
+- `worker/src/tdf-admin-routes.ts` : routes admin `/api/admin/tdf/*` (roster, stage-result, final), protegees par `assertTdfSyncSecret` (header `x-tdf-sync-secret` == `TDF_SYNC_SECRET`, OU user `is_admin`).
+- `worker/src/tdf-scoring-db.ts` : recalcul des points (etape + grand depart), batche via `runD1Batch`.
+- `tools/tdf_sync.py` + `.github/workflows/tdf-sync.yml` : synchro ProCyclingStats (Python, GitHub Action).
+- `migrations/0012_tdf.sql` : tables `tdf_*` + colonne `users.is_admin`.
+
+Scoring TDF (fige) :
+
+- Etape : top 10 non ordonne, chaque coureur present dans le top 10 reel rapporte `11 - place reelle` (1er = 10 ... 10e = 1). Combatif correct : +10. Max 65.
+- Grand depart : podium jaune place exacte 80/40/20, bon coureur mauvaise place = moitie de la place REELLE (40/20/10) ; podium blanc 40/20/10 ou 20/10/5 ; vert +40 ; pois +40.
+- Tout changement met a jour `src/shared/tdf-scoring.ts`, son test, ET le texte de `src/tdf/TdfRules.tsx` (le reglement affiche doit toujours refleter le code).
+
+Donnee cyclisme : aucune API gratuite propre (PCS bloque les clients generiques, lib Python). Le Worker NE SCRAPE JAMAIS : la GitHub Action lance `procyclingstats` et POST vers les routes admin. La saisie manuelle (`TdfAdmin`, visible du seul compte `is_admin`) est le filet de secours et passe par le meme chemin de code. Anti-effacement : un top 10 vide n'ecrase jamais un resultat existant.
+
+Validation serveur TDF (jamais que cote UI) : prono d'etape = 10 coureurs distincts du peloton actif, refuse apres `lock_at` (defaut 13h00) ; grand depart refuse apres le depart de l'etape 1.
+
+Deploiement TDF (owner-gated, voir `docs/superpowers/plans/2026-06-30-tour-de-france-univers.md` Task 10) : migration distante `0012`, `wrangler secret put TDF_SYNC_SECRET`, `is_admin=1` sur le compte proprietaire, deploy API, secrets GitHub `TDF_API_BASE`/`TDF_SYNC_SECRET`.
+
 ## Pieges connus
 
 - Les previews Vercel peuvent proteger `/api/*` avec Vercel Authentication. Le client evite cela en appelant directement le Worker sur `.vercel.app`.
