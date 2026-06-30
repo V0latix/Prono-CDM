@@ -20,7 +20,7 @@ export default function TdfRules() {
 
       <h2>Grand Départ</h2>
       <p>
-        Avant la course, tu pronostiquer le podium final au classement général (maillot jaune),
+        Avant la course, tu pronostiques le podium final au classement général (maillot jaune),
         le podium du meilleur jeune (maillot blanc), le meilleur sprinter (maillot vert) et le
         meilleur grimpeur (maillot à pois). Ces pronos rapportent des points bonus à la fin du
         Tour.
@@ -29,7 +29,7 @@ export default function TdfRules() {
       <h2>Verrouillage</h2>
       <p>
         Chaque prono d'étape se ferme à l'heure du départ. Après ce verrou, plus de
-        modifications possibles — la validation serveur est définitive.
+        modifications possibles — les pronos ne peuvent plus être modifiés après ce verrou.
       </p>
 
       <h2>Classement</h2>

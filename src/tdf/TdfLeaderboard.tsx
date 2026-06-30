@@ -7,20 +7,23 @@ export default function TdfLeaderboard() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    setLoading(true);
+    setError("");
     fetchTdfLeaderboard()
       .then((data) => setEntries(data.leaderboard))
       .catch(() => setError("Impossible de charger le classement."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [retryCount]);
 
   if (loading) return <div className="shell-state">Chargement du classement…</div>;
   if (error)
     return (
       <div className="empty-state error-state">
         <span>{error}</span>
-        <button type="button" onClick={() => window.location.reload()}>
+        <button type="button" onClick={() => setRetryCount((c) => c + 1)}>
           Réessayer
         </button>
       </div>

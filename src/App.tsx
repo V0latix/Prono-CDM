@@ -1031,24 +1031,36 @@ export function App() {
         </div>
       </aside>
       <main className="main-area">
-        <header className="topbar">
-          {universe !== "tdf" && (
+        {universe !== "tdf" && (
+          <header className="topbar">
             <div>
               <p className="eyebrow">Coupe du monde 2026</p>
               <h1>{viewTitles[view]}</h1>
             </div>
-          )}
-          <div className="topbar-actions">
-            <WhatsNewBubble unseen={news.unseen} onSeen={news.markSeen} />
-            <button className="user-pill" type="button" onClick={() => setView("profile")}>
-              <UserRound size={18} />
-              {user.pseudo}
-            </button>
-            <UniverseSwitcher value={universe} onChange={setUniverse} />
-          </div>
-        </header>
+            <div className="topbar-actions">
+              <WhatsNewBubble unseen={news.unseen} onSeen={news.markSeen} />
+              <button className="user-pill" type="button" onClick={() => setView("profile")}>
+                <UserRound size={18} />
+                {user.pseudo}
+              </button>
+              <UniverseSwitcher value={universe} onChange={setUniverse} />
+            </div>
+          </header>
+        )}
         {universe === "tdf" ? (
-          <TdfApp user={user} />
+          <TdfApp
+            user={user}
+            topbarActions={
+              <div className="topbar-actions">
+                <WhatsNewBubble unseen={news.unseen} onSeen={news.markSeen} />
+                <button className="user-pill" type="button" onClick={() => setView("profile")}>
+                  <UserRound size={18} />
+                  {user.pseudo}
+                </button>
+                <UniverseSwitcher value={universe} onChange={setUniverse} />
+              </div>
+            }
+          />
         ) : (
           <>
             <WhatsNewModal unseen={news.unseen} onDismiss={news.markSeen} />

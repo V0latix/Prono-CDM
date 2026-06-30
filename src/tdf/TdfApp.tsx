@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { CalendarClock, ClipboardList, Medal, Scale, Trophy } from "lucide-react";
 import type { User } from "../api";
 import {
   fetchTdfDashboard,
   fetchTdfRiders,
-  fetchTdfStages,
-  saveTdfStagePrediction
+  fetchTdfStages
 } from "./api";
 import type { TdfRider, TdfStage } from "./api";
 import GrandDepart from "./GrandDepart";
@@ -228,7 +227,7 @@ function TdfPredictions() {
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
 
-export default function TdfApp(_props: { user: User }) {
+export default function TdfApp(_props: { user: User; topbarActions?: ReactNode }) {
   const [view, setView] = useState<TdfView>("dashboard");
 
   return (
@@ -238,6 +237,7 @@ export default function TdfApp(_props: { user: User }) {
           <p className="eyebrow">Tour de France 2026</p>
           <h1>{tdfViewTitles[view]}</h1>
         </div>
+        {_props.topbarActions}
       </header>
 
       <nav className="nav-list tdf-nav" aria-label="Navigation Tour de France">
