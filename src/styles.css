@@ -3323,3 +3323,286 @@ button {
   color: var(--muted);
   margin-left: 0.15rem;
 }
+
+/* ─── TDF module ──────────────────────────────────────────────────────────── */
+
+.tdf-app {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.tdf-topbar {
+  margin-bottom: 0;
+}
+
+.tdf-nav {
+  /* nav-list already provides the horizontal pill bar */
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.tdf-content {
+  min-height: 20rem;
+}
+
+/* Rider list */
+.tdf-rider-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.tdf-rider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.tdf-rider-btn {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-height: 2.6rem;
+  padding: 0.45rem 0.85rem;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+  color: var(--fg);
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: background-color 80ms ease, color 80ms ease;
+}
+
+.tdf-rider-btn.selected {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+.tdf-rider-btn:hover:not(:disabled):not(.selected) {
+  background: var(--surface);
+}
+
+.tdf-rider-team {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.tdf-combative-btn {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+  color: var(--fg);
+  font-size: 1rem;
+  transition: background-color 80ms ease;
+}
+
+.tdf-combative-btn.selected {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+.tdf-combative-btn:hover:not(:disabled):not(.selected) {
+  background: var(--surface);
+}
+
+/* Submit row */
+.tdf-submit-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--fg);
+}
+
+/* Grand Départ */
+.tdf-grand-depart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.tdf-jersey-group {
+  margin: 0;
+  padding: 1rem;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+}
+
+.tdf-jersey-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 0 0 0.65rem;
+  margin-bottom: 0.65rem;
+  border-bottom: 2px solid var(--fg);
+}
+
+.tdf-jersey-icon {
+  font-size: 1.1rem;
+}
+
+.tdf-podium-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
+}
+
+.tdf-podium-rank {
+  flex: 0 0 1.8rem;
+  font-weight: 800;
+  font-size: 0.78rem;
+  color: var(--accent);
+}
+
+.tdf-podium-row select {
+  flex: 1 1 auto;
+  min-height: 2.35rem;
+  padding: 0 0.65rem;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+/* Stage list */
+.tdf-stage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.tdf-stage-list-btn {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr auto;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.65rem 0.85rem;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+  color: var(--fg);
+  text-align: left;
+  font-size: 0.82rem;
+  transition: background-color 80ms ease;
+}
+
+.tdf-stage-list-btn:hover {
+  background: var(--surface);
+}
+
+.tdf-stage-no {
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.tdf-stage-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-weight: 700;
+}
+
+.tdf-stage-date {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.tdf-stage-lock {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.2rem 0.55rem;
+  border: 2px solid var(--success);
+  color: var(--success);
+}
+
+.tdf-stage-lock.locked {
+  border-color: var(--muted);
+  color: var(--muted);
+}
+
+/* Results */
+.tdf-results-list {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.tdf-stage-result {
+  border: 2px solid var(--fg);
+  padding: 1rem;
+  background: var(--panel);
+}
+
+.tdf-stage-heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.tdf-top10-list {
+  margin: 0.65rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.tdf-top10-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--surface);
+  font-size: 0.82rem;
+}
+
+.tdf-top10-rank {
+  flex: 0 0 1.5rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.tdf-top10-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .tdf-grand-depart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tdf-stage-list-btn {
+    grid-template-columns: 4.5rem 1fr;
+  }
+
+  .tdf-stage-lock {
+    display: none;
+  }
+}

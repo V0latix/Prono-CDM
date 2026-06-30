@@ -871,9 +871,12 @@ export function App() {
   const [theme, setTheme] = useState<ThemeMode>(initialTheme);
   const [language, setLanguage] = useState<Language>(initialLanguage);
   const [sessionExpired, setSessionExpired] = useState(false);
-  const [universe, setUniverse] = useState<Universe>(
-    () => (localStorage.getItem(universeStorageKey) as Universe) || "cdm"
-  );
+  const [universe, setUniverse] = useState<Universe>(() => {
+    const stored = localStorage.getItem(universeStorageKey);
+    return (["cdm", "tdf"] as const).includes(stored as Universe)
+      ? (stored as Universe)
+      : "cdm";
+  });
   const news = useNewsSeen();
 
   useEffect(() => {
@@ -992,6 +995,7 @@ export function App() {
             <strong>Prono CDM</strong>
           </div>
         </div>
+        {universe !== "tdf" && (
         <nav className="nav-list" aria-label="Navigation principale">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -1010,6 +1014,7 @@ export function App() {
             );
           })}
         </nav>
+        )}
         <div className="sidebar-actions">
           <button
             className="logout-button"
@@ -1027,10 +1032,12 @@ export function App() {
       </aside>
       <main className="main-area">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">Coupe du monde 2026</p>
-            <h1>{viewTitles[view]}</h1>
-          </div>
+          {universe !== "tdf" && (
+            <div>
+              <p className="eyebrow">Coupe du monde 2026</p>
+              <h1>{viewTitles[view]}</h1>
+            </div>
+          )}
           <div className="topbar-actions">
             <WhatsNewBubble unseen={news.unseen} onSeen={news.markSeen} />
             <button className="user-pill" type="button" onClick={() => setView("profile")}>
