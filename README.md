@@ -168,3 +168,30 @@ npm run build
 ```
 
 Les tests couvrent le calcul des points, y compris les matchs à élimination directe avec vainqueur qualifié.
+
+## Synchro Tour de France
+
+La synchro cyclisme n'est pas faite par le Worker (ProCyclingStats bloque les clients
+generiques et la lib de scraping est en Python). Elle tourne dans une GitHub Action
+(`.github/workflows/tdf-sync.yml`) qui lance `tools/tdf_sync.py`.
+
+Secrets a configurer dans GitHub (Settings > Secrets and variables > Actions) :
+
+- `TDF_API_BASE` : URL du Worker (ex. `https://prono-cdm-api.volatix-prono-cdm.workers.dev`)
+- `TDF_SYNC_SECRET` : meme valeur que le secret pose cote Worker
+
+Cote Worker, poser le secret partage :
+
+```bash
+npx wrangler secret put TDF_SYNC_SECRET
+```
+
+Rendre un compte admin (pour l'ecran de saisie/correction manuelle) :
+
+```bash
+npx wrangler d1 execute prono-cdm --remote --command "UPDATE users SET is_admin=1 WHERE pseudo='TON_PSEUDO';"
+```
+
+Lancer la synchro du peloton + parcours (une fois) : declencher le workflow `TDF sync`
+en `workflow_dispatch` avec `roster=true`. Les resultats d'etape se synchronisent ensuite
+toutes les 30 min ; l'ecran admin reste le filet de secours si une etape se synchronise mal.
