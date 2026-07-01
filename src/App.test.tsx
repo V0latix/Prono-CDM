@@ -124,6 +124,50 @@ describe("App components", () => {
     vi.useRealTimers();
   });
 
+  it("unifie la navigation : la bascule d'univers garde les onglets dans le shell et adapte la marque", async () => {
+    window.localStorage.setItem("pcdm_universe", "cdm");
+    installFetchMock([
+      { path: "/api/me", body: { user } },
+      {
+        path: "/api/dashboard",
+        body: {
+          nextMatches: [],
+          predictionDay: null,
+          predictionDayMatches: [],
+          rank: leaderboardRow({ points: 0 }),
+          activity: [],
+          syncStatus
+        }
+      },
+      { path: "/api/tdf/dashboard", body: { nextStage: null, myPrediction: null } },
+      { path: "/api/tdf/stages", body: { stages: [] } },
+      { path: "/api/tdf/riders", body: { riders: [] } }
+    ]);
+    const browserUser = userEvent.setup();
+    render(<App />);
+
+    // Univers CDM par défaut : marque + en-tête + nav dans le shell.
+    await waitFor(() => screen.getByText("Coupe du monde 2026"));
+    expect(screen.getByText("Prono CDM")).toBeInTheDocument();
+    const sidebar = document.querySelector(".sidebar") as HTMLElement;
+    expect(within(sidebar).getByRole("button", { name: "Classement" })).toBeInTheDocument();
+
+    // Bascule vers le Tour de France : même shell, marque et en-tête adaptés.
+    await browserUser.click(
+      screen.getByRole("button", { name: "Passer au Tour de France" })
+    );
+    await waitFor(() => screen.getByText("Tour de France 2026"));
+    expect(screen.getByText("Prono TDF")).toBeInTheDocument();
+    const tdfNav = document.querySelector(".sidebar .nav-list") as HTMLElement;
+    expect(within(tdfNav).getByRole("button", { name: "Mes pronos" })).toBeInTheDocument();
+
+    // Retour à la Coupe du monde.
+    await browserUser.click(
+      screen.getByRole("button", { name: "Revenir à la Coupe du Monde" })
+    );
+    await waitFor(() => screen.getByText("Prono CDM"));
+  });
+
   it("shows registration without invitation code and submits only pseudo and PIN", async () => {
     const { calls } = installFetchMock([
       { path: "/api/me", body: { user: null } },

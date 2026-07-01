@@ -1,7 +1,13 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Miniflare } from "miniflare";
-import { tdfSaveStagePrediction, tdfSaveGrandDepart, tdfLeaderboard, tdfStages } from "./tdf-routes";
+import {
+  tdfSaveStagePrediction,
+  tdfSaveGrandDepart,
+  tdfLeaderboard,
+  tdfStages,
+  tdfResults
+} from "./tdf-routes";
 import type { RequestContext } from "./http";
 import type { Env, User } from "./types";
 import initialMigration from "../../migrations/0001_initial.sql?raw";
@@ -244,6 +250,43 @@ describe("tdfStages", () => {
     // Ordre par position : Col un (0) avant Col deux (1).
     expect(stages[0].cols.map((c) => c.name)).toEqual(["Col un", "Col deux"]);
     expect(stages[0].cols.map((c) => c.category)).toEqual(["1", "2"]);
+  });
+});
+
+describe("tdfResults", () => {
+  it("regroupe les classements généraux par maillot, ordonnés par rang", async () => {
+    await env.DB.prepare(
+      `INSERT INTO tdf_stages (stage_no, date, lock_at, type, label, status)
+       VALUES (1, '2026-07-04', '2026-07-04T11:00:00Z', 'flat', 'A → B', 'finished')`
+    ).run();
+    await env.DB.prepare(
+      `INSERT INTO tdf_stage_results (stage_no, rider_id, rank) VALUES (1, '101', 1), (1, '41', 2)`
+    ).run();
+    await env.DB.prepare(
+      `INSERT INTO tdf_classifications (jersey, rank, rider_id) VALUES
+       ('yellow', 2, '41'), ('yellow', 1, '101'), ('green', 1, '41')`
+    ).run();
+
+    const ctx = {
+      request: new Request("https://x/api/tdf/results"),
+      env: env as unknown as Env,
+      url: new URL("https://x/api/tdf/results"),
+      user
+    } as RequestContext;
+    const res = await tdfResults(ctx);
+    const body = (await res.json()) as {
+      stages: { stage_no: number }[];
+      results: { stage_no: number; rider_id: string; rank: number }[];
+      classifications: Record<string, { rank: number; rider_id: string }[]>;
+    };
+
+    expect(body.stages.map((s) => s.stage_no)).toEqual([1]);
+    expect(body.classifications.yellow).toEqual([
+      { rank: 1, rider_id: "101" },
+      { rank: 2, rider_id: "41" }
+    ]);
+    expect(body.classifications.green).toEqual([{ rank: 1, rider_id: "41" }]);
+    expect(body.classifications.polka).toBeUndefined();
   });
 });
 
