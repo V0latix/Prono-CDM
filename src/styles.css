@@ -3627,54 +3627,66 @@ button {
   color: var(--accent);
 }
 
-/* Parcours d'étape : profil letour + cols avec points vert/pois. */
-.tdf-route-list {
+/* Parcours d'étape : pager (étape du jour + flèches) + profil letour et points. */
+.tdf-route-nav {
   display: grid;
-  gap: 0.55rem;
-  margin-top: 1rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0 0.85rem;
 }
 
-.tdf-route-item {
+.tdf-route-arrow {
+  display: grid;
+  place-items: center;
+  width: 2.9rem;
+  height: 2.9rem;
   border: 2px solid var(--fg);
   background: var(--panel);
-}
-
-.tdf-route-summary {
-  display: grid;
-  grid-template-columns: 5.5rem minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.85rem;
-  padding: 0.7rem 0.9rem;
+  color: var(--fg);
   cursor: pointer;
-  font-size: 0.85rem;
-  list-style: none;
+  transition: background-color 80ms ease;
 }
 
-.tdf-route-summary::-webkit-details-marker {
-  display: none;
+.tdf-route-arrow:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
-.tdf-route-item[open] .tdf-route-summary {
-  border-bottom: 2px solid var(--fg);
+.tdf-route-arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
-.tdf-route-label {
+.tdf-route-heading {
+  display: grid;
+  min-width: 0;
+  text-align: center;
+}
+
+.tdf-route-heading strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 700;
 }
 
-.tdf-route-type {
+.tdf-route-heading small {
   color: var(--muted);
-  font-size: 0.74rem;
-  text-align: right;
+  font-size: 0.72rem;
 }
 
-.tdf-route-body {
+.tdf-route-current {
   display: grid;
   gap: 1rem;
-  padding: 0.9rem;
+}
+
+.tdf-route-meta {
+  margin: 0;
+  text-transform: capitalize;
 }
 
 .tdf-route-profile {
@@ -3736,11 +3748,12 @@ button {
 }
 
 @media (max-width: 560px) {
-  .tdf-route-summary {
-    grid-template-columns: 4.2rem minmax(0, 1fr);
+  .tdf-route-arrow {
+    width: 2.6rem;
+    height: 2.6rem;
   }
-  .tdf-route-type {
-    display: none;
+  .tdf-route-heading strong {
+    font-size: 0.9rem;
   }
 }
 
