@@ -51,8 +51,14 @@ export type TdfLeaderboardEntry = {
 export const fetchTdfLeaderboard = () =>
   api<{ leaderboard: TdfLeaderboardEntry[] }>("/api/tdf/leaderboard");
 
+export type TdfClassificationRow = { rank: number; rider_id: string };
+
 export const fetchTdfResults = () =>
-  api<{ stages: TdfStage[]; results: { stage_no: number; rider_id: string; rank: number }[] }>("/api/tdf/results");
+  api<{
+    stages: TdfStage[];
+    results: { stage_no: number; rider_id: string; rank: number }[];
+    classifications: Record<string, TdfClassificationRow[]>;
+  }>("/api/tdf/results");
 
 export const saveTdfStagePrediction = (
   stageNo: number,

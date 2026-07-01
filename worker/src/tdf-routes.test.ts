@@ -8,6 +8,7 @@ import initialMigration from "../../migrations/0001_initial.sql?raw";
 import tdfMigration from "../../migrations/0012_tdf.sql?raw";
 import routeMigration from "../../migrations/0013_tdf_route.sql?raw";
 import colsMapMigration from "../../migrations/0014_tdf_cols_map.sql?raw";
+import classificationsMigration from "../../migrations/0015_tdf_classifications.sql?raw";
 
 // Intégration sur D1 réelle (Miniflare) : harness identique à stats-routes.test.ts.
 // On applique 0001_initial.sql + 0012_tdf.sql, on seed via env.DB,
@@ -24,7 +25,13 @@ const user: User = {
 };
 
 async function applyMigrations(): Promise<void> {
-  for (const migration of [initialMigration, tdfMigration, routeMigration, colsMapMigration]) {
+  for (const migration of [
+    initialMigration,
+    tdfMigration,
+    routeMigration,
+    colsMapMigration,
+    classificationsMigration
+  ]) {
     for (const statement of migration.split(";")) {
       const sql = statement.trim();
       if (sql) await env.DB.prepare(sql).run();

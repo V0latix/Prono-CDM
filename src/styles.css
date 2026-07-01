@@ -3755,50 +3755,6 @@ button {
   text-overflow: ellipsis;
 }
 
-/* Profils d'élévation des cols (climbfinder), repliables. */
-.tdf-col-profiles {
-  border: 2px solid var(--fg);
-  background: var(--panel);
-}
-
-.tdf-col-profiles > summary {
-  padding: 0.7rem 0.9rem;
-  cursor: pointer;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 0.9rem;
-}
-
-.tdf-col-profiles[open] > summary {
-  border-bottom: 2px solid var(--fg);
-}
-
-.tdf-col-profile-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
-  gap: 1rem;
-  padding: 0.9rem;
-}
-
-.tdf-col-profile-fig {
-  margin: 0;
-  display: grid;
-  gap: 0.35rem;
-}
-
-.tdf-col-profile-fig figcaption {
-  font-weight: 700;
-  font-size: 0.8rem;
-}
-
-.tdf-col-profile-img {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  border: 2px solid var(--fg);
-  background: #fff;
-}
 
 .tdf-col-cat {
   color: var(--muted);
@@ -3954,6 +3910,28 @@ button {
 }
 
 /* Results */
+/* Classements généraux par maillot. */
+.tdf-jersey-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.tdf-jersey-card {
+  border: 2px solid var(--fg);
+  padding: 0.9rem;
+  background: var(--panel);
+}
+
+.tdf-jersey-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
 .tdf-results-list {
   display: grid;
   gap: 1.5rem;

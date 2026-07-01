@@ -206,14 +206,24 @@ export async function tdfDashboard(ctx: RequestContext): Promise<Response> {
 
 export async function tdfResults(ctx: RequestContext): Promise<Response> {
   requireUser(ctx);
-  const stages = await ctx.env.DB.prepare(
-    "SELECT * FROM tdf_stages WHERE status = 'finished' ORDER BY stage_no DESC"
-  ).all<TdfStageRow>();
-  const results = await ctx.env.DB.prepare(
-    "SELECT stage_no, rider_id, rank FROM tdf_stage_results ORDER BY stage_no DESC, rank ASC"
-  ).all<{ stage_no: number; rider_id: string; rank: number }>();
+  const [stages, results, cls] = await Promise.all([
+    ctx.env.DB.prepare(
+      "SELECT * FROM tdf_stages WHERE status = 'finished' ORDER BY stage_no DESC"
+    ).all<TdfStageRow>(),
+    ctx.env.DB.prepare(
+      "SELECT stage_no, rider_id, rank FROM tdf_stage_results ORDER BY stage_no DESC, rank ASC"
+    ).all<{ stage_no: number; rider_id: string; rank: number }>(),
+    ctx.env.DB.prepare(
+      "SELECT jersey, rank, rider_id FROM tdf_classifications ORDER BY jersey ASC, rank ASC"
+    ).all<{ jersey: string; rank: number; rider_id: string }>()
+  ]);
+  const classifications: Record<string, { rank: number; rider_id: string }[]> = {};
+  for (const c of cls.results ?? []) {
+    (classifications[c.jersey] ??= []).push({ rank: c.rank, rider_id: c.rider_id });
+  }
   return json(ctx.request, ctx.env, {
     stages: stages.results ?? [],
-    results: results.results ?? []
+    results: results.results ?? [],
+    classifications
   });
 }

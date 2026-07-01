@@ -331,7 +331,8 @@ Migrations existantes :
 - `0011_match_venue.sql` : colonne `venue` (stade du match, `NULL` si la source ne le fournit pas, remplie a la prochaine synchro).
 - `0012_tdf.sql` : tables `tdf_*` (peloton, etapes, resultats, pronos, grand depart) + colonne `users.is_admin`.
 - `0013_tdf_route.sql` : colonne `tdf_stages.profile_image_url` (image de profil ASO) + table `tdf_stage_cols` (cols traverses : position, kind, name, category, km), remplies par la synchro letour.
-- `0014_tdf_cols_map.sql` : colonne `tdf_stages.cols_map_url` (carte des cols/points chauds letour "cartepot"), affichee a cote du profil d'etape.
+- `0014_tdf_cols_map.sql` : colonne `tdf_stages.cols_map_url` (carte des cols/points chauds letour "cartepot", scrapee mais non affichee actuellement).
+- `0015_tdf_classifications.sql` : table `tdf_classifications` (classement general par maillot : jersey `yellow`/`green`/`polka`/`white`, rank, rider_id), scrapee a chaque synchro (`syncGeneralClassifications`) et affichee dans les resultats.
 
 Commandes :
 

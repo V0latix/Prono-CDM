@@ -5,6 +5,7 @@ import initialMigration from "../../migrations/0001_initial.sql?raw";
 import tdfMigration from "../../migrations/0012_tdf.sql?raw";
 import routeMigration from "../../migrations/0013_tdf_route.sql?raw";
 import colsMapMigration from "../../migrations/0014_tdf_cols_map.sql?raw";
+import classificationsMigration from "../../migrations/0015_tdf_classifications.sql?raw";
 import iteHtml from "../../src/shared/__fixtures__/letour-ite.html?raw";
 import iceHtml from "../../src/shared/__fixtures__/letour-ice.html?raw";
 import pageHtml from "../../src/shared/__fixtures__/letour-stage-page.html?raw";
@@ -16,7 +17,13 @@ import type { Env } from "./types";
 // fragments letour.fr captures en fixtures. Verifie : peloton + top 10 + combatif
 // + statut etape + recalcul des points.
 
-const migrations = [initialMigration, tdfMigration, routeMigration, colsMapMigration];
+const migrations = [
+  initialMigration,
+  tdfMigration,
+  routeMigration,
+  colsMapMigration,
+  classificationsMigration
+];
 let mf: Miniflare;
 let env: Env;
 
@@ -96,6 +103,21 @@ describe("syncTourDeFrance", () => {
       "SELECT nationality FROM tdf_riders WHERE id = '101'"
     ).first<{ nationality: string }>();
     expect(nat?.nationality).toBe("BEL");
+
+    // Classements généraux par maillot : chaque maillot reçoit le top du général.
+    const yellow = await env.DB.prepare(
+      "SELECT rider_id FROM tdf_classifications WHERE jersey = 'yellow' ORDER BY rank ASC"
+    ).all<{ rider_id: string }>();
+    expect((yellow.results ?? [])[0]?.rider_id).toBe("101");
+    const jerseys = await env.DB.prepare(
+      "SELECT DISTINCT jersey FROM tdf_classifications ORDER BY jersey"
+    ).all<{ jersey: string }>();
+    expect((jerseys.results ?? []).map((j) => j.jersey)).toEqual([
+      "green",
+      "polka",
+      "white",
+      "yellow"
+    ]);
   });
 
   it("refreshTdfPeloton charge le peloton et purge les coureurs d'exemple", async () => {

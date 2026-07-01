@@ -1,12 +1,23 @@
 import { useEffect, useState } from "react";
 import { fetchTdfResults, fetchTdfRiders } from "./api";
-import type { TdfRider, TdfStage } from "./api";
+import type { TdfRider, TdfStage, TdfClassificationRow } from "./api";
 
 type StageResult = { stage_no: number; rider_id: string; rank: number };
+
+// Ordre + libellés des maillots (classements généraux).
+const JERSEYS: { key: string; label: string; icon: string }[] = [
+  { key: "yellow", label: "Maillot jaune", icon: "🟡" },
+  { key: "green", label: "Maillot vert", icon: "🟢" },
+  { key: "polka", label: "Maillot à pois", icon: "🔴" },
+  { key: "white", label: "Maillot blanc", icon: "⚪" }
+];
 
 export default function TdfResults() {
   const [stages, setStages] = useState<TdfStage[]>([]);
   const [results, setResults] = useState<StageResult[]>([]);
+  const [classifications, setClassifications] = useState<
+    Record<string, TdfClassificationRow[]>
+  >({});
   const [ridersMap, setRidersMap] = useState<Record<string, TdfRider>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -16,6 +27,7 @@ export default function TdfResults() {
       .then(([resultsData, ridersData]) => {
         setStages(resultsData.stages);
         setResults(resultsData.results);
+        setClassifications(resultsData.classifications ?? {});
         const map: Record<string, TdfRider> = {};
         for (const r of ridersData.riders) map[r.id] = r;
         setRidersMap(map);
@@ -33,8 +45,11 @@ export default function TdfResults() {
     );
 
   const finishedStages = stages.filter((s) => s.status === "finished");
+  const jerseysWithData = JERSEYS.filter((j) => (classifications[j.key] ?? []).length > 0);
 
-  if (finishedStages.length === 0)
+  const riderName = (id: string) => ridersMap[id]?.name ?? id;
+
+  if (finishedStages.length === 0 && jerseysWithData.length === 0)
     return (
       <div className="empty-state">
         <p>Aucune étape terminée pour le moment.</p>
@@ -42,9 +57,44 @@ export default function TdfResults() {
     );
 
   return (
+    <>
+      {jerseysWithData.length > 0 && (
+        <section className="content-section">
+          <div className="section-title">
+            <h2>Classements généraux</h2>
+          </div>
+          <div className="tdf-jersey-grid">
+            {jerseysWithData.map((j) => (
+              <div key={j.key} className="tdf-jersey-card">
+                <h3 className="tdf-jersey-title">
+                  <span aria-hidden="true">{j.icon}</span> {j.label}
+                </h3>
+                <ol className="tdf-top10-list">
+                  {(classifications[j.key] ?? []).map((row) => {
+                    const rider = ridersMap[row.rider_id];
+                    return (
+                      <li key={row.rider_id} className="tdf-top10-row">
+                        <span className="tdf-top10-rank">{row.rank}</span>
+                        <span className="tdf-top10-name">
+                          {riderName(row.rider_id)}
+                          {rider?.team && (
+                            <span className="tdf-rider-team">{rider.team}</span>
+                          )}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {finishedStages.length > 0 && (
     <section className="content-section">
       <div className="section-title">
-        <h2>Résultats</h2>
+        <h2>Résultats par étape</h2>
       </div>
       <div className="tdf-results-list">
         {finishedStages.map((stage) => {
@@ -101,5 +151,7 @@ export default function TdfResults() {
         })}
       </div>
     </section>
+      )}
+    </>
   );
 }

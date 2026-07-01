@@ -270,6 +270,43 @@ export async function refreshTdfRoute(
   return { loaded };
 }
 
+// Classement letour -> maillot. Général (suffixe g) : itg=jaune, ipg=vert,
+// img=pois, ijg=blanc (meilleur jeune).
+const JERSEY_RANKINGS: ReadonlyArray<readonly [string, string]> = [
+  ["itg", "yellow"],
+  ["ipg", "green"],
+  ["img", "polka"],
+  ["ijg", "white"]
+];
+
+// Scrape le top N de chaque classement général et le stocke pour affichage.
+// Anti-effacement : un classement vide (course pas commencée) n'écrase rien.
+async function syncGeneralClassifications(
+  env: Env,
+  fetchImpl: FetchLike,
+  base: string,
+  paths: Record<string, string>,
+  topN = 10
+): Promise<void> {
+  const writes: D1PreparedStatement[] = [];
+  for (const [type, jersey] of JERSEY_RANKINGS) {
+    const path = paths[type];
+    if (!path) continue;
+    const html = await getText(fetchImpl, `${base}${path}`);
+    const rows = html ? parseRankingTable(html) : [];
+    if (!rows.length) continue;
+    writes.push(env.DB.prepare("DELETE FROM tdf_classifications WHERE jersey = ?").bind(jersey));
+    rows.slice(0, topN).forEach((r) => {
+      writes.push(
+        env.DB.prepare(
+          "INSERT INTO tdf_classifications (jersey, rank, rider_id) VALUES (?, ?, ?)"
+        ).bind(jersey, r.rank, r.bib)
+      );
+    });
+  }
+  if (writes.length) await runD1Batch(env, writes);
+}
+
 async function syncFinalClassifications(
   env: Env,
   fetchImpl: FetchLike,
@@ -381,6 +418,19 @@ export async function syncTourDeFrance(env: Env, deps: SyncDeps = {}): Promise<{
       if (stage.stage_no === maxStage) {
         await syncFinalClassifications(env, fetchImpl, base, paths, now);
       }
+    }
+
+    // Classements généraux par maillot (best-effort), depuis la dernière étape courue.
+    try {
+      const raced = stages.filter((s) => s.date <= today);
+      const latest = raced[raced.length - 1];
+      if (latest) {
+        const page = await getText(fetchImpl, `${base}/en/rankings/stage-${latest.stage_no}`);
+        const paths = page ? extractAjaxRankingPaths(page) : {};
+        await syncGeneralClassifications(env, fetchImpl, base, paths);
+      }
+    } catch {
+      /* best-effort : n'échoue pas la synchro */
     }
 
     await setStatus(env, "ok", { synced, success: now.toISOString() });

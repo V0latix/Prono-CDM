@@ -4,7 +4,6 @@ import {
   greenFinishPoints,
   GREEN_SPRINT_POINTS
 } from "../shared/tdf-jersey-points";
-import { colProfileImage } from "./col-profile";
 
 const TYPE_LABEL: Record<string, string> = {
   flat: "Plat",
@@ -30,15 +29,6 @@ export default function StageProfile({
   showMeta?: boolean;
 }) {
   const cols = stage.cols ?? [];
-  // Profils d'élévation des cols disponibles sur climbfinder (dédupliqués par nom).
-  const colProfiles = Array.from(
-    new Map(
-      cols
-        .map((c) => [c.name, colProfileImage(c.name)] as const)
-        .filter(([, url]) => url)
-        .map(([name, url]) => [name, url as string])
-    ).entries()
-  ).map(([name, url]) => ({ name, url }));
   const dateLabel = stage.date
     ? new Date(stage.date).toLocaleDateString("fr-FR", {
         weekday: "long",
@@ -95,25 +85,6 @@ export default function StageProfile({
           </ul>
         )}
       </div>
-
-      {colProfiles.length > 0 && (
-        <details className="tdf-col-profiles" open>
-          <summary>Profils des cols ({colProfiles.length})</summary>
-          <div className="tdf-col-profile-grid">
-            {colProfiles.map((c) => (
-              <figure key={c.name} className="tdf-col-profile-fig">
-                <figcaption>{c.name}</figcaption>
-                <img
-                  className="tdf-col-profile-img"
-                  src={c.url}
-                  alt={`Profil du col ${c.name}`}
-                  loading="lazy"
-                />
-              </figure>
-            ))}
-          </div>
-        </details>
-      )}
     </div>
   );
 }
