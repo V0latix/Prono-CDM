@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchTdfRiders, saveTdfStagePrediction } from "./api";
 import type { TdfRider, TdfStage } from "./api";
 import { RiderFilterBar, useRiderFilter } from "./RiderFilterBar";
+import StageProfile from "./StageProfile";
 
 export default function StagePrediction({ stage }: { stage: TdfStage }) {
   const [riders, setRiders] = useState<TdfRider[]>([]);
@@ -71,6 +72,13 @@ export default function StagePrediction({ stage }: { stage: TdfStage }) {
         <p className="form-error" role="alert">
           {loadError}
         </p>
+      )}
+
+      {(stage.profile_image_url || (stage.cols && stage.cols.length > 0)) && (
+        <details className="tdf-prono-profile" open>
+          <summary>Profil de l'étape</summary>
+          <StageProfile stage={stage} showMeta={false} />
+        </details>
       )}
 
       {!locked && selectedRiders.length > 0 && (

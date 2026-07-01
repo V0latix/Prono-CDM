@@ -3684,6 +3684,29 @@ button {
   gap: 1rem;
 }
 
+/* Profil replié au-dessus de la sélection de coureurs (prono d'étape). */
+.tdf-prono-profile {
+  margin: 0.85rem 0;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+}
+
+.tdf-prono-profile > summary {
+  padding: 0.7rem 0.9rem;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.tdf-prono-profile[open] > summary {
+  border-bottom: 2px solid var(--fg);
+}
+
+.tdf-prono-profile > .tdf-route-current {
+  padding: 0.9rem;
+}
+
 .tdf-route-meta {
   margin: 0;
   text-transform: capitalize;
