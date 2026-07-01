@@ -196,6 +196,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
   color: var(--fg);
 }
@@ -213,10 +214,12 @@ button {
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .sidebar {
@@ -1608,6 +1611,7 @@ button {
 }
 
 .theme-choice-card {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -1626,6 +1630,8 @@ button {
 
 .theme-choice-card input {
   position: absolute;
+  width: 1px;
+  height: 1px;
   opacity: 0;
   pointer-events: none;
 }
@@ -2195,6 +2201,7 @@ button {
   display: grid;
   place-items: center;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 1rem;
   background: var(--bg);
 }
@@ -2493,6 +2500,13 @@ button {
     margin-bottom: 1rem;
   }
 
+  /* Le groupe titre doit pouvoir rétrécir : sinon le titre (calé à gauche)
+     et les actions (calées à droite) se recouvrent quand la somme dépasse
+     la largeur de l'écran. Cf. audit responsive topbar. */
+  .topbar > div:first-child {
+    min-width: 0;
+  }
+
   .topbar p {
     margin-bottom: 0.2rem;
     font-size: 0.7rem;
@@ -2502,10 +2516,14 @@ button {
   .topbar h1 {
     font-size: 1.75rem;
     line-height: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .topbar-actions {
     gap: 0.35rem;
+    flex-shrink: 0;
   }
 
   .news-button {
@@ -3548,6 +3566,10 @@ button {
 
 .tdf-jersey-group {
   margin: 0;
+  /* <fieldset> a un min-inline-size: min-content par défaut : sans ce reset il
+     refuse de rétrécir sous la largeur de ses selects et déborde de l'écran. */
+  min-width: 0;
+  min-inline-size: 0;
   padding: 1rem;
   border: 2px solid var(--fg);
   background: var(--panel);
@@ -3584,13 +3606,15 @@ button {
 
 .tdf-podium-row select {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 2.35rem;
   padding: 0 0.65rem;
   border: 2px solid var(--fg);
   background: var(--panel);
   color: var(--fg);
   font: inherit;
-  font-size: 0.82rem;
+  /* 16px minimum : sous 16px, iOS Safari zoome au focus du select. */
+  font-size: 16px;
 }
 
 /* Stage list */
@@ -3984,7 +4008,7 @@ button {
 /* Responsive */
 @media (max-width: 600px) {
   .tdf-grand-depart-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .tdf-stage-list-btn {

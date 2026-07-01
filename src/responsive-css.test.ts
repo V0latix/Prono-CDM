@@ -54,8 +54,11 @@ describe("responsive CSS", () => {
     const mobile = mediaBlock(600);
     // La bascule d'univers masque son libellé sur mobile (barre d'actions dense).
     expect(mobile).toMatch(/\.universe-switcher__label\s*\{[^}]*display:\s*none/);
-    // Le grand départ passe en une colonne sur mobile (bloc 600px dédié plus bas).
-    expect(css).toMatch(/\.tdf-grand-depart-grid\s*\{[^}]*grid-template-columns:\s*1fr/);
+    // Le grand départ passe en une colonne bornée sur mobile (bloc 600px dédié
+    // plus bas). minmax(0,1fr) et non 1fr : voir le test dédié aux selects.
+    expect(css).toMatch(
+      /\.tdf-grand-depart-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/
+    );
 
     // La barre de filtres coureurs s'enroule au lieu de déborder.
     expect(css).toMatch(/\.tdf-filter-bar\s*\{[^}]*flex-wrap:\s*wrap/);
@@ -113,5 +116,46 @@ describe("responsive CSS", () => {
     expect(mobile).toContain("order: 2");
     expect(mobile).toContain(".profile-badges-section");
     expect(mobile).toContain("order: 3");
+  });
+
+  it("lets the topbar title shrink so it never overlaps the action buttons", () => {
+    const mobile = mediaBlock(640);
+
+    // Le groupe titre doit pouvoir rétrécir (min-width:0) et le titre s'élider ;
+    // sinon titre (gauche) et actions (droite) se recouvrent sous ~375px.
+    expect(mobile).toMatch(/\.topbar > div:first-child\s*\{[^}]*min-width:\s*0/);
+    expect(mobile).toMatch(/\.topbar h1\s*\{[^}]*text-overflow:\s*ellipsis/);
+    expect(mobile).toMatch(/\.topbar-actions\s*\{[^}]*flex-shrink:\s*0/);
+  });
+
+  it("keeps the grand départ selects shrinkable and zoom-safe on iOS", () => {
+    // <fieldset> a min-inline-size: min-content par défaut : sans reset il ne
+    // rétrécit pas sous la largeur de ses selects et déborde de l'écran.
+    expect(css).toMatch(/\.tdf-jersey-group\s*\{[^}]*min-inline-size:\s*0/);
+    // min-width:0 : le select refuse sinon de rétrécir sous son option la plus
+    // longue et rogne le fieldset hors écran (même bug que la table des poules).
+    expect(css).toMatch(/\.tdf-podium-row select\s*\{[^}]*min-width:\s*0/);
+    // font-size 16px : sous 16px, iOS Safari zoome au focus du select.
+    expect(css).toMatch(/\.tdf-podium-row select\s*\{[^}]*font-size:\s*16px/);
+
+    // La grille grand départ passe en une colonne bornée (minmax 0) sur mobile :
+    // 1fr laissait la piste s'étendre à la largeur intrinsèque du contenu.
+    // (Deux blocs @media max-width:600px existent : on cible la règle elle-même.)
+    expect(css).toMatch(
+      /\.tdf-grand-depart-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/
+    );
+  });
+
+  it("clips the hidden theme radios so they don't overflow the setup screen", () => {
+    // Les radios masquées sont position:absolute : sans conteneur positionné +
+    // clip, elles s'échappaient vers le viewport en pleine largeur (overflow-X).
+    expect(css).toMatch(/\.theme-choice-card\s*\{[^}]*position:\s*relative/);
+    expect(css).toMatch(/\.theme-choice-card input\s*\{[^}]*width:\s*1px/);
+  });
+
+  it("provides a dynamic-viewport-height fallback for iOS Safari toolbars", () => {
+    // 100vh seul inclut la zone sous la barre d'outils Safari mobile : le repli
+    // 100dvh cale les pleines hauteurs sur le viewport réellement visible.
+    expect(css).toContain("min-height: 100dvh");
   });
 });
