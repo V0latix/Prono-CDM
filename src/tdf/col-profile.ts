@@ -1,8 +1,8 @@
-// Lien "voir le profil" d'un col. Les profils d'élévation par col ne sont ni sur
-// letour ni via une API : climbfinder les héberge mais sans recherche GET fiable.
-// On lie donc directement les cols dont le slug climbfinder est vérifié, et on
-// retombe sur une recherche climbfinder pour les autres (petites côtes souvent
-// absentes de climbfinder). Aucune image cassée : c'est toujours un lien.
+// Image du profil d'élévation d'un col, hébergée par climbfinder
+// (https://image.climbfinder.com/{slug}.png). letour ne fournit pas ces profils,
+// et climbfinder n'a pas de recherche fiable : on mappe donc à la main les cols
+// dont le slug a été VÉRIFIÉ (titre de la page = bon col). Les petites côtes
+// absentes de climbfinder n'ont pas d'image (on n'affiche jamais un mauvais col).
 
 function normalize(name: string): string {
   return name
@@ -14,7 +14,8 @@ function normalize(name: string): string {
     .trim();
 }
 
-// Slugs climbfinder vérifiés (nom normalisé -> slug). Étendable à la main.
+// nom normalisé -> slug climbfinder vérifié. À étendre à la main (vérifier le
+// titre de https://climbfinder.com/en/climbs/{slug} avant d'ajouter).
 const CLIMBFINDER_SLUGS: Record<string, string> = {
   "col bayard": "col-bayard",
   "col d aspin": "col-d-aspin",
@@ -29,11 +30,11 @@ const CLIMBFINDER_SLUGS: Record<string, string> = {
   "cote de la butte montmartre": "cote-de-la-butte-montmartre",
   "cote des rousses": "cote-des-rousses",
   "grand ballon": "grand-ballon",
-  "les angles": "les-angles"
+  "les angles": "les-angles",
+  "puy mary pas de peyrol": "pas-de-peyrol"
 };
 
-export function colProfileUrl(name: string): string {
+export function colProfileImage(name: string): string | null {
   const slug = CLIMBFINDER_SLUGS[normalize(name)];
-  if (slug) return `https://climbfinder.com/en/climbs/${slug}`;
-  return `https://www.google.com/search?q=${encodeURIComponent(`climbfinder ${name}`)}`;
+  return slug ? `https://image.climbfinder.com/${slug}.png` : null;
 }

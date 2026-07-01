@@ -1,19 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { colProfileUrl } from "./col-profile";
+import { colProfileImage } from "./col-profile";
 
-describe("colProfileUrl", () => {
-  it("lie directement les cols au slug climbfinder vérifié (accents/casse ignorés)", () => {
-    expect(colProfileUrl("Col du Télégraphe")).toBe(
-      "https://climbfinder.com/en/climbs/col-du-telegraphe"
+describe("colProfileImage", () => {
+  it("renvoie l'image climbfinder pour un col vérifié (accents/casse ignorés)", () => {
+    expect(colProfileImage("Col du Télégraphe")).toBe(
+      "https://image.climbfinder.com/col-du-telegraphe.png"
     );
-    expect(colProfileUrl("Côte de la Butte Montmartre")).toBe(
-      "https://climbfinder.com/en/climbs/cote-de-la-butte-montmartre"
+    expect(colProfileImage("Côte de Béguey")).toBe(
+      "https://image.climbfinder.com/cote-de-beguey.png"
+    );
+    // Nom composé letour -> slug vérifié.
+    expect(colProfileImage("Puy Mary - Pas de Peyrol")).toBe(
+      "https://image.climbfinder.com/pas-de-peyrol.png"
     );
   });
 
-  it("retombe sur une recherche climbfinder pour un col inconnu", () => {
-    const url = colProfileUrl("Côte de Cuzy");
-    expect(url).toContain("google.com/search");
-    expect(url).toContain(encodeURIComponent("climbfinder Côte de Cuzy"));
+  it("renvoie null pour un col absent de climbfinder (jamais de mauvaise image)", () => {
+    expect(colProfileImage("Côte de Cuzy")).toBeNull();
+    expect(colProfileImage("Col de Toses")).toBeNull();
   });
 });
