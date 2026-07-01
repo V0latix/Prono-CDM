@@ -208,16 +208,34 @@ async function loadStageRoutes(
              date = COALESCE(?, date),
              type = CASE WHEN ? != '' THEN ? ELSE type END,
              label = CASE WHEN ? != '' THEN ? ELSE label END,
-             profile_image_url = COALESCE(?, profile_image_url)
+             profile_image_url = COALESCE(?, profile_image_url),
+             cols_map_url = COALESCE(?, cols_map_url)
            WHERE stage_no = ?`
-        ).bind(detail.date, detail.type, detail.type, detail.label, detail.label, detail.profileImageUrl, n)
+        ).bind(
+          detail.date,
+          detail.type,
+          detail.type,
+          detail.label,
+          detail.label,
+          detail.profileImageUrl,
+          detail.colsMapUrl,
+          n
+        )
       );
     } else if (detail.date) {
       writes.push(
         env.DB.prepare(
-          `INSERT INTO tdf_stages (stage_no, date, lock_at, type, label, status, profile_image_url)
-           VALUES (?, ?, ?, ?, ?, 'upcoming', ?)`
-        ).bind(n, detail.date, defaultLockAt(detail.date), detail.type || "flat", detail.label, detail.profileImageUrl)
+          `INSERT INTO tdf_stages (stage_no, date, lock_at, type, label, status, profile_image_url, cols_map_url)
+           VALUES (?, ?, ?, ?, ?, 'upcoming', ?, ?)`
+        ).bind(
+          n,
+          detail.date,
+          defaultLockAt(detail.date),
+          detail.type || "flat",
+          detail.label,
+          detail.profileImageUrl,
+          detail.colsMapUrl
+        )
       );
     } else {
       continue; // nouvelle étape sans date exploitable : on ne peut pas la créer

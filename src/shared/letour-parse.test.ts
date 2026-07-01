@@ -74,6 +74,11 @@ describe("parseStageDetail", () => {
     expect(detail.profileImageUrl).toContain("tdf26-profils");
   });
 
+  it("récupère l'URL de la carte des cols (cartepot)", () => {
+    expect(detail.colsMapUrl).toContain("img.aso.fr");
+    expect(detail.colsMapUrl).toContain("cartepot");
+  });
+
   it("ne garde que les cols catégorisés, avec catégorie/nom/km", () => {
     expect(detail.cols).toEqual([
       { category: "1", name: "Côte d'Engins", km: 148.5 },

@@ -4,6 +4,7 @@ import { Miniflare } from "miniflare";
 import initialMigration from "../../migrations/0001_initial.sql?raw";
 import tdfMigration from "../../migrations/0012_tdf.sql?raw";
 import routeMigration from "../../migrations/0013_tdf_route.sql?raw";
+import colsMapMigration from "../../migrations/0014_tdf_cols_map.sql?raw";
 import iteHtml from "../../src/shared/__fixtures__/letour-ite.html?raw";
 import iceHtml from "../../src/shared/__fixtures__/letour-ice.html?raw";
 import pageHtml from "../../src/shared/__fixtures__/letour-stage-page.html?raw";
@@ -15,7 +16,7 @@ import type { Env } from "./types";
 // fragments letour.fr captures en fixtures. Verifie : peloton + top 10 + combatif
 // + statut etape + recalcul des points.
 
-const migrations = [initialMigration, tdfMigration, routeMigration];
+const migrations = [initialMigration, tdfMigration, routeMigration, colsMapMigration];
 let mf: Miniflare;
 let env: Env;
 
@@ -147,11 +148,12 @@ describe("refreshTdfRoute", () => {
     const out = await refreshTdfRoute(env, { fetch: routeFetch });
     expect(out.loaded).toBe(21);
 
-    // L'étape 1 (existante) reçoit l'image de profil ASO.
+    // L'étape 1 (existante) reçoit l'image de profil ASO + la carte des cols.
     const stage1 = await env.DB.prepare(
-      "SELECT profile_image_url AS img FROM tdf_stages WHERE stage_no = 1"
-    ).first<{ img: string }>();
+      "SELECT profile_image_url AS img, cols_map_url AS map FROM tdf_stages WHERE stage_no = 1"
+    ).first<{ img: string; map: string }>();
     expect(stage1?.img).toContain("tdf26-profils");
+    expect(stage1?.map).toContain("cartepot");
 
     // Les 20 autres étapes sont créées (date présente dans le profil).
     const count = await env.DB.prepare(

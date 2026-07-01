@@ -25,6 +25,7 @@ export type TdfStage = {
   status: string;
   combative_rider_id: string | null;
   profile_image_url?: string | null;
+  cols_map_url?: string | null;
   cols?: TdfCol[];
 };
 

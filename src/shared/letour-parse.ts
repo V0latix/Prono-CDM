@@ -66,6 +66,7 @@ export type LetourStageDetail = {
   type: string; // 'flat' | 'hilly' | 'mountain' | 'itt' | 'ttt' | ''
   date: string | null; // 'YYYY-MM-DD'
   profileImageUrl: string | null;
+  colsMapUrl: string | null; // "carte des points chauds" letour (cols + sprints)
   cols: LetourCol[];
 };
 
@@ -128,6 +129,10 @@ export function parseStageDetail(html: string): LetourStageDetail {
   const img = html.match(/sporting__content__img[^>]*\sdata-src="([^"]+)"/);
   const profileImageUrl = img ? img[1] : null;
 
+  // Carte des cols / points chauds de l'étape (une seule par page = étape courante).
+  const mapMatch = html.match(/https:\/\/img\.aso\.fr\/[^"']*cartepot[^"']*/i);
+  const colsMapUrl = mapMatch ? mapMatch[0] : null;
+
   const cols: LetourCol[] = [];
   const rowRe = /<tr[^>]*itinerary__checkpoint--([a-z0-9]+)[^>]*>([\s\S]*?)<\/tr>/g;
   let m: RegExpExecArray | null;
@@ -143,7 +148,7 @@ export function parseStageDetail(html: string): LetourStageDetail {
     cols.push({ category: code === "hc" ? "HC" : code, name, km });
   }
 
-  return { label, type, date, profileImageUrl, cols };
+  return { label, type, date, profileImageUrl, colsMapUrl, cols };
 }
 
 // Le fragment combativite (`ice`) ne contient qu'un coureur : son dossard.

@@ -46,13 +46,31 @@ export default function StageProfile({
         </p>
       )}
 
-      {stage.profile_image_url ? (
-        <img
-          className="tdf-route-profile"
-          src={stage.profile_image_url}
-          alt={`Profil de l'étape ${stage.stage_no}`}
-          loading="lazy"
-        />
+      {stage.profile_image_url || stage.cols_map_url ? (
+        <div className="tdf-profile-pair">
+          {stage.profile_image_url && (
+            <figure className="tdf-profile-fig">
+              <img
+                className="tdf-route-profile"
+                src={stage.profile_image_url}
+                alt={`Profil de l'étape ${stage.stage_no}`}
+                loading="lazy"
+              />
+              <figcaption>Profil de l'étape</figcaption>
+            </figure>
+          )}
+          {stage.cols_map_url && (
+            <figure className="tdf-profile-fig">
+              <img
+                className="tdf-route-profile"
+                src={stage.cols_map_url}
+                alt={`Carte des cols de l'étape ${stage.stage_no}`}
+                loading="lazy"
+              />
+              <figcaption>Carte des cols</figcaption>
+            </figure>
+          )}
+        </div>
       ) : (
         <p className="section-subtitle">Profil indisponible pour le moment.</p>
       )}
