@@ -421,6 +421,9 @@ Production :
 
 - Ne pas deployer en production sans validation utilisateur explicite.
 - Pousser sur `main` peut declencher le workflow de prod selon la config Vercel/GitHub.
+- Actions prod bloquees par le classifieur auto : `npm run deploy:api`, `npm run d1:migrate:remote`, et toute ecriture D1 remote (`wrangler d1 execute --remote` non-SELECT) exigent l'accord explicite de l'utilisateur A CHAQUE round (poser la question via AskUserQuestion). L'approbation d'un plan ne suffit pas.
+- Preview Vercel derriere Vercel SSO : accessible au proprietaire connecte, mais bloque a un agent/curl (redirige vers `vercel.com/sso-api`). La QA visuelle connectee (et le PIN de l'app) reviennent a l'utilisateur ; l'agent valide via tests/build + inspection D1.
+- Inspecter/verifier la base remote : `npx wrangler d1 execute prono-cdm --remote --json --command "SELECT ..."` (utile pour verifier une synchro apres un tick de cron `*/10`).
 
 ## Style UI et contraintes produit
 
@@ -479,6 +482,10 @@ Deploiement TDF (owner-gated) : migration distante `0012` (deja appliquee), depl
 - Ne jamais autoriser un prono apres coup d'envoi uniquement cote UI : la validation serveur est obligatoire.
 - La chaine TV et le stade ne viennent PAS de l'API (plan gratuit football-data muet sur ces champs) : ils sont cures en code par id football-data dans `src/shared/tv-broadcast.ts` et `src/shared/venues.ts`. Ajouter un match = ajouter une entree dans ces mappings, par id stable (fiable meme quand les equipes sont "a definir").
 - La vue phase finale dessine un arbre (BracketView + CSS `.bracket`), mais la source ne fournit PAS la filiation reelle (quel match alimente quel match suivant). Les appariements sont DEDUITS positionnellement (matchs adjacents d'un tour -> meme match du tour suivant) : choix produit assume, le tableau est indicatif et ne reflete pas forcement le tableau officiel. La petite finale (3e place) est sortie de l'entonnoir. Si la filiation reelle devient disponible un jour, c'est ici qu'il faudra brancher le vrai appariement.
+- Migrations : ne jamais mettre de `;` dans un COMMENTAIRE SQL de migration. Le harness de test applique les migrations via `split(";")` : un `;` en commentaire produit un fragment sans instruction et fait planter `applyMigrations` ("SQL code did not contain a statement").
+- letour `/en/stage-N` liste PLUSIEURS etapes (precedente / courante / suivante), chacune avec son bloc `stageHeader__infos`. Lire le libelle depuis le `<title>` (etape courante fiable) et la date/type du bloc dont la route == le libelle, jamais le premier bloc. Le profil (`sporting__content__img`) et la carte (cartepot) sont deja ceux de l'etape courante. Cf. `parseStageDetail`.
+- Re-scraper des parcours d'etapes DEJA charges : le cron saute les etapes ayant deja un `profile_image_url`. Pour forcer un re-scrape, `UPDATE tdf_stages SET profile_image_url = NULL` (le cron `max=21` recharge tout au tick suivant) OU bouton admin "Rafraichir les parcours".
+- Profils d'elevation par col : n'existent PAS sur letour, seulement sur climbfinder (`image.climbfinder.com/{slug}.png`, hotlink OK). Mais pas de recherche fiable et couverture faible (~15/58 cols, gros cols seulement) ; les slugs approximatifs pointent vers le MAUVAIS col. Fonctionnalite abandonnee.
 
 ## Workflow conseille pour Claude Code
 
