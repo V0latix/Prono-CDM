@@ -298,9 +298,10 @@ export async function syncTourDeFrance(env: Env, deps: SyncDeps = {}): Promise<{
   const base = env.LETOUR_BASE_URL ?? DEFAULT_BASE;
 
   try {
-    // Calendrier + profils + cols : bootstrap/complète paresseusement (plafonné).
+    // Calendrier + profils + cols : bootstrap complet (les étapes déjà munies d'un
+    // profil sont sautées, donc c'est ~gratuit une fois le calendrier chargé).
     try {
-      await loadStageRoutes(env, fetchImpl, base);
+      await loadStageRoutes(env, fetchImpl, base, { max: TDF_STAGE_COUNT });
     } catch {
       /* best-effort : ne fait pas échouer la synchro des résultats */
     }
