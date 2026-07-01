@@ -96,19 +96,34 @@ function mapStageType(raw: string): string {
 const COL_CATEGORIES = new Set(["1", "2", "3", "4", "hc"]);
 
 export function parseStageDetail(html: string): LetourStageDetail {
-  // La route contient un span imbriqué (`<span>></span>`) : on capture jusqu'au
-  // </span> qui ferme juste avant </h1>, pas le </span> interne.
-  const route = html.match(/stageHeader__infos__route"[^>]*>([\s\S]*?)<\/span>\s*<\/h1>/);
-  const label = route ? decodeText(route[1]).replace(/\s*>\s*/g, " → ") : "";
-
-  const dateBlock = html.match(/stageHeader__infos__date"[^>]*>([\s\S]*?)<\/div>/);
-  const md = dateBlock ? decodeText(dateBlock[1]).match(/(\d{2})\/(\d{2})/) : null;
   const yearMatch = html.match(/Tour de France\s+(\d{4})/);
   const year = yearMatch ? yearMatch[1] : "2026";
-  const date = md ? `${year}-${md[1]}-${md[2]}` : null;
 
-  const typeBlock = html.match(/Type<\/span>[\s\S]*?<\/?br\s*\/?>([\s\S]*?)<\/p>/i);
-  const type = typeBlock ? mapStageType(decodeText(typeBlock[1])) : "";
+  // La page liste plusieurs étapes (précédente / courante / suivante), chacune avec
+  // son bloc `stageHeader__infos`. Le <title> désigne l'étape COURANTE de façon
+  // fiable : on en tire le libellé, puis on choisit le bloc dont la route
+  // correspond pour lire la date et le type au bon endroit.
+  const titleMatch = html.match(
+    /<title>\s*Stage\s+\d+\s*-\s*([\s\S]*?)\s*-\s*Tour de France/i
+  );
+  const label = titleMatch ? decodeText(titleMatch[1]).replace(/\s*>\s*/g, " → ") : "";
+
+  let date: string | null = null;
+  let type = "";
+  // Split sur le conteneur `class="stageHeader__infos"` (le `"` évite de matcher
+  // les sous-classes `stageHeader__infos__date`/`__route`).
+  for (const seg of html.split(/(?=stageHeader__infos")/)) {
+    const r = seg.match(/stageHeader__infos__route"[^>]*>([\s\S]*?)<\/span>\s*<\/h1>/);
+    if (!r) continue;
+    const segLabel = decodeText(r[1]).replace(/\s*>\s*/g, " → ");
+    if (label && segLabel !== label) continue;
+    const dm = seg.match(/stageHeader__infos__date"[^>]*>([\s\S]*?)<\/div>/);
+    const md = dm ? decodeText(dm[1]).match(/(\d{2})\/(\d{2})/) : null;
+    date = md ? `${year}-${md[1]}-${md[2]}` : null;
+    const tm = seg.match(/Type<\/span>[\s\S]*?<\/?br\s*\/?>([\s\S]*?)<\/p>/i);
+    type = tm ? mapStageType(decodeText(tm[1])) : "";
+    break;
+  }
 
   const img = html.match(/sporting__content__img[^>]*\sdata-src="([^"]+)"/);
   const profileImageUrl = img ? img[1] : null;
