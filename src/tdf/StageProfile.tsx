@@ -1,9 +1,11 @@
+import { ExternalLink } from "lucide-react";
 import type { TdfStage } from "./api";
 import {
   polkaPoints,
   greenFinishPoints,
   GREEN_SPRINT_POINTS
 } from "../shared/tdf-jersey-points";
+import { colProfileUrl } from "./col-profile";
 
 const TYPE_LABEL: Record<string, string> = {
   flat: "Plat",
@@ -46,31 +48,13 @@ export default function StageProfile({
         </p>
       )}
 
-      {stage.profile_image_url || stage.cols_map_url ? (
-        <div className="tdf-profile-pair">
-          {stage.profile_image_url && (
-            <figure className="tdf-profile-fig">
-              <img
-                className="tdf-route-profile"
-                src={stage.profile_image_url}
-                alt={`Profil de l'étape ${stage.stage_no}`}
-                loading="lazy"
-              />
-              <figcaption>Profil de l'étape</figcaption>
-            </figure>
-          )}
-          {stage.cols_map_url && (
-            <figure className="tdf-profile-fig">
-              <img
-                className="tdf-route-profile"
-                src={stage.cols_map_url}
-                alt={`Carte des cols de l'étape ${stage.stage_no}`}
-                loading="lazy"
-              />
-              <figcaption>Carte des cols</figcaption>
-            </figure>
-          )}
-        </div>
+      {stage.profile_image_url ? (
+        <img
+          className="tdf-route-profile"
+          src={stage.profile_image_url}
+          alt={`Profil de l'étape ${stage.stage_no}`}
+          loading="lazy"
+        />
       ) : (
         <p className="section-subtitle">Profil indisponible pour le moment.</p>
       )}
@@ -93,7 +77,16 @@ export default function StageProfile({
           <ul className="tdf-col-list">
             {cols.map((c, i) => (
               <li key={i} className="tdf-col-row">
-                <span className="tdf-col-name">{c.name}</span>
+                <a
+                  className="tdf-col-name tdf-col-link"
+                  href={colProfileUrl(c.name)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`Voir le profil de ${c.name}`}
+                >
+                  {c.name}
+                  <ExternalLink size={13} aria-hidden="true" />
+                </a>
                 <span className="tdf-col-cat">{catLabel(c.category)}</span>
                 <span className="tdf-col-points">
                   {c.category ? polkaPoints(c.category).join(" · ") : "—"}
